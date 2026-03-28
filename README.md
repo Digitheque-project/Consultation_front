@@ -9,6 +9,7 @@ git clone https://github.com/Digitheque-project/CHU-Front.git
 cd CHU-Front
 npm install
 cp .env.example .env.local
+```
 
 ## Getting Started
 
