@@ -56,30 +56,30 @@ npm run start
 │  ├─ (main)/layout.tsx
 │  ├─ (main)/globals.css
 │  ├─ (main)/page.tsx
+│  ├─ (main)/modules/
+│  │  ├─ appointment/.gitkeep
+│  │  ├─ auth/
+│  │  │  ├─ page.tsx
+│  │  │  ├─ roles/.gitkeep
+│  │  │  └─ users/.gitkeep
+│  │  ├─ billing/.gitkeep
+│  │  ├─ blood-bank/.gitkeep
+│  │  ├─ clinical/.gitkeep
+│  │  ├─ cross-facility/.gitkeep
+│  │  ├─ encounter/.gitkeep
+│  │  ├─ notification/.gitkeep
+│  │  ├─ paraclinical/.gitkeep
+│  │  ├─ patient/
+│  │  │  ├─ page.tsx
+│  │  │  ├─ search/page.tsx
+│  │  │  └─ [patientId]/
+│  │  │     ├─ page.tsx
+│  │  │     └─ appointments/page.tsx
+│  │  └─ pharmacy/.gitkeep
 │  ├─ api/route.ts
 │  ├─ favicon.ico
 │  ├─ layout.tsx
-│  ├─ providers.tsx
-│  └─ modules/
-│     ├─ appointment/.gitkeep
-│     ├─ auth/
-│     │  ├─ page.tsx
-│     │  ├─ roles/.gitkeep
-│     │  └─ users/.gitkeep
-│     ├─ billing/.gitkeep
-│     ├─ blood-bank/.gitkeep
-│     ├─ clinical/.gitkeep
-│     ├─ cross-facility/.gitkeep
-│     ├─ encounter/.gitkeep
-│     ├─ notification/.gitkeep
-│     ├─ paraclinical/.gitkeep
-│     ├─ patient/
-│     │  ├─ page.tsx
-│     │  ├─ search/page.tsx
-│     │  └─ [patientId]/
-│     │     ├─ page.tsx
-│     │     └─ appointments/page.tsx
-│     └─ pharmacy/.gitkeep
+│  └─ providers.tsx
 ├─ components/
 │  └─ ui/button.tsx
 ├─ components.json
@@ -113,7 +113,7 @@ npm run start
 - `app/(auth)/`: zone d'authentification.
 - `app/(main)/`: shell principal de l'application.
 - `app/api/`: route handlers Next.js.
-- `app/modules/`: pages par domaine metier.
+- `app/(main)/modules/`: pages par domaine metier.
 - `components/ui/`: composants UI reutilisables.
 - `hooks/`: hooks React partages.
 - `lib/`: utilitaires transverses.
