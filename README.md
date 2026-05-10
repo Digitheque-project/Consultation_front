@@ -47,38 +47,64 @@ npm run start
 
 ```text
 .
+├─ .env.example
+├─ .env.local
+├─ AGENTS.md
+├─ CLAUDE.md
 ├─ app/
-│  ├─ layout.tsx
-│  ├─ providers.tsx
 │  ├─ (auth)/login/page.tsx
 │  ├─ (main)/layout.tsx
 │  ├─ (main)/globals.css
 │  ├─ (main)/page.tsx
 │  ├─ api/route.ts
+│  ├─ favicon.ico
+│  ├─ layout.tsx
+│  ├─ providers.tsx
 │  └─ modules/
-│     ├─ auth/page.tsx
-│     ├─ patient/page.tsx
-│     ├─ patient/search/page.tsx
-│     └─ patient/[patientId]/
-│        ├─ page.tsx
-│        └─ appointments/page.tsx
+│     ├─ appointment/.gitkeep
+│     ├─ auth/
+│     │  ├─ page.tsx
+│     │  ├─ roles/.gitkeep
+│     │  └─ users/.gitkeep
+│     ├─ billing/.gitkeep
+│     ├─ blood-bank/.gitkeep
+│     ├─ clinical/.gitkeep
+│     ├─ cross-facility/.gitkeep
+│     ├─ encounter/.gitkeep
+│     ├─ notification/.gitkeep
+│     ├─ paraclinical/.gitkeep
+│     ├─ patient/
+│     │  ├─ page.tsx
+│     │  ├─ search/page.tsx
+│     │  └─ [patientId]/
+│     │     ├─ page.tsx
+│     │     └─ appointments/page.tsx
+│     └─ pharmacy/.gitkeep
 ├─ components/
 │  └─ ui/button.tsx
+├─ components.json
+├─ eslint.config.mjs
 ├─ hooks/
 │  └─ use-tenant.ts
 ├─ lib/
 │  ├─ utils.ts
 │  └─ api/
-│     ├─ server.ts
 │     ├─ index.ts
+│     ├─ server.ts
 │     └─ instances/patient.ts
+├─ next-env.d.ts
+├─ next.config.mjs
+├─ package-lock.json
+├─ package.json
+├─ postcss.config.mjs
+├─ public/
 ├─ stores/
 │  └─ session-store.ts
+├─ tailwind.config.ts
+├─ tsconfig.json
 ├─ types/
 │  └─ api.ts
-├─ public/
-├─ components.json
-└─ package.json
+└─ README.md
 ```
 
 ## Role des dossiers
