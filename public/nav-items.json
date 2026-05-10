@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "label": "Tableau de bord",
+      "href": "/",
+      "icon": "layout-dashboard"
+    },
+    {
+      "label": "Patient hospitalis\u00e9",
+      "href": "/patient",
+      "icon": "hospital"
+    },
+    {
+      "label": "Consultation externe",
+      "href": "/consultation",
+      "icon": "file-text"
+    },
+    {
+      "label": "Contr\u00f4le",
+      "href": "/control",
+      "icon": "check-square"
+    },
+    {
+      "label": "Archive",
+      "href": "/archive",
+      "icon": "archive"
+    }
+  ]
+}
