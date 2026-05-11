@@ -2,6 +2,7 @@
 
 import { Bell, Menu } from "lucide-react";
 import { useUserConfig } from "@/hooks/use-user-config";
+import { useNotificationStore } from "@/stores/notification-store";
 
 type HeaderProps = {
   onMenuClick?: () => void;
@@ -9,12 +10,13 @@ type HeaderProps = {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { config } = useUserConfig();
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
 
   const hospitalName = config?.hospitalName;
   const doctorName = config?.doctorName;
   const speciality = config?.speciality;
   const avatarUrl = config?.avatarUrl;
-  const notifications = config?.notifications ?? 0;
+  const notifications = (config?.notifications ?? 0) + unreadCount;
 
   return (
     <header className="bg-white border-b border-[#F1F5F9] px-4 sm:px-6 lg:px-7 py-2.5 sm:py-3 flex items-center justify-between z-10 shadow-[0px_4px_10px_rgba(0,0,0,0.015)]">
