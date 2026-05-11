@@ -1,6 +1,6 @@
 import { MOCK_SESSION_VERSION } from "@/lib/auth/constants";
 
-export type MockAuthModule = "admin" | "clinical" | "billing";
+export type MockAuthModule = "accueil" | "admin" | "clinical" | "billing";
 
 export type MockSessionPayload = {
   v: typeof MOCK_SESSION_VERSION;
@@ -10,13 +10,17 @@ export type MockSessionPayload = {
 };
 
 const MODULE_HOME: Record<MockAuthModule, string> = {
-  admin: "/admin-dashboard",
-  clinical: "/clinical-dashboard",
-  billing: "/billing-dashboard",
+  accueil: "/modules/accueil",
+  admin: "/modules/auth",
+  clinical: "/modules/clinical",
+  billing: "/modules/billing",
 };
 
 const isMockAuthModule = (value: unknown): value is MockAuthModule =>
-  value === "admin" || value === "clinical" || value === "billing";
+  value === "accueil" ||
+  value === "admin" ||
+  value === "clinical" ||
+  value === "billing";
 
 export function getModuleHomePath(module: MockAuthModule): string {
   return MODULE_HOME[module];

@@ -18,10 +18,12 @@ import {
 } from "@/lib/auth/mock-auth-browser";
 import type { MockAuthModule } from "@/lib/auth/mock-session";
 
-const MODULE_OPTIONS: { value: MockAuthModule; label: string }[] = [
-  { value: "clinical", label: "Clinique" },
-  { value: "admin", label: "Administration" },
-  { value: "billing", label: "Facturation" },
+/** Interface d’accueil du module choisi après connexion. */
+const ACCUEIL_OPTIONS: { value: MockAuthModule; label: string }[] = [
+  { value: "accueil", label: "Accueil — Réception" },
+  { value: "clinical", label: "Accueil — Clinique" },
+  { value: "admin", label: "Accueil — Administration" },
+  { value: "billing", label: "Accueil — Facturation" },
 ];
 
 export function LoginForm() {
@@ -64,8 +66,8 @@ export function LoginForm() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-xl text-[#004A66]">Connexion</CardTitle>
           <CardDescription>
-            Authentification simulée : tout identifiant est accepté. Choisissez un
-            module pour la redirection initiale.
+            Authentification simulée : tout identifiant est accepté. Choisissez
+            l’accueil du module dans lequel ouvrir l’interface après connexion.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -92,7 +94,7 @@ export function LoginForm() {
                 htmlFor="module"
                 className="text-sm font-medium text-gray-900"
               >
-                Module / rôle (démo)
+                Interface d’accueil
               </label>
               <select
                 id="module"
@@ -101,7 +103,7 @@ export function LoginForm() {
                 onChange={(ev) => setModule(ev.target.value as MockAuthModule)}
                 className="flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-[#006A8C] focus:ring-2 focus:ring-[#006A8C]/30"
               >
-                {MODULE_OPTIONS.map((opt) => (
+                {ACCUEIL_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>

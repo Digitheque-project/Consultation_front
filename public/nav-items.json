@@ -2,12 +2,12 @@
   "items": [
     {
       "label": "Tableau de bord",
-      "href": "/clinical-dashboard",
+      "href": "/modules/clinical",
       "icon": "layout-dashboard"
     },
     {
       "label": "Patient hospitalis\u00e9",
-      "href": "/patient",
+      "href": "/modules/patient",
       "icon": "hospital"
     },
     {

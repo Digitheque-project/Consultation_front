@@ -36,10 +36,16 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { items: navItems, loading } = useNavItems();
 
   const isActive = (href: string) => {
-    if (href === "/clinical-dashboard") {
+    if (href === "/modules/clinical") {
       return (
-        pathname === "/clinical-dashboard" ||
-        pathname.startsWith("/modules/clinical")
+        pathname === "/modules/clinical" ||
+        pathname.startsWith("/modules/clinical/")
+      );
+    }
+    if (href === "/modules/accueil") {
+      return (
+        pathname === "/modules/accueil" ||
+        pathname.startsWith("/modules/accueil/")
       );
     }
     return pathname === href || pathname.startsWith(`${href}/`);

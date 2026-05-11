@@ -5,9 +5,6 @@
 const PROTECTED_PREFIXES = [
   "/modules",
   "/patient",
-  "/clinical-dashboard",
-  "/admin-dashboard",
-  "/billing-dashboard",
   "/consultation",
   "/control",
   "/archive",
