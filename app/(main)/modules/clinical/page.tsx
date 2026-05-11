@@ -258,7 +258,7 @@ export default function DashboardPage() {
                 <div className="col-span-3 text-center">SALLE</div>
                 <div className="col-span-3 text-center">STATUT</div>
               </div>
-              
+
               {/* Rows */}
               <div className="space-y-6">
                 {hospitalizedQuery.isLoading ? (
@@ -313,7 +313,7 @@ export default function DashboardPage() {
                 CONSULTATIONS
               </span>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {consultationQuery.isLoading ? (
                 <>
@@ -393,10 +393,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="w-2 h-2 rounded-full bg-[#059669]"></div>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#F5F8FA] rounded-full overflow-hidden flex items-center justify-center text-[#006A8C] border border-blue-50/50">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#F5F8FA] rounded-full overflow-hidden flex items-center justify-center text-[#006A8C] border border-blue-50/50">
                     <User className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" strokeWidth={2.5} />
                   </div>
                   <div>
