@@ -2,7 +2,7 @@
   "items": [
     {
       "label": "Tableau de bord",
-      "href": "/",
+      "href": "/clinical-dashboard",
       "icon": "layout-dashboard"
     },
     {
