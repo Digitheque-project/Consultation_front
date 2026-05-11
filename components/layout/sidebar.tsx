@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -35,21 +36,18 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const router = useRouter();
   const { items: navItems, loading } = useNavItems();
 
-  const isActive = (href: string) => {
-    if (href === "/modules/clinical") {
-      return (
-        pathname === "/modules/clinical" ||
-        pathname.startsWith("/modules/clinical/")
-      );
-    }
-    if (href === "/modules/accueil") {
-      return (
-        pathname === "/modules/accueil" ||
-        pathname.startsWith("/modules/accueil/")
-      );
-    }
-    return pathname === href || pathname.startsWith(`${href}/`);
-  };
+  /** Plus long href qui matche : évite que /modules/clinical reste actif sur /modules/clinical/patients */
+  const activeHref = useMemo(() => {
+    const matches = navItems.filter(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+    );
+    if (matches.length === 0) return null;
+    return matches.reduce((best, item) =>
+      item.href.length > best.href.length ? item : best
+    ).href;
+  }, [pathname, navItems]);
+
+  const isActive = (href: string) => href === activeHref;
 
   const handleLogout = () => {
     mockLogout();
