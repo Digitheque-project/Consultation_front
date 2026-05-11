@@ -6,8 +6,8 @@
       "icon": "layout-dashboard"
     },
     {
-      "label": "Patient hospitalis\u00e9",
-      "href": "/modules/patient",
+      "label": "Patient hospitalisé",
+      "href": "/modules/clinical/patients",
       "icon": "hospital"
     },
     {
@@ -16,7 +16,7 @@
       "icon": "file-text"
     },
     {
-      "label": "Contr\u00f4le",
+      "label": "Contrôle",
       "href": "/control",
       "icon": "check-square"
     },
