@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Hospital,
@@ -13,6 +13,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavItems } from "@/hooks/use-nav-items";
+import { mockLogout } from "@/lib/auth/mock-auth-browser";
 
 const ICON_SIZE_CLASS = "w-[20px] h-[20px]";
 
@@ -31,13 +32,29 @@ type SidebarProps = {
 
 export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { items: navItems, loading } = useNavItems();
 
   const isActive = (href: string) => {
-    if (href === "/") {
-      return pathname === "/" || pathname.startsWith("/(main)");
+    if (href === "/modules/clinical") {
+      return (
+        pathname === "/modules/clinical" ||
+        pathname.startsWith("/modules/clinical/")
+      );
     }
-    return pathname.includes(href);
+    if (href === "/modules/accueil") {
+      return (
+        pathname === "/modules/accueil" ||
+        pathname.startsWith("/modules/accueil/")
+      );
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const handleLogout = () => {
+    mockLogout();
+    router.replace("/login");
+    onClose?.();
   };
 
   return (
@@ -131,7 +148,11 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </div>
           <span className="text-[12px] sm:text-[13px] font-bold">Paramètres</span>
         </button>
-        <button className="flex items-center gap-3 px-4 text-[#E11D48] hover:text-red-700 transition-colors w-full">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 text-[#E11D48] hover:text-red-700 transition-colors w-full"
+        >
           <div className="w-5 h-5 flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
           </div>

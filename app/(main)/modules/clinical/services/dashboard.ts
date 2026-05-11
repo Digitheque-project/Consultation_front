@@ -2,7 +2,7 @@ import type {
   DashboardStats,
   ExternalConsultation,
   HospitalizedPatient,
-} from "@/types/api";
+} from "../types";
 
 const DEFAULT_LIMIT = 6;
 
