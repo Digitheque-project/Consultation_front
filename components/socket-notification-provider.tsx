@@ -66,17 +66,30 @@ export function SocketNotificationProvider() {
         const audio = audioRef.current;
         audio.currentTime = 0;
         audio.volume = 1;
+        audio.loop = true; // La boucle native du navigateur fonctionne à 100% même en arrière-plan
         
         audio.play().catch((err) => {
           console.warn("[Socket] Audio autoplay prevented by browser:", err);
         });
 
-        setTimeout(() => {
-          if (!audio.paused) {
-            audio.pause();
-            audio.currentTime = 0;
-          }
-        }, 5000);
+        // Le fichier audio de base contient 3 "bips". 
+        // Pour entendre 6 "bips", il suffit de laisser le fichier se jouer exactement 2 fois.
+        const stopAudio = () => {
+          audio.pause();
+          audio.loop = false;
+          audio.currentTime = 0;
+        };
+
+        if (audio.duration) {
+          setTimeout(stopAudio, audio.duration * 1000 * 2);
+        } else {
+          // Si la durée n'est pas encore chargée
+          audio.onloadedmetadata = () => {
+            setTimeout(stopAudio, audio.duration * 1000 * 2);
+          };
+          // Fallback de sécurité au cas où (environ 6.5 secondes pour 2 lectures d'un son de 3.3s)
+          setTimeout(stopAudio, 7000); 
+        }
       }
     });
 
