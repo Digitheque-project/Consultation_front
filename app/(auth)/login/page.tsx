@@ -1,7 +1,18 @@
+import { Suspense } from "react";
+import { LoginForm } from "./login-form";
+
+function LoginFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#F8F9FB] p-6">
+      <div className="h-10 w-full max-w-md animate-pulse rounded-lg bg-gray-200" />
+    </main>
+  );
+}
+
 export default function LoginPage() {
-	return (
-		<main className="flex min-h-screen items-center justify-center p-6">
-			<h1 className="text-2xl font-semibold tracking-tight">Login</h1>
-		</main>
-	);
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginForm />
+    </Suspense>
+  );
 }
