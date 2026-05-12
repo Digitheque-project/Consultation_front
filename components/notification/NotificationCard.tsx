@@ -157,8 +157,14 @@ export function NotificationCard({ notification }: NotificationCardProps) {
 
               {isAccepted && (
                 <>
+                <button
+                    onClick={() => setShowPatientInfo(true)}
+                    className="px-5 py-2 rounded-[10px] cursor-pointer border-[1.5px] border-[#006A8C] text-[#006A8C] text-[12.5px] font-bold hover:bg-[#006A8C] hover:text-white transition-colors"
+                  >
+                    Infos Patient
+                  </button>
                   <button 
-                    className="px-6 py-2 rounded-[10px] bg-[#10B981] text-white text-[12.5px] font-bold hover:bg-[#059669] transition-colors shadow-sm"
+                    className="px-6 py-2 rounded-[10px] cursor-pointer bg-[#10B981] text-white text-[12.5px] font-bold hover:bg-[#059669] transition-colors shadow-sm"
                   >
                     Attribuer chambre / Lit
                   </button>
