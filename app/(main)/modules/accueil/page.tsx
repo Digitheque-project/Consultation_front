@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Users, Bed, User, ChevronRight, Stethoscope } from 'lucide-react';
 import { fetchPatients, Patient } from '@/lib/api/services/patients';
 import { fetchActiveHospitalisations } from '@/lib/api/services/hospitalisations';
 
@@ -69,7 +70,9 @@ export default async function Dashboard() {
             <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-3">Patient</p>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-xl">👥</div>
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
+                  <Users size={20} />
+                </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900 leading-none">{patientCount}</p>
                   <p className="text-xs text-gray-400 mt-1">Aujourd'hui</p>
@@ -81,7 +84,9 @@ export default async function Dashboard() {
             <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-green-500 mb-3">Hospitalisé</p>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-xl">🛏️</div>
+                <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-green-500">
+                  <Bed size={20} />
+                </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900 leading-none">{hospitalisedCount}</p>
                   <p className="text-xs text-gray-400 mt-1">Patients hospitalisés</p>
@@ -133,8 +138,8 @@ export default async function Dashboard() {
                 {appointments.map((rdv, i) => (
                   <div key={i} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 text-base">
-                        👤
+                      <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500">
+                        <User size={18} />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-gray-800">{rdv.name}</p>
@@ -146,9 +151,7 @@ export default async function Dashboard() {
                         {rdv.doctor}
                       </span>
                       <button className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <ChevronRight size={16} />
                       </button>
                     </div>
                   </div>
@@ -159,11 +162,8 @@ export default async function Dashboard() {
             {/* Disponibilité médecins */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center gap-2 mb-6">
-                <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <circle cx="7" cy="5" r="2.5" stroke="#3b82f6" strokeWidth="1.5" />
-                    <path d="M2 12c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+                <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500">
+                  <Stethoscope size={14} />
                 </div>
                 <h2 className="text-sm font-semibold text-gray-900">Disponibilité médecins</h2>
               </div>
@@ -192,7 +192,7 @@ export default async function Dashboard() {
               </div>
 
               <button className="mt-8 w-full text-center text-sm text-blue-600 font-semibold hover:underline">
-                Gérer le planning
+                Voir planning
               </button>
             </div>
           </div>
