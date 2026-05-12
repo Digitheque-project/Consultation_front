@@ -291,26 +291,6 @@ export function PatientInfoModal({ isOpen, onClose, notification }: PatientInfoM
             </div>
           </div>
 
-          {extraEntries.length > 0 ? (
-            <div className="flex gap-4">
-              <div className="mt-1">
-                <Wallet className="w-5 h-5 text-[#008ba3]" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8 flex-1">
-                {extraEntries.map((entry) => (
-                  <div key={entry.label}>
-                    <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1.5">
-                      {entry.label}
-                    </p>
-                    <p className="text-[14px] font-bold text-[#1a1f36]">
-                      {entry.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
         </div>
 
         {/* Footer */}
