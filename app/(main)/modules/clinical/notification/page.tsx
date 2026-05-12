@@ -1,9 +1,125 @@
 "use client";
 
-import React from "react";
-import { Search, User, BarChart2, ClipboardList, CheckCircle2, CheckCircle } from "lucide-react";
+import React, { useEffect, useState, useMemo } from "react";
+import { Search, BarChart2, ClipboardList, CheckCircle } from "lucide-react";
+import { useNotificationStore, EnrichedNotification, PatientInfo } from "@/stores/notification-store";
+import { hospitalisationApi, StatutDemande } from "@/lib/api/instances/hospitalisation";
+import { patientApi } from "@/lib/api/instances/patient";
+import { useTenant } from "@/hooks/use-tenant";
+import { NotificationCard } from "@/components/notification/NotificationCard";
+import { NotificationSkeleton } from "@/components/notification/NotificationSkeleton";
+import { cn } from "@/lib/utils";
 
 export default function NotificationPage() {
+  const { notifications, setNotifications, resetUnread } = useNotificationStore();
+  const { tenantId } = useTenant();
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string>("Toutes");
+
+  const toPatientInfo = (raw: unknown, fallbackId: string): PatientInfo | undefined => {
+    if (!raw || typeof raw !== "object") return undefined;
+
+    const record = raw as Record<string, unknown>;
+    const pickString = (...values: unknown[]) => {
+      for (const value of values) {
+        if (typeof value === "string" && value.trim().length > 0) {
+          return value;
+        }
+      }
+      return undefined;
+    };
+
+    return {
+      id: pickString(record.id, fallbackId) ?? fallbackId,
+      nom: pickString(record.nom, record.lastName, record.last_name, record.lastname),
+      prenom: pickString(record.prenom, record.firstName, record.first_name, record.firstname),
+      dateNaissance: pickString(record.dateNaissance, record.birthDate, record.birth_date),
+      sexe: pickString(record.sexe, record.gender, record.sex),
+    };
+  };
+
+  useEffect(() => {
+    // Reset unread count when viewing the page
+    resetUnread();
+  }, [resetUnread]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!tenantId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const response = await hospitalisationApi.getActives(50);
+        const activeHospis = response.data;
+
+        // Fetch patient info for each hospitalisation
+        const enriched = await Promise.all(
+          activeHospis.map(async (h) => {
+            let patient = null;
+            try {
+              const pResp = await patientApi.getById(h.patientId, tenantId);
+              patient = toPatientInfo(pResp.data, h.patientId);
+            } catch (e) {
+              console.error(`Failed to fetch patient ${h.patientId}`, e);
+            }
+            return {
+              ...h,
+              patient: patient || undefined,
+              receivedAt: new Date(h.dateEntrer).getTime(),
+            } as EnrichedNotification;
+          })
+        );
+
+        setNotifications(enriched);
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [tenantId, setNotifications]);
+
+  const showSkeleton = loading && notifications.length === 0;
+
+  const filteredNotifications = useMemo(() => {
+    return notifications
+      .filter((n) => {
+        // Filter by status
+        const matchesStatus = 
+          activeFilter === "Toutes" ||
+          (activeFilter === "En attente" && n.statusDemande === StatutDemande.EN_ATTENTE) ||
+          (activeFilter === "Acceptées" && n.statusDemande === StatutDemande.ACCEPTE) ||
+          (activeFilter === "Refusées" && n.statusDemande === StatutDemande.REFUSE);
+
+        if (!matchesStatus) return false;
+
+        // Filter by search query
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        const patientName = `${n.patient?.nom || ""} ${n.patient?.prenom || ""}`.toLowerCase();
+        return (
+          patientName.includes(q) ||
+          n.id.toLowerCase().includes(q) ||
+          n.patientId.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => b.receivedAt - a.receivedAt);
+  }, [notifications, activeFilter, searchQuery]);
+
+  const stats = useMemo(() => {
+    return {
+      total: notifications.length,
+      pending: notifications.filter((n) => n.statusDemande === StatutDemande.EN_ATTENTE).length,
+      accepted: notifications.filter((n) => n.statusDemande === StatutDemande.ACCEPTE).length,
+      refused: notifications.filter((n) => n.statusDemande === StatutDemande.REFUSE).length,
+    };
+  }, [notifications]);
+
   return (
     <div className="min-h-full bg-[#F8F9FB] p-6 lg:p-8 xl:p-10 font-sans">
       <h1 className="text-2xl lg:text-[28px] font-extrabold text-[#111827] mb-8 tracking-tight">
@@ -17,162 +133,52 @@ export default function NotificationPage() {
           <input
             type="text"
             placeholder="Rechercher par nom ou ID patient..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-[12px] text-[13px] font-medium border-none focus:outline-none focus:ring-2 focus:ring-[#006A8C] text-gray-900 bg-white shadow-[0px_2px_6px_rgba(0,0,0,0.02)] placeholder:text-gray-400"
           />
         </div>
-        <button className="px-6 py-2.5 bg-white rounded-[12px] text-[13px] font-bold text-[#006A8C] shadow-[0px_2px_8px_rgba(0,0,0,0.06)]">
-          Toutes
-        </button>
-        <button className="px-6 py-2.5 text-[13px] font-bold text-gray-500 flex items-center gap-2.5 hover:bg-gray-200/50 rounded-[12px] transition-colors">
-          En attente <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span>
-        </button>
-        <button className="px-6 py-2.5 text-[13px] font-bold text-gray-500 flex items-center gap-2.5 hover:bg-gray-200/50 rounded-[12px] transition-colors">
-          Acceptées <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
-        </button>
-        <button className="px-6 py-2.5 text-[13px] font-bold text-gray-500 flex items-center gap-2.5 hover:bg-gray-200/50 rounded-[12px] transition-colors">
-          Refusées <span className="w-1.5 h-1.5 rounded-full bg-[#94A3B8]"></span>
-        </button>
+        {[ "Toutes", "En attente", "Acceptées", "Refusées" ].map((filter) => (
+          <button
+            key={filter}
+            onClick={() => setActiveFilter(filter)}
+            className={cn(
+              "px-6 py-2.5 text-[13px] font-bold rounded-[12px] transition-all flex items-center gap-2.5",
+              activeFilter === filter 
+                ? "bg-white text-[#006A8C] shadow-[0px_2px_8px_rgba(0,0,0,0.06)]" 
+                : "text-gray-500 hover:bg-gray-200/50"
+            )}
+          >
+            {filter}
+            {filter === "En attente" && <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span>}
+            {filter === "Acceptées" && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>}
+            {filter === "Refusées" && <span className="w-1.5 h-1.5 rounded-full bg-[#94A3B8]"></span>}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 items-start">
         {/* Left Column: Notification List */}
         <div className="xl:col-span-8 2xl:col-span-8 flex flex-col gap-5">
-          {/* Card 1 */}
-          <div className="bg-white rounded-[20px] p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)]">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[11px] font-bold text-gray-300 tracking-wider">#FH-2024-8901</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-semibold text-gray-500">Il y a 25 min</span>
-                <span className="w-2 h-2 rounded-full bg-[#0EA5E9]"></span>
+          {showSkeleton ? (
+            Array.from({ length: 4 }).map((_, i) => <NotificationSkeleton key={i} />)
+          ) : notifications.length === 0 ? (
+            <div className="bg-white rounded-[20px] p-20 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                <ClipboardList className="w-8 h-8 text-gray-300" />
               </div>
+              <p className="text-gray-900 font-extrabold text-lg">Aucune notification</p>
             </div>
-
-            <div className="grid grid-cols-[1fr_1.5fr] gap-6 mb-8">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h3 className="text-[16px] font-extrabold text-gray-900">Hospitalisation</h3>
-                  <span className="px-2.5 py-1 rounded-full bg-[#D1FAE5] text-[#059669] text-[9.5px] font-bold uppercase tracking-wide">Banque</span>
-                </div>
+          ) : filteredNotifications.length > 0 ? (
+            filteredNotifications.map((n) => <NotificationCard key={n.id} notification={n} />)
+          ) : (
+            <div className="bg-white rounded-[20px] p-20 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                <ClipboardList className="w-8 h-8 text-gray-300" />
               </div>
-              <div>
-                <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-1.5">Motif clinique</p>
-                <p className="text-[13px] font-medium text-gray-600 line-clamp-1">Suspicion d'appendicite aiguë perforé...</p>
-              </div>
+              <p className="text-gray-900 font-extrabold text-lg">Aucune hospitalisation ne correspond à vos critères.</p>
             </div>
-
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-full bg-[#F1F5F9] flex items-center justify-center">
-                  <User className="w-4 h-4 text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-[12.5px] font-extrabold text-gray-900">RAKOTOMALALA Sitraka</p>
-                  <p className="text-[9.5px] font-bold text-gray-400 tracking-wider uppercase mt-0.5">42 ANS • HOMME</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <button className="px-5 py-2 rounded-[10px] border-[1.5px] border-red-100 text-[#E11D48] text-[12.5px] font-bold hover:bg-red-50 transition-colors">
-                  Refuser
-                </button>
-                <button className="px-5 py-2 rounded-[10px] border-[1.5px] border-gray-200 text-gray-500 text-[12.5px] font-bold hover:bg-gray-50 transition-colors">
-                  A voir
-                </button>
-                <button className="px-6 py-2 rounded-[10px] bg-[#006A8C] text-white text-[12.5px] font-bold hover:bg-[#005a76] transition-colors shadow-sm">
-                  Accepter
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2 */}
-          <div className="bg-white rounded-[20px] p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)]">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[11px] font-bold text-gray-300 tracking-wider">#FH-2024-7742</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-semibold text-gray-500">Il y a 1h 12min</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-[1fr_1.5fr] gap-6 mb-8">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h3 className="text-[16px] font-extrabold text-gray-900">Consultation externe</h3>
-                  <span className="px-2.5 py-1 rounded-full bg-[#F1F5F9] text-gray-600 text-[9.5px] font-bold uppercase tracking-wide">Pivot</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-1.5">Motif clinique</p>
-                <p className="text-[13px] font-medium text-gray-600 line-clamp-1">Suivi post-opératoire lithiase biliaire,...</p>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-full bg-[#F1F5F9] flex items-center justify-center">
-                  <User className="w-4 h-4 text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-[12.5px] font-extrabold text-gray-900">ANDRIAMORASATA Fara</p>
-                  <p className="text-[9.5px] font-bold text-gray-400 tracking-wider uppercase mt-0.5">65 ANS • FEMME</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <button className="px-5 py-2 rounded-[10px] border-[1.5px] border-red-100 text-[#E11D48] text-[12.5px] font-bold hover:bg-red-50 transition-colors">
-                  Refuser
-                </button>
-                <button className="px-5 py-2 rounded-[10px] border-[1.5px] border-gray-200 text-gray-500 text-[12.5px] font-bold hover:bg-gray-50 transition-colors">
-                  A voir
-                </button>
-                <button className="px-6 py-2 rounded-[10px] bg-[#006A8C] text-white text-[12.5px] font-bold hover:bg-[#005a76] transition-colors shadow-sm">
-                  Accepter
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3 */}
-          <div className="bg-white rounded-[20px] p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)]">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[11px] font-bold text-gray-300 tracking-wider">#FH-2024-8901</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-semibold text-gray-500">Il y a 25 min</span>
-                <span className="w-2 h-2 rounded-full bg-[#0EA5E9]"></span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-[1fr_1.5fr] gap-6 mb-8">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h3 className="text-[16px] font-extrabold text-gray-900">Hospitalisation</h3>
-                  <span className="px-2.5 py-1 rounded-full bg-[#D1FAE5] text-[#059669] text-[9.5px] font-bold uppercase tracking-wide">Banque</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest mb-1.5">Motif clinique</p>
-                <p className="text-[13px] font-medium text-gray-600 line-clamp-1">Suspicion d'appendicite aiguë perforé...</p>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-full bg-[#F1F5F9] flex items-center justify-center">
-                  <User className="w-4 h-4 text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-[12.5px] font-extrabold text-gray-900">RAKOTOMALALA Sitraka</p>
-                  <p className="text-[9.5px] font-bold text-gray-400 tracking-wider uppercase mt-0.5">42 ANS • HOMME</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <button className="px-5 py-2 rounded-[10px] border-[1.5px] border-gray-200 text-gray-500 text-[12.5px] font-bold hover:bg-gray-50 transition-colors">
-                  A voir
-                </button>
-                <button className="px-6 py-2 rounded-[10px] bg-[#10B981] text-white text-[12.5px] font-bold hover:bg-[#059669] transition-colors shadow-sm">
-                  Attribuer chambre / Lit
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Right Column: Service Overview */}
@@ -216,20 +222,14 @@ export default function NotificationPage() {
                   <div className="mt-0.5 text-[#0EA5E9]">
                     <ClipboardList className="w-[18px] h-[18px] stroke-[2.5]" />
                   </div>
-                  <span className="text-[13.5px] font-extrabold text-gray-700 pt-0.5">8 Dossiers en attente</span>
-                </div>
-                <div className="flex items-start gap-3.5">
-                  <div className="mt-0.5 text-[#10B981]">
-                    <CheckCircle2 className="w-[18px] h-[18px] stroke-[2.5]" />
-                  </div>
-                  <span className="text-[13.5px] font-extrabold text-gray-700 pt-0.5">4 Consultation externe en attente</span>
+                  <span className="text-[13.5px] font-extrabold text-gray-700 pt-0.5">{stats.pending} Dossiers en attente</span>
                 </div>
                 <div className="flex items-start gap-3.5">
                   <div className="mt-0.5 text-[#10B981]">
                     <CheckCircle className="w-[20px] h-[20px] fill-[#10B981] text-white stroke-[2]" />
                   </div>
                   <div className="pt-0.5">
-                    <p className="text-[13.5px] font-extrabold text-gray-700">3 Dossiers acceptés</p>
+                    <p className="text-[13.5px] font-extrabold text-gray-700">{stats.accepted} Dossiers acceptés</p>
                     <p className="text-[11px] font-bold text-gray-400 mt-0.5">En attente d'attribution chambre / Lit</p>
                   </div>
                 </div>
