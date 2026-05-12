@@ -47,21 +47,6 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { items: navItems, loading } = useNavItems();
 
 
-  const normalizePath = (path: string) => path.replace(/\/?$/, "");
-
-  const isActive = (href: string) => {
-    const currentPath = normalizePath(pathname);
-    const itemPath = normalizePath(href);
-
-    // For accueil dashboard, only active on exact match
-    if (href === "/modules/accueil") {
-      return currentPath === "/modules/accueil";
-    }
-
-    // For other items, exact match
-    return currentPath === itemPath;
-  };
-
   /** Plus long href qui matche : évite que /modules/clinical reste actif sur /modules/clinical/patients */
   const activeHref = useMemo(() => {
     // Si on est sur la page des notifications, on ne veut aucun menu actif
