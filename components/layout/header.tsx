@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, Menu } from "lucide-react";
 import { useUserConfig } from "@/hooks/use-user-config";
 import { useNotificationStore } from "@/stores/notification-store";
@@ -11,6 +12,7 @@ type HeaderProps = {
 export function Header({ onMenuClick }: HeaderProps) {
   const { config } = useUserConfig();
   const unreadCount = useNotificationStore((state) => state.unreadCount);
+  const resetUnread = useNotificationStore((state) => state.resetUnread);
 
   const hospitalName = config?.hospitalName;
   const doctorName = config?.doctorName;
@@ -38,14 +40,18 @@ export function Header({ onMenuClick }: HeaderProps) {
       {/* Right: Notification & Profile */}
       <div className="flex items-center gap-4 sm:gap-5 lg:gap-10 pr-0 sm:pr-2">
         {/* Notification Bell */}
-        <div className="relative cursor-pointer">
+        <Link 
+          href="/modules/clinical/notification" 
+          className="relative cursor-pointer block"
+          onClick={() => resetUnread()}
+        >
           <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700 stroke-[2]" />
           {notifications > 0 ? (
             <div className="absolute -top-1 -right-1 h-4 w-4 sm:h-[18px] sm:w-[18px] bg-[#E11D48] text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
               {notifications}
             </div>
           ) : null}
-        </div>
+        </Link>
 
         {/* Profile Section */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">

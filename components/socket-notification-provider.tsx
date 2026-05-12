@@ -2,13 +2,38 @@
 
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
-import { useNotificationStore } from "@/stores/notification-store";
+import { useNotificationStore, EnrichedNotification, PatientInfo } from "@/stores/notification-store";
+import { patientApi } from "@/lib/api/instances/patient";
+import { useTenant } from "@/hooks/use-tenant";
 
 export function SocketNotificationProvider() {
-  const incrementUnread = useNotificationStore((state) => state.incrementUnread);
+  const addNotification = useNotificationStore((state) => state.addNotification);
+  const { tenantId } = useTenant();
   const socketRef = useRef<Socket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlocked = useRef<boolean>(false);
+
+  const toPatientInfo = (raw: unknown, fallbackId: string): PatientInfo | undefined => {
+    if (!raw || typeof raw !== "object") return undefined;
+
+    const record = raw as Record<string, unknown>;
+    const pickString = (...values: unknown[]) => {
+      for (const value of values) {
+        if (typeof value === "string" && value.trim().length > 0) {
+          return value;
+        }
+      }
+      return undefined;
+    };
+
+    return {
+      id: pickString(record.id, fallbackId) ?? fallbackId,
+      nom: pickString(record.nom, record.lastName, record.last_name, record.lastname),
+      prenom: pickString(record.prenom, record.firstName, record.first_name, record.firstname),
+      dateNaissance: pickString(record.dateNaissance, record.birthDate, record.birth_date),
+      sexe: pickString(record.sexe, record.gender, record.sex),
+    };
+  };
 
   useEffect(() => {
     // 1. Initialiser l'audio une seule fois
@@ -57,10 +82,26 @@ export function SocketNotificationProvider() {
       console.log("[Socket] Connected to /hospitalisations namespace");
     });
 
-    socket.on("hospitalisation.created", (data) => {
+    socket.on("hospitalisation.created", async (data) => {
       console.log("[Socket] New hospitalisation received:", data);
       
-      incrementUnread();
+      let patientData = null;
+      try {
+        if (tenantId) {
+          const response = await patientApi.getById(data.patientId, tenantId);
+          patientData = toPatientInfo(response.data, data.patientId);
+        }
+      } catch (err) {
+        console.error("[Socket] Failed to fetch patient data:", err);
+      }
+
+      const enriched: EnrichedNotification = {
+        ...data,
+        patient: patientData,
+        receivedAt: Date.now(),
+      };
+
+      addNotification(enriched);
 
       if (audioRef.current) {
         const audio = audioRef.current;
@@ -103,7 +144,7 @@ export function SocketNotificationProvider() {
       window.removeEventListener("touchstart", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
     };
-  }, [incrementUnread]);
+  }, [addNotification, tenantId]);
 
   return null;
 }
