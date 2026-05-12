@@ -1,0 +1,34 @@
+﻿{
+  "items": [
+    {
+      "label": "Dashboard Accueil",
+      "href": "/modules/accueil",
+      "icon": "layout-dashboard"
+    },
+    {
+      "label": "Enregistrement Patient",
+      "href": "/modules/accueil/enregistrement-patient",
+      "icon": "user-plus"
+    },
+    {
+      "label": "Liste Patients",
+      "href": "/modules/accueil/liste-patients",
+      "icon": "users"
+    },
+    {
+      "label": "Rendez-vous",
+      "href": "/modules/accueil/rendez-vous",
+      "icon": "calendar-days"
+    },
+    {
+      "label": "Hospitalisation",
+      "href": "/modules/accueil/hospitalisation",
+      "icon": "bed-double"
+    },
+    {
+      "label": "Pharmacie",
+      "href": "/modules/accueil/pharmacie",
+      "icon": "pill"
+    }
+  ]
+}
