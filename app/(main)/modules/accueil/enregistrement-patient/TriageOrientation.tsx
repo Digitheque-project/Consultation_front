@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import {
@@ -15,6 +15,7 @@ interface TriageOrientationProps {
     id?: string;
     age?: string;
     genre?: string;
+    motif?: string;
   };
   onRetour?: () => void;
 }
@@ -131,15 +132,7 @@ function StepBadge({ n, label }: { n: number; label: string }) {
   );
 }
 
-function PriorityBtn({
-  value,
-  current,
-  onChange,
-}: {
-  value: string;
-  current: string;
-  onChange: (v: string) => void;
-}) {
+function PriorityBtn({ value, current, onChange }: { value: string; current: string; onChange: (v: string) => void }) {
   const cfg = PRIORITY_CONFIG[value];
   const active = current === value;
   return (
@@ -190,26 +183,22 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
 
   // Paraclinique
   const [examens, setExamens] = useState<ExamenLine[]>([
-    { id: 1, type: 'biologie', nom: 'NFS complète',      precision: 'Avec formule leucocytaire', urgence: false },
-    { id: 2, type: 'biologie', nom: 'Glycémie à jeun',   precision: '',                           urgence: false },
-    { id: 3, type: 'imagerie', nom: 'Radiographie thorax', precision: 'Face + profil',            urgence: true },
+    { id: 1, type: 'biologie', nom: 'NFS complète',        precision: 'Avec formule leucocytaire', urgence: false },
+    { id: 2, type: 'biologie', nom: 'Glycémie à jeun',     precision: '',                          urgence: false },
+    { id: 3, type: 'imagerie', nom: 'Radiographie thorax', precision: 'Face + profil',             urgence: true  },
   ]);
-  const [paraMotif, setParaMotif]     = useState('');
+  const [paraMotif, setParaMotif]       = useState('');
   const [paraPriority, setParaPriority] = useState<Priority>('normal');
 
-  const pt = patient || { nom: 'RAKOTOMALALA', prenom: 'Jean', id: '#CHUA-00441', age: '45 ans', genre: 'Masculin' };
+  const pt = patient || { nom: 'RAKOTOMALALA', prenom: 'Jean', id: '#CHUA-00441', age: '45 ans', genre: 'Masculin', motif: '' };
 
-  const addPharmLine = () =>
-    setPharmLines(p => [...p, { id: Date.now(), category: 'Médicament', name: '', form: '', dosage: '', unit: 'Boîte', qty: 1 }]);
-  const removePharmLine = (id: number) =>
-    setPharmLines(p => p.filter(l => l.id !== id));
+  const addPharmLine    = () => setPharmLines(p => [...p, { id: Date.now(), category: 'Médicament', name: '', form: '', dosage: '', unit: 'Boîte', qty: 1 }]);
+  const removePharmLine = (id: number) => setPharmLines(p => p.filter(l => l.id !== id));
   const updatePharmLine = (id: number, field: string, value: string | number) =>
     setPharmLines(p => p.map(l => l.id === id ? { ...l, [field]: value } : l));
 
-  const addExamen = () =>
-    setExamens(e => [...e, { id: Date.now(), type: 'biologie', nom: '', precision: '', urgence: false }]);
-  const removeExamen = (id: number) =>
-    setExamens(e => e.filter(l => l.id !== id));
+  const addExamen    = () => setExamens(e => [...e, { id: Date.now(), type: 'biologie', nom: '', precision: '', urgence: false }]);
+  const removeExamen = (id: number) => setExamens(e => e.filter(l => l.id !== id));
   const updateExamen = (id: number, field: string, value: string | boolean) =>
     setExamens(e => e.map(l => l.id === id ? { ...l, [field]: value } : l));
 
@@ -224,9 +213,9 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
   };
 
   const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-    biologie: { label: 'Biologie',  color: 'text-blue-600',  bg: 'bg-blue-50',  border: 'border-blue-100' },
-    imagerie: { label: 'Imagerie',  color: 'text-violet-600',bg: 'bg-violet-50',border: 'border-violet-100' },
-    autre:    { label: 'Autre',     color: 'text-gray-600',  bg: 'bg-gray-50',  border: 'border-gray-200' },
+    biologie: { label: 'Biologie', color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-100' },
+    imagerie: { label: 'Imagerie', color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
+    autre:    { label: 'Autre',    color: 'text-gray-600',   bg: 'bg-gray-50',   border: 'border-gray-200' },
   };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -258,7 +247,7 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
           </div>
         </div>
 
-        {/* ── Patient Card (display only) ── */}
+        {/* ── Patient Card ── */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
             <span className="w-1 h-4 bg-blue-600 rounded-full" />
@@ -297,6 +286,16 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
               </div>
             </div>
           </div>
+          {/* Motif affiché en bas de la carte patient */}
+          {pt.motif && (
+            <div className="px-5 pb-4 flex items-start gap-3">
+              <div className="w-12 flex-shrink-0" /> {/* spacer aligné avec l'avatar */}
+              <div className="flex-1">
+                <p className={LABEL}>Motif de la visite</p>
+                <p className="text-[13px] text-gray-600 leading-relaxed">{pt.motif}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── ÉTAPE 1 : Parcours ── */}
@@ -347,7 +346,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
               title="Affectation — Consultation externe"
               footer={<SubmitBtn label="Confirmer le rendez-vous" />}
             >
-              {/* Equal-height two-column layout */}
               <div className="grid grid-cols-12 gap-6 items-stretch">
 
                 {/* Left: params */}
@@ -388,7 +386,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                       </div>
                     </div>
 
-                    {/* Selected slot summary pinned inside params */}
                     {selectedSlot && (
                       <div className="mt-auto pt-2">
                         <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-2.5">
@@ -405,10 +402,9 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                   </div>
                 </div>
 
-                {/* Right: calendar — fills same height as left */}
+                {/* Right: calendar */}
                 <div className="col-span-8 flex flex-col">
                   <div className="flex-1 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col">
-                    {/* Legend */}
                     <div className="flex items-center justify-between mb-4 flex-shrink-0">
                       <p className="text-[12px] font-semibold text-gray-700">
                         Disponibilités — 13 au 18 Mai 2024
@@ -420,7 +416,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                       </div>
                     </div>
 
-                    {/* Grid: fills remaining height */}
                     <div className="grid grid-cols-6 gap-2 flex-1">
                       {WEEK.map((day) => {
                         const matinKey  = day.day.replace(/\s/g, '') + '-matin';
@@ -436,9 +431,7 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                             <p className={`text-[11px] font-bold mb-3 flex-shrink-0 ${isActiveDay ? 'text-blue-700' : 'text-gray-600'}`}>
                               {day.day}
                             </p>
-
                             <div className="flex flex-col gap-2 flex-1">
-                              {/* Matin */}
                               <div className="flex-1 flex flex-col">
                                 <p className="text-[9px] text-gray-400 flex items-center gap-1 mb-1.5 font-semibold uppercase tracking-wide flex-shrink-0">
                                   <Sun size={9} /> Matin
@@ -453,8 +446,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                                   {day.matin.label}
                                 </div>
                               </div>
-
-                              {/* Après-midi */}
                               <div className="flex-1 flex flex-col">
                                 <p className="text-[9px] text-gray-400 flex items-center gap-1 mb-1.5 font-semibold uppercase tracking-wide flex-shrink-0">
                                   <Sunset size={9} /> A-midi
@@ -484,7 +475,9 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
               footer={<SubmitBtn label="Envoyer la demande d'admission" />}
             >
               <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-6 space-y-5">
+
+                {/* Left: service only */}
+                <div className="col-span-5 space-y-5">
                   <div>
                     <label className={LABEL}>Service de destination</label>
                     <select className={INPUT}>
@@ -496,18 +489,7 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                       <option>Neurologie</option>
                     </select>
                   </div>
-                  <div>
-                    <label className={LABEL}>Priorité d'admission</label>
-                    <div className="flex gap-2">
-                      {(['normal', 'urgent', 'critique'] as const).map(p => (
-                        <PriorityBtn key={p} value={p} current={priority} onChange={v => setPriority(v as Priority)} />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className={LABEL}>Date d'admission souhaitée</label>
-                    <input type="date" className={INPUT} defaultValue={new Date().toISOString().split('T')[0]} />
-                  </div>
+
                   <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
                     <div className="flex items-start gap-2.5">
                       <Info size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
@@ -520,15 +502,34 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                       </div>
                     </div>
                   </div>
+
+                  {/* Motif de la visite venant de l'enregistrement */}
+                  <div>
+                    <p className={LABEL}>Motif de la visite</p>
+                    <div className={`w-full px-4 py-3 rounded-xl border text-[13px] leading-relaxed ${
+                      pt.motif
+                        ? 'bg-gray-50 border-gray-200 text-gray-700'
+                        : 'bg-gray-50 border-dashed border-gray-200 text-gray-400 italic'
+                    }`}>
+                      {pt.motif || 'Aucun motif renseigné lors de l\'enregistrement.'}
+                    </div>
+                    <p className="mt-1.5 text-[10px] text-gray-400 font-medium tracking-wide uppercase">
+                      Saisi lors de l'enregistrement du patient
+                    </p>
+                  </div>
                 </div>
-                <div className="col-span-6 space-y-2">
-                  <label className={LABEL}>Diagnostics & observations cliniques</label>
+
+                {/* Right: observations */}
+                <div className="col-span-7 space-y-2 flex flex-col">
+                  <label className={LABEL}>Information complémentaires</label>
                   <textarea
-                    rows={8}
-                    placeholder="Diagnostics, observations cliniques, antécédents pertinents, traitements en cours…"
-                    className={`${INPUT} resize-none leading-relaxed`}
+                    rows={10}
+                    placeholder="Diagnostics évoqués, antécédents pertinents, traitements en cours, informations complémentaires à transmettre…"
+                    className={`${INPUT} resize-none leading-relaxed flex-1`}
                   />
-                  <p className="text-[11px] text-gray-400">Ces informations seront transmises au service de destination.</p>
+                  {/* <p className="text-[11px] text-gray-400">
+                    Ces observations seront jointes à la demande transmise au service de destination.
+                  </p> */}
                 </div>
               </div>
             </SectionCard>
@@ -541,7 +542,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
               footer={<SubmitBtn label="Envoyer au laboratoire / imagerie" />}
             >
               <div className="space-y-6">
-                {/* Header fields */}
                 <div className="grid grid-cols-3 gap-5">
                   <div>
                     <label className={LABEL}>Médecin prescripteur</label>
@@ -566,7 +566,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                   </div>
                 </div>
 
-                {/* Examen lines header */}
                 <div className="flex items-center justify-between pb-1 border-b border-gray-100">
                   <div className="flex items-center gap-2">
                     <p className="text-[12px] font-bold uppercase tracking-widest text-gray-500">Examens demandés</p>
@@ -584,7 +583,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                   </button>
                 </div>
 
-                {/* Examen lines */}
                 <div className="space-y-3">
                   {examens.map((exam, idx) => {
                     const cfg = TYPE_CONFIG[exam.type];
@@ -595,7 +593,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                             <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
                               {idx + 1}
                             </span>
-                            {/* Type selector as pill tabs */}
                             <div className="flex gap-1">
                               {(['biologie', 'imagerie', 'autre'] as const).map(t => {
                                 const c = TYPE_CONFIG[t];
@@ -615,7 +612,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {/* Urgence toggle */}
                             <button
                               type="button"
                               onClick={() => updateExamen(exam.id, 'urgence', !exam.urgence)}
@@ -664,7 +660,6 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                   })}
                 </div>
 
-                {/* Motif clinical */}
                 <div className="pt-2 border-t border-gray-100">
                   <label className={LABEL}>Motif clinique de la demande</label>
                   <textarea
@@ -707,9 +702,7 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
 
                 <div className="flex items-center justify-between pb-1 border-b border-gray-100">
                   <div className="flex items-center gap-2">
-                    <p className="text-[12px] font-bold uppercase tracking-widest text-gray-500">
-                      Produits &amp; dispositifs
-                    </p>
+                    <p className="text-[12px] font-bold uppercase tracking-widest text-gray-500">Produits &amp; dispositifs</p>
                     <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
                       {pharmLines.length} ligne{pharmLines.length > 1 ? 's' : ''}
                     </span>
@@ -754,64 +747,29 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                       <div className="grid grid-cols-12 gap-3">
                         <div className="col-span-4">
                           <label className={LABEL}>{line.category === 'Médicament' ? 'Nom du médicament' : 'Nom du produit'}</label>
-                          <input
-                            type="text"
-                            value={line.name}
-                            onChange={e => updatePharmLine(line.id, 'name', e.target.value)}
-                            className={INPUT}
-                            placeholder="Nom…"
-                          />
+                          <input type="text" value={line.name} onChange={e => updatePharmLine(line.id, 'name', e.target.value)} className={INPUT} placeholder="Nom…" />
                         </div>
                         <div className="col-span-3">
                           <label className={LABEL}>{line.category === 'Médicament' ? 'Forme galénique' : 'Type'}</label>
-                          <select
-                            value={line.form}
-                            onChange={e => updatePharmLine(line.id, 'form', e.target.value)}
-                            className={INPUT}
-                          >
+                          <select value={line.form} onChange={e => updatePharmLine(line.id, 'form', e.target.value)} className={INPUT}>
                             <option value="">—</option>
-                            <option>Comprimé</option>
-                            <option>Antiseptique</option>
-                            <option>Vitamines</option>
-                            <option>Sirop</option>
-                            <option>Injection</option>
-                            <option>Crème</option>
-                            <option>Gélule</option>
+                            <option>Comprimé</option><option>Antiseptique</option><option>Vitamines</option>
+                            <option>Sirop</option><option>Injection</option><option>Crème</option><option>Gélule</option>
                           </select>
                         </div>
                         <div className="col-span-2">
                           <label className={LABEL}>Dosage</label>
-                          <input
-                            type="text"
-                            value={line.dosage}
-                            onChange={e => updatePharmLine(line.id, 'dosage', e.target.value)}
-                            className={INPUT}
-                            placeholder="ex: 500 mg"
-                          />
+                          <input type="text" value={line.dosage} onChange={e => updatePharmLine(line.id, 'dosage', e.target.value)} className={INPUT} placeholder="ex: 500 mg" />
                         </div>
                         <div className="col-span-2">
                           <label className={LABEL}>Unité</label>
-                          <select
-                            value={line.unit}
-                            onChange={e => updatePharmLine(line.id, 'unit', e.target.value)}
-                            className={INPUT}
-                          >
-                            <option>Boîte</option>
-                            <option>Unité</option>
-                            <option>Flacon</option>
-                            <option>Sachet</option>
-                            <option>Tube</option>
+                          <select value={line.unit} onChange={e => updatePharmLine(line.id, 'unit', e.target.value)} className={INPUT}>
+                            <option>Boîte</option><option>Unité</option><option>Flacon</option><option>Sachet</option><option>Tube</option>
                           </select>
                         </div>
                         <div className="col-span-1">
                           <label className={LABEL}>Qté</label>
-                          <input
-                            type="number"
-                            min={1}
-                            value={line.qty}
-                            onChange={e => updatePharmLine(line.id, 'qty', parseInt(e.target.value) || 1)}
-                            className={INPUT}
-                          />
+                          <input type="number" min={1} value={line.qty} onChange={e => updatePharmLine(line.id, 'qty', parseInt(e.target.value) || 1)} className={INPUT} />
                         </div>
                       </div>
                     </div>
@@ -827,8 +785,8 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                         { id: 'urgent'   as const, icon: <AlertTriangle size={13} />, label: 'Urgent' },
                       ].map(p => (
                         <button
-                          type="button"
                           key={p.id}
+                          type="button"
                           onClick={() => setPharmPriority(p.id)}
                           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-[13px] font-medium transition-all ${
                             pharmPriority === p.id
@@ -845,11 +803,8 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                   </div>
                   <div>
                     <label className={LABEL}>Instructions au pharmacien</label>
-                    <textarea
-                      rows={3}
-                      placeholder="Substitut autorisé, conseils d'utilisation spécifiques…"
-                      className={`${INPUT} resize-none text-[12px]`}
-                    />
+                    <textarea rows={3} placeholder="Substitut autorisé, conseils d'utilisation spécifiques…"
+                      className={`${INPUT} resize-none text-[12px]`} />
                   </div>
                 </div>
               </div>

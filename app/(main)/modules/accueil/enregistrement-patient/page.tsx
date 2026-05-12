@@ -43,7 +43,7 @@ const formatAge = (age: number | null, dateNaissance?: string): string => {
 const isMinor = (age: number | null): boolean => age !== null && age < 18;
 
 // Required fields list (CIN excluded — handled separately)
-const REQUIRED_FIELDS: (keyof FormData)[] = ['nom', 'prenom', 'sexe', 'dateNaissance'];
+const REQUIRED_FIELDS: (keyof FormData)[] = ['nom', 'sexe', 'dateNaissance'];
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
@@ -137,9 +137,19 @@ export default function EnregistrementPatient() {
     });
 
   useEffect(() => {
-    if (!formData.priseEnCharge && priseEnChargeOptions.length > 0)
-      setFormData(prev => ({ ...prev, priseEnCharge: priseEnChargeOptions[0].code }));
+    if (!formData.priseEnCharge && priseEnChargeOptions.length > 0) {
+      const normalOption = priseEnChargeOptions.find(opt => opt.code?.toUpperCase() === 'NORMAL');
+      const defaultOption = normalOption || priseEnChargeOptions[0];
+      setFormData(prev => ({ ...prev, priseEnCharge: defaultOption.code }));
+    }
   }, [formData.priseEnCharge, priseEnChargeOptions]);
+
+  // Trier les options pour mettre NORMAL en premier
+  const sortedPriseEnChargeOptions = [...priseEnChargeOptions].sort((a, b) => {
+    if (a.code === 'NORMAL') return -1;
+    if (b.code === 'NORMAL') return 1;
+    return 0;
+  });
 
   const set = (key: keyof FormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -166,6 +176,7 @@ export default function EnregistrementPatient() {
           id:     '#CHUA-00441',
           age:    formatAge(age, formData.dateNaissance) || '45 ans',
           genre:  formData.sexe === 'feminin' ? 'Féminin' : 'Masculin',
+          motif:  formData.motif || 'Aucun motif saisi',
         }}
         onRetour={() => setStep('form')}
       />
@@ -207,14 +218,14 @@ export default function EnregistrementPatient() {
                   />
                 </Field>
 
-                <Field label="Prénom" required error={hasError('prenom')}>
+                <Field label="Prénom">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <User size={14} className={hasError('prenom') ? 'text-red-300' : 'text-gray-300'} />
+                    <User size={14} className="text-gray-300" />
                   </span>
                   <input
                     type="text"
                     placeholder="Entrez le prénom"
-                    className={inputBaseWithIcon(hasError('prenom'))}
+                    className={inputBaseWithIcon(false)}
                     value={formData.prenom}
                     onChange={set('prenom')}
                   />
@@ -368,7 +379,7 @@ export default function EnregistrementPatient() {
                 ) : priseEnChargeOptions.length === 0 ? (
                   <div className="text-sm text-gray-400">Aucune option disponible.</div>
                 ) : (
-                  priseEnChargeOptions.map((opt) => {
+                  sortedPriseEnChargeOptions.map((opt) => {
                     const isSelected = formData.priseEnCharge === opt.code;
                     return (
                       <label
