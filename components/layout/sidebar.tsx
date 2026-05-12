@@ -49,8 +49,11 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   /** Plus long href qui matche : évite que /modules/clinical reste actif sur /modules/clinical/patients */
   const activeHref = useMemo(() => {
-    // Si on est sur la page des notifications, on ne veut aucun menu actif
-    if (pathname === "/modules/clinical/notification") {
+    // Pages « centre de notifications » : aucun item de menu ne doit rester actif
+    if (
+      pathname === "/modules/clinical/notification" ||
+      pathname === "/modules/accueil/notification"
+    ) {
       return null;
     }
 

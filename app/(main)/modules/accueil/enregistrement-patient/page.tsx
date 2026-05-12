@@ -50,10 +50,9 @@ const REQUIRED_FIELDS: (keyof FormData)[] = ['nom', 'sexe', 'dateNaissance'];
 const LABEL = 'block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5';
 
 const inputBase = (error: boolean) =>
-  `w-full px-4 py-2.5 border rounded-xl text-sm placeholder-gray-400 focus:outline-none transition-colors ${
-    error
-      ? 'bg-red-50 border-red-300 text-red-800 placeholder-red-300 focus:border-red-400 focus:bg-red-50'
-      : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400 focus:bg-white'
+  `w-full px-4 py-2.5 border rounded-xl text-sm placeholder-gray-400 focus:outline-none transition-colors ${error
+    ? 'bg-red-50 border-red-300 text-red-800 placeholder-red-300 focus:border-red-400 focus:bg-red-50'
+    : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400 focus:bg-white'
   }`;
 
 const inputBaseWithIcon = (error: boolean) => `${inputBase(error)} pl-9`;
@@ -66,9 +65,9 @@ function SectionHeader({ icon, title, color = 'blue' }: {
   color?: 'blue' | 'amber' | 'rose';
 }) {
   const styles: Record<string, { bg: string; text: string }> = {
-    blue:  { bg: 'bg-blue-50',  text: 'text-blue-500' },
+    blue: { bg: 'bg-blue-50', text: 'text-blue-500' },
     amber: { bg: 'bg-amber-50', text: 'text-amber-500' },
-    rose:  { bg: 'bg-rose-50',  text: 'text-rose-500' },
+    rose: { bg: 'bg-rose-50', text: 'text-rose-500' },
   };
   return (
     <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-50">
@@ -108,7 +107,7 @@ function Field({ label, children, className = '', required, error }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function EnregistrementPatient() {
-  const [step, setStep]         = useState<'form' | 'triage'>('form');
+  const [step, setStep] = useState<'form' | 'triage'>('form');
   const [submitted, setSubmitted] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
@@ -125,7 +124,7 @@ export default function EnregistrementPatient() {
     priseEnCharge: '',
   });
 
-  const age   = getAge(formData.dateNaissance);
+  const age = getAge(formData.dateNaissance);
   const minor = isMinor(age);
 
   const { data: priseEnChargeOptions = [], isLoading: isLoadingPEC, isError: isErrorPEC } =
@@ -171,12 +170,12 @@ export default function EnregistrementPatient() {
     return (
       <TriageOrientation
         patient={{
-          nom:    formData.nom    || 'M. RAKOTOMALALA',
+          nom: formData.nom || 'M. RAKOTOMALALA',
           prenom: formData.prenom || 'Jean',
-          id:     '#CHUA-00441',
-          age:    formatAge(age, formData.dateNaissance) || '45 ans',
-          genre:  formData.sexe === 'feminin' ? 'Féminin' : 'Masculin',
-          motif:  formData.motif || 'Aucun motif saisi',
+          id: '#CHUA-00441',
+          age: formatAge(age, formData.dateNaissance) || '45 ans',
+          genre: formData.sexe === 'feminin' ? 'Féminin' : 'Masculin',
+          motif: formData.motif || 'Aucun motif saisi',
         }}
         onRetour={() => setStep('form')}
       />
@@ -186,12 +185,25 @@ export default function EnregistrementPatient() {
   // ── ÉTAPE 1 : Formulaire ──────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="p-8 max-w-7xl mx-auto mb-8">
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Inscription patient</h1>
-          <p className="text-sm text-gray-400 mt-1">Renseignez les informations du nouveau patient</p>
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-[22px] font-semibold text-gray-900 tracking-tight">
+              Inscription patient
+            </h1>
+            <p className="text-[13px] text-gray-400 mt-1">
+              Renseignez les informations du nouveau patient
+            </p>
+          </div>
+          {/* <button
+            type="button"
+            className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-xl transition-all shadow-sm shadow-blue-200"
+          >
+            <Calendar size={14} />
+            Nouveau rendez-vous
+          </button> */}
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -256,11 +268,10 @@ export default function EnregistrementPatient() {
                 {/* Âge calculé */}
                 {formData.dateNaissance && (
                   <Field label="Âge calculé">
-                    <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold ${
-                      minor
+                    <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold ${minor
                         ? 'bg-amber-50 border-amber-200 text-amber-700'
                         : 'bg-gray-50 border-gray-200 text-gray-500'
-                    }`}>
+                      }`}>
                       <span>{formatAge(age, formData.dateNaissance)}</span>
                       {minor && (
                         <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-100 px-2 py-0.5 rounded-full">
@@ -384,11 +395,10 @@ export default function EnregistrementPatient() {
                     return (
                       <label
                         key={opt.code}
-                        className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                          isSelected
+                        className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${isSelected
                             ? 'border-blue-400 bg-blue-50'
                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
+                          }`}
                       >
                         <input
                           type="radio"
@@ -398,9 +408,8 @@ export default function EnregistrementPatient() {
                           onChange={set('priseEnCharge')}
                           className="sr-only"
                         />
-                        <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                          isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300 bg-white'
-                        }`}>
+                        <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300 bg-white'
+                          }`}>
                           {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                         </span>
                         <div>

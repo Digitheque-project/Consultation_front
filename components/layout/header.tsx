@@ -40,9 +40,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       {/* Right: Notification & Profile */}
       <div className="flex items-center gap-4 sm:gap-5 lg:gap-10 pr-0 sm:pr-2">
         {/* Notification Bell */}
-        <Link 
-          href="/modules/clinical/notification" 
-          className="relative cursor-pointer block"
+        <Link
+          href="/modules/accueil/notification"
+          className="relative block cursor-pointer"
           onClick={() => resetUnread()}
         >
           <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700 stroke-[2]" />
