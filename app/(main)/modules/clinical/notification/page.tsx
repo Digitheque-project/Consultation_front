@@ -17,6 +17,7 @@ export default function NotificationPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("Toutes");
 
+
   const toPatientInfo = (raw: unknown, fallbackId: string): PatientInfo | undefined => {
     if (!raw || typeof raw !== "object") return undefined;
 
