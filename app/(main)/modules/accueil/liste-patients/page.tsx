@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { fetchPatients, Patient } from '@/lib/api/services/patients';
+import { PatientDetailsModal } from '@/components/patient-details-modal';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ export default function ListePatients() {
 
   // Pagination
   const [page, setPage] = useState(1);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
   // Data
   const { data, isLoading, isError, error } = useQuery<Patient[], Error>({
@@ -404,6 +406,7 @@ export default function ListePatients() {
                   slice.map((patient, i) => (
                     <tr
                       key={`${patient.id}-${i}`}
+                      onClick={() => setSelectedPatient(patient)}
                       className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors cursor-pointer group"
                     >
                       <td className="px-5 py-3.5">
@@ -513,6 +516,11 @@ export default function ListePatients() {
         </div>
 
       </div>
+      <PatientDetailsModal
+        open={Boolean(selectedPatient)}
+        patient={selectedPatient}
+        onClose={() => setSelectedPatient(null)}
+      />
     </div>
   );
 }
