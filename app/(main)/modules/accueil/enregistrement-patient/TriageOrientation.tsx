@@ -21,7 +21,7 @@ interface TriageOrientationProps {
 }
 
 type Parcours = 'consultation' | 'hospitalisation' | 'pharmacie' | 'paraclinique';
-type Priority = 'normal' | 'urgent' | 'critique';
+type Priority = 'normal' | 'urgent';
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
@@ -287,15 +287,7 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
             </div>
           </div>
           {/* Motif affiché en bas de la carte patient */}
-          {pt.motif && (
-            <div className="px-5 pb-4 flex items-start gap-3">
-              <div className="w-12 flex-shrink-0" /> {/* spacer aligné avec l'avatar */}
-              <div className="flex-1">
-                <p className={LABEL}>Motif de la visite</p>
-                <p className="text-[13px] text-gray-600 leading-relaxed">{pt.motif}</p>
-              </div>
-            </div>
-          )}
+          
         </div>
 
         {/* ── ÉTAPE 1 : Parcours ── */}

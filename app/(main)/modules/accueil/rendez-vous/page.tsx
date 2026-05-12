@@ -156,13 +156,13 @@ export default function RendezVousMain() {
               Gérez les flux de patients et les plannings cliniques en temps réel.
             </p>
           </div>
-          <button
+          {/* <button
             type="button"
             className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-xl transition-all shadow-sm shadow-blue-200"
           >
             <Calendar size={14} />
             Nouveau rendez-vous
-          </button>
+          </button> */}
         </div>
 
         {/* ── Stats ── */}
@@ -444,9 +444,9 @@ export default function RendezVousMain() {
                           <button type="button" className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors border border-gray-200" title="Compte-rendu">
                             <FileText size={14} />
                           </button>
-                          <button type="button" className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors border border-gray-200" title="Plus d'actions">
+                          {/* <button type="button" className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors border border-gray-200" title="Plus d'actions">
                             <MoreVertical size={14} />
-                          </button>
+                          </button> */}
                         </div>
                       )}
                     </td>

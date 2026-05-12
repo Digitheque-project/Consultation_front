@@ -56,7 +56,7 @@ export default async function Dashboard() {
 
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900">
-              Bonjour Dr. Admin
+              Bonjour Mme Rasoa
             </h1>
             <p className="text-gray-600 mt-1 text-lg">
               Voici l'état actuel de votre service
