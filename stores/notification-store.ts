@@ -3,11 +3,20 @@ import { persist } from "zustand/middleware";
 import { Hospitalisation } from "@/lib/api/instances/hospitalisation";
 
 export interface PatientInfo {
-  id: string;
+  id?: string;
   nom?: string;
   prenom?: string;
   dateNaissance?: string;
   sexe?: string;
+  telephone?: string;
+  adresse?: string;
+  contactUrgence?: string;
+  email?: string;
+  profession?: string;
+  cin?: string;
+  nationalite?: string;
+  situationMatrimoniale?: string;
+  [key: string]: unknown;
 }
 
 export interface EnrichedNotification extends Hospitalisation {

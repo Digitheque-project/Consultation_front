@@ -17,6 +17,12 @@ export interface Hospitalisation {
   statusDemande: StatutDemande;
   litCode?: string | null;
   chambreNumero?: number | null;
+  commentaire?: string | null;
+}
+
+export interface HospitalisationNotification extends Hospitalisation {
+  patient?: Record<string, unknown> | null;
+  receivedAt?: number;
 }
 
 export const hospitalisationApi = {
@@ -29,6 +35,13 @@ export const hospitalisationApi = {
   updateStatus: async (id: string, status: StatutDemande) => {
     return clientApi.patch<Hospitalisation>(`/hospitalisations/${id}/status`, {
       status,
+    });
+  },
+
+  getNotifications: async (limit?: number) => {
+    return clientApi.get<HospitalisationNotification[]>("/api/hospitalisations/notifications", {
+      baseURL: "",
+      params: { limit },
     });
   },
 
