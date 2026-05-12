@@ -10,6 +10,11 @@ import {
   CheckSquare,
   Archive,
   X,
+  UserPlus,
+  Users,
+  CalendarDays,
+  BedDouble,
+  Pill,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +29,11 @@ const navIconMap: Record<string, { component: LucideIcon; strokeWidth: number }>
   "file-text": { component: FileText, strokeWidth: 2 },
   "check-square": { component: CheckSquare, strokeWidth: 2 },
   archive: { component: Archive, strokeWidth: 2 },
+  "user-plus": { component: UserPlus, strokeWidth: 2 },
+  users: { component: Users, strokeWidth: 2 },
+  "calendar-days": { component: CalendarDays, strokeWidth: 2 },
+  "bed-double": { component: BedDouble, strokeWidth: 2 },
+  pill: { component: Pill, strokeWidth: 2 },
 };
 
 type SidebarProps = {
@@ -35,6 +45,22 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { items: navItems, loading } = useNavItems();
+
+
+  const normalizePath = (path: string) => path.replace(/\/?$/, "");
+
+  const isActive = (href: string) => {
+    const currentPath = normalizePath(pathname);
+    const itemPath = normalizePath(href);
+
+    // For accueil dashboard, only active on exact match
+    if (href === "/modules/accueil") {
+      return currentPath === "/modules/accueil";
+    }
+
+    // For other items, exact match
+    return currentPath === itemPath;
+  };
 
   /** Plus long href qui matche : évite que /modules/clinical reste actif sur /modules/clinical/patients */
   const activeHref = useMemo(() => {
@@ -53,6 +79,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   }, [pathname, navItems]);
 
   const isActive = (href: string) => href === activeHref;
+
 
   const handleLogout = () => {
     mockLogout();

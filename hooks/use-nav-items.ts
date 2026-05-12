@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { readMockSessionFromBrowser } from "@/lib/auth/mock-auth-browser";
 
 export interface NavItemConfig {
   label: string;
@@ -13,6 +14,15 @@ interface NavItemsResponse {
 }
 
 const NAV_ITEMS_URL = "/nav-items.json";
+const ACCUEIL_NAV_ITEMS_URL = "/nav-items-accueil.json";
+
+const getNavItemsUrl = () => {
+  const session = readMockSessionFromBrowser();
+  if (session?.module === "accueil") {
+    return ACCUEIL_NAV_ITEMS_URL;
+  }
+  return NAV_ITEMS_URL;
+};
 
 const isNavItemConfig = (value: unknown): value is NavItemConfig => {
   if (!value || typeof value !== "object") {
@@ -56,7 +66,7 @@ export function useNavItems() {
 
     const loadNavItems = async () => {
       try {
-        const response = await fetch(NAV_ITEMS_URL, { cache: "no-store" });
+        const response = await fetch(getNavItemsUrl(), { cache: "no-store" });
 
         if (!response.ok) {
           throw new Error(`Failed to load navigation: ${response.status}`);
