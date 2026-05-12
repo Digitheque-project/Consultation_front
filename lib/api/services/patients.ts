@@ -6,9 +6,13 @@ export type Patient = {
   prenom?: string;
   sexe?: string;
   dateNaissance?: string;
-  telephone?: string;
+  cin?: string;
+  profession?: string;
   adresse?: string;
+  telephone?: string;
+  contactUrgence?: string;
   priseEnChargeId?: number;
+  createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
 };
