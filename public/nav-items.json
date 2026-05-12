@@ -7,7 +7,7 @@
     },
     {
       "label": "Patient hospitalisé",
-      "href": "/modules/patient",
+      "href": "/modules/clinical/patients",
       "icon": "hospital"
     },
     {
