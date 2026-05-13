@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Bell, Menu } from "lucide-react";
 import { useUserConfig } from "@/hooks/use-user-config";
 import { useNotificationStore } from "@/stores/notification-store";
+import { readMockSessionFromBrowser } from "@/lib/auth/mock-auth-browser";
 
 type HeaderProps = {
   onMenuClick?: () => void;
@@ -19,6 +21,13 @@ export function Header({ onMenuClick }: HeaderProps) {
   const speciality = config?.speciality;
   const avatarUrl = config?.avatarUrl;
   const notifications = (config?.notifications ?? 0) + unreadCount;
+  const notificationHref = useMemo(() => {
+    const session = readMockSessionFromBrowser();
+    if (session?.module === "clinical") {
+      return "/modules/clinical/notification";
+    }
+    return "/modules/accueil/notification";
+  }, []);
 
   return (
     <header className="bg-white border-b border-[#F1F5F9] px-4 sm:px-6 lg:px-7 py-2.5 sm:py-3 flex items-center justify-between z-10 shadow-[0px_4px_10px_rgba(0,0,0,0.015)]">
@@ -41,7 +50,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-4 sm:gap-5 lg:gap-10 pr-0 sm:pr-2">
         {/* Notification Bell */}
         <Link
-          href="/modules/accueil/notification"
+          href={notificationHref}
           className="relative block cursor-pointer"
           onClick={() => resetUnread()}
         >
