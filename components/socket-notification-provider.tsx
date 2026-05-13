@@ -3,17 +3,14 @@
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { useNotificationStore, EnrichedNotification, PatientInfo } from "@/stores/notification-store";
-import { patientApi } from "@/lib/api/instances/patient";
-import { useTenant } from "@/hooks/use-tenant";
 
 export function SocketNotificationProvider() {
   const addNotification = useNotificationStore((state) => state.addNotification);
-  const { tenantId } = useTenant();
   const socketRef = useRef<Socket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlocked = useRef<boolean>(false);
 
-  const toPatientInfo = (raw: unknown, fallbackId: string): PatientInfo | undefined => {
+  const normalizePatientInfo = (raw: unknown, fallbackId?: string): PatientInfo | undefined => {
     if (!raw || typeof raw !== "object") return undefined;
 
     const record = raw as Record<string, unknown>;
@@ -26,8 +23,11 @@ export function SocketNotificationProvider() {
       return undefined;
     };
 
+    const id = pickString(record.id, record.patientId, fallbackId);
+
     return {
-      id: pickString(record.id, fallbackId) ?? fallbackId,
+      ...record,
+      id: id ?? fallbackId,
       nom: pickString(record.nom, record.lastName, record.last_name, record.lastname),
       prenom: pickString(record.prenom, record.firstName, record.first_name, record.firstname),
       dateNaissance: pickString(record.dateNaissance, record.birthDate, record.birth_date),
@@ -84,21 +84,20 @@ export function SocketNotificationProvider() {
 
     socket.on("hospitalisation.created", async (data) => {
       console.log("[Socket] New hospitalisation received:", data);
-      
-      let patientData = null;
-      try {
-        if (tenantId) {
-          const response = await patientApi.getById(data.patientId, tenantId);
-          patientData = toPatientInfo(response.data, data.patientId);
-        }
-      } catch (err) {
-        console.error("[Socket] Failed to fetch patient data:", err);
-      }
+
+      const payload = data as Record<string, unknown>;
+      const patientData = normalizePatientInfo(payload.patient, payload.patientId as string | undefined);
+      const receivedAtRaw = payload.receivedAt ?? payload.dateEntrer;
+      const receivedAtValue =
+        typeof receivedAtRaw === "number"
+          ? receivedAtRaw
+          : new Date(receivedAtRaw as string).getTime();
+      const receivedAt = Number.isNaN(receivedAtValue) ? Date.now() : receivedAtValue;
 
       const enriched: EnrichedNotification = {
-        ...data,
-        patient: patientData,
-        receivedAt: Date.now(),
+        ...(payload as EnrichedNotification),
+        patient: patientData ?? undefined,
+        receivedAt,
       };
 
       addNotification(enriched);
@@ -144,7 +143,7 @@ export function SocketNotificationProvider() {
       window.removeEventListener("touchstart", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
     };
-  }, [addNotification, tenantId]);
+  }, [addNotification]);
 
   return null;
 }

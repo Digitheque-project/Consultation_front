@@ -98,7 +98,7 @@ function BedCard({
       </div>
 
       {/* Traitements */}
-      <div className="flex items-center gap-1.5 mb-3">
+      <div className="flex items-center gap-1.5 mb-3 mt-3 cursor-pointer">
         <svg
           className="w-3 h-3 text-gray-400"
           fill="none"
@@ -112,8 +112,8 @@ function BedCard({
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
           />
         </svg>
-        <span className="text-[9px] font-bold text-gray-500">Traitements</span>
-        <span className="text-[9px] font-extrabold text-[#006A8C] bg-[#EAF3FA] rounded-full px-2 py-[2px]">
+        <span className="text-[11px] font-bold text-gray-500">Traitements</span>
+        <span className="text-[11px] font-extrabold text-[#006A8C] bg-[#EAF3FA] rounded-full px-2 py-[2px]">
           {traitements}
         </span>
       </div>
@@ -212,7 +212,7 @@ export default function GestionPatientsPage() {
                 joursEntree="J-4"
                 joursPostOp="J-2 Post-op"
                 colorAccent="#0B7DB3"
-                ribbonText="Admis"
+                ribbonText="Banque"
               />
               <BedCard
                 litCode="Lit 102"
@@ -235,7 +235,7 @@ export default function GestionPatientsPage() {
                 joursEntree="J-3"
                 joursPostOp="J-5 Post-op"
                 colorAccent="#0B7DB3"
-                ribbonText="Admis"
+                ribbonText=""
               />
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function GestionPatientsPage() {
                 joursEntree="J-2"
                 joursPostOp="J-1 Post-op"
                 colorAccent="#F59E0B"
-                ribbonText="Admis"
+                ribbonText="Pivot"
               />
               <AvailableBedCard />
               <BedCard
@@ -268,7 +268,7 @@ export default function GestionPatientsPage() {
                 traitements="3 soins"
                 joursEntree="J-5"
                 colorAccent="#0B7DB3"
-                ribbonText="Admis"
+                ribbonText=""
               />
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function GestionPatientsPage() {
                 joursEntree="J-2"
                 joursPostOp="J-1 Post-op"
                 colorAccent="#F59E0B"
-                ribbonText="Admis"
+                ribbonText=""
               />
               <BedCard
                 litCode="Lit 108"
