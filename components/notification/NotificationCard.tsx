@@ -5,6 +5,8 @@ import { User, Loader2 } from "lucide-react";
 import { EnrichedNotification, useNotificationStore } from "@/stores/notification-store";
 import { hospitalisationApi, StatutDemande } from "@/lib/api/instances/hospitalisation";
 import { cn } from "@/lib/utils";
+import { PatientInfoModal } from "./PatientInfoModal";
+import { AttributionModal } from "./AttributionModal";
 function formatRelativeTime(date: string | number | Date) {
   const now = new Date().getTime();
   const diff = now - new Date(date).getTime();
@@ -26,6 +28,8 @@ interface NotificationCardProps {
 
 export function NotificationCard({ notification }: NotificationCardProps) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showPatientInfo, setShowPatientInfo] = useState(false);
+  const [showAttributionModal, setShowAttributionModal] = useState(false);
   const updateNotificationStatus = useNotificationStore((state) => state.updateNotificationStatus);
   const [relativeTime, setRelativeTime] = useState("");
 
@@ -134,23 +138,36 @@ export function NotificationCard({ notification }: NotificationCardProps) {
                 <>
                   <button 
                     onClick={() => handleStatusUpdate(StatutDemande.REFUSE)}
-                    className="px-5 py-2 rounded-[10px] border-[1.5px] border-red-100 text-[#E11D48] text-[12.5px] font-bold hover:bg-red-50 transition-colors"
+                    className="px-5 py-2 rounded-[10px] cursor-pointer border-[1.5px] border-red-100 text-[#E11D48] text-[12.5px] font-bold hover:bg-red-50 transition-colors"
                   >
                     Refuser
                   </button>
                   <button 
                     onClick={() => handleStatusUpdate(StatutDemande.ACCEPTE)}
-                    className="px-6 py-2 rounded-[10px] bg-[#006A8C] text-white text-[12.5px] font-bold hover:bg-[#005a76] transition-colors shadow-sm"
+                    className="px-6 py-2 rounded-[10px] cursor-pointer bg-[#006A8C] text-white text-[12.5px] font-bold hover:bg-[#005a76] transition-colors shadow-sm"
                   >
                     Accepter
+                  </button>
+                  <button
+                    onClick={() => setShowPatientInfo(true)}
+                    className="px-5 py-2 rounded-[10px] cursor-pointer border-[1.5px] border-[#006A8C] text-[#006A8C] text-[12.5px] font-bold hover:bg-[#006A8C] hover:text-white transition-colors"
+                  >
+                    Infos Patient
                   </button>
                 </>
               )}
 
               {isAccepted && (
                 <>
+                <button
+                    onClick={() => setShowPatientInfo(true)}
+                    className="px-5 py-2 rounded-[10px] cursor-pointer border-[1.5px] border-[#006A8C] text-[#006A8C] text-[12.5px] font-bold hover:bg-[#006A8C] hover:text-white transition-colors"
+                  >
+                    Infos Patient
+                  </button>
                   <button 
-                    className="px-6 py-2 rounded-[10px] bg-[#10B981] text-white text-[12.5px] font-bold hover:bg-[#059669] transition-colors shadow-sm"
+                    className="px-6 py-2 rounded-[10px] cursor-pointer bg-[#10B981] text-white text-[12.5px] font-bold hover:bg-[#059669] transition-colors shadow-sm"
+                    onClick={() => setShowAttributionModal(true)}
                   >
                     Attribuer chambre / Lit
                   </button>
@@ -166,6 +183,17 @@ export function NotificationCard({ notification }: NotificationCardProps) {
           )}
         </div>
       </div>
+
+      <PatientInfoModal 
+        isOpen={showPatientInfo} 
+        onClose={() => setShowPatientInfo(false)} 
+        notification={notification} 
+      />
+      <AttributionModal
+        isOpen={showAttributionModal}
+        onClose={() => setShowAttributionModal(false)}
+        notification={notification}
+      />
     </div>
   );
 }

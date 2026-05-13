@@ -4,21 +4,17 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Search, BarChart2, ClipboardList, CheckCircle } from "lucide-react";
 import { useNotificationStore, EnrichedNotification, PatientInfo } from "@/stores/notification-store";
 import { hospitalisationApi, StatutDemande } from "@/lib/api/instances/hospitalisation";
-import { patientApi } from "@/lib/api/instances/patient";
-import { useTenant } from "@/hooks/use-tenant";
 import { NotificationCard } from "@/components/notification/NotificationCard";
 import { NotificationSkeleton } from "@/components/notification/NotificationSkeleton";
 import { cn } from "@/lib/utils";
 
 export default function NotificationPage() {
   const { notifications, setNotifications, resetUnread } = useNotificationStore();
-  const { tenantId } = useTenant();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("Toutes");
 
-
-  const toPatientInfo = (raw: unknown, fallbackId: string): PatientInfo | undefined => {
+  const normalizePatientInfo = (raw: unknown, fallbackId?: string): PatientInfo | undefined => {
     if (!raw || typeof raw !== "object") return undefined;
 
     const record = raw as Record<string, unknown>;
@@ -31,8 +27,11 @@ export default function NotificationPage() {
       return undefined;
     };
 
+    const id = pickString(record.id, record.patientId, fallbackId);
+
     return {
-      id: pickString(record.id, fallbackId) ?? fallbackId,
+      ...record,
+      id: id ?? fallbackId,
       nom: pickString(record.nom, record.lastName, record.last_name, record.lastname),
       prenom: pickString(record.prenom, record.firstName, record.first_name, record.firstname),
       dateNaissance: pickString(record.dateNaissance, record.birthDate, record.birth_date),
@@ -47,32 +46,25 @@ export default function NotificationPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!tenantId) {
-        setLoading(false);
-        return;
-      }
       setLoading(true);
       try {
-        const response = await hospitalisationApi.getActives(50);
-        const activeHospis = response.data;
+        const response = await hospitalisationApi.getNotifications(50);
+        const enriched = response.data.map((item) => {
+          const patient = normalizePatientInfo(item.patient, item.patientId);
+          const receivedAtValue =
+            typeof item.receivedAt === "number"
+              ? item.receivedAt
+              : new Date(item.dateEntrer).getTime();
+          const receivedAt = Number.isNaN(receivedAtValue)
+            ? Date.now()
+            : receivedAtValue;
 
-        // Fetch patient info for each hospitalisation
-        const enriched = await Promise.all(
-          activeHospis.map(async (h) => {
-            let patient = null;
-            try {
-              const pResp = await patientApi.getById(h.patientId, tenantId);
-              patient = toPatientInfo(pResp.data, h.patientId);
-            } catch (e) {
-              console.error(`Failed to fetch patient ${h.patientId}`, e);
-            }
-            return {
-              ...h,
-              patient: patient || undefined,
-              receivedAt: new Date(h.dateEntrer).getTime(),
-            } as EnrichedNotification;
-          })
-        );
+          return {
+            ...item,
+            patient: patient ?? undefined,
+            receivedAt,
+          } as EnrichedNotification;
+        });
 
         setNotifications(enriched);
       } catch (error) {
@@ -83,7 +75,7 @@ export default function NotificationPage() {
     };
 
     fetchData();
-  }, [tenantId, setNotifications]);
+  }, [setNotifications]);
 
   const showSkeleton = loading && notifications.length === 0;
 
