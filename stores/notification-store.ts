@@ -33,6 +33,8 @@ interface NotificationStore {
   addNotification: (notification: EnrichedNotification) => void;
   setNotifications: (notifications: EnrichedNotification[]) => void;
   updateNotificationStatus: (id: string, status: EnrichedNotification["statusDemande"]) => void;
+  /** Retire une hospitalisation de la liste (ex. après affectation de lit réussie). */
+  removeNotification: (id: string) => void;
   clearNotifications: () => void;
 }
 
@@ -49,6 +51,11 @@ export const useNotificationStore = create<NotificationStore>()(
         })),
       addNotification: (notification) =>
         set((state) => {
+          const hasLit =
+            typeof notification.litCode === "string" &&
+            notification.litCode.trim().length > 0;
+          if (hasLit) return state;
+
           // Éviter les doublons si possible
           const exists = state.notifications.some((n) => n.id === notification.id);
           if (exists) return state;
@@ -63,35 +70,24 @@ export const useNotificationStore = create<NotificationStore>()(
             unreadCount: state.unreadCount + (nextNotification.isRead ? 0 : 1),
           };
         }),
+      /** Synchronise avec le serveur : les ids absents de la réponse sont retirés (ex. lit déjà affecté). */
       setNotifications: (notifications) =>
         set((state) => {
-          const merged = new Map<string, EnrichedNotification>();
-
-          for (const current of state.notifications) {
-            merged.set(current.id, current);
-          }
-
-          for (const incoming of notifications) {
-            const existing = merged.get(incoming.id);
-            if (existing) {
-              merged.set(incoming.id, {
-                ...existing,
-                ...incoming,
-                patient: incoming.patient ?? existing.patient,
-                receivedAt: incoming.receivedAt ?? existing.receivedAt,
-                isRead: incoming.isRead ?? existing.isRead ?? true,
-              });
-            } else {
-              merged.set(incoming.id, {
-                ...incoming,
-                isRead: incoming.isRead ?? true,
-              });
-            }
-          }
-
-          const sorted = Array.from(merged.values()).sort(
-            (a, b) => b.receivedAt - a.receivedAt,
+          const previousById = new Map(
+            state.notifications.map((n) => [n.id, n] as const),
           );
+
+          const next = notifications.map((incoming) => {
+            const existing = previousById.get(incoming.id);
+            return {
+              ...incoming,
+              patient: incoming.patient ?? existing?.patient,
+              receivedAt: incoming.receivedAt ?? existing?.receivedAt ?? Date.now(),
+              isRead: incoming.isRead ?? existing?.isRead ?? true,
+            };
+          });
+
+          const sorted = next.sort((a, b) => b.receivedAt - a.receivedAt);
 
           const unreadCount = sorted.reduce(
             (count, item) => count + (item.isRead ? 0 : 1),
@@ -110,6 +106,15 @@ export const useNotificationStore = create<NotificationStore>()(
             0,
           );
 
+          return { notifications, unreadCount };
+        }),
+      removeNotification: (id) =>
+        set((state) => {
+          const notifications = state.notifications.filter((n) => n.id !== id);
+          const unreadCount = notifications.reduce(
+            (count, item) => count + (item.isRead ? 0 : 1),
+            0,
+          );
           return { notifications, unreadCount };
         }),
       clearNotifications: () => set({ notifications: [], unreadCount: 0 }),
