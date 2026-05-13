@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { BedSingle, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { BedSingle, Loader2, X } from "lucide-react";
 import { EnrichedNotification } from "@/stores/notification-store";
 import { cn } from "@/lib/utils";
+import { hospitalisationApi, type PlanLitRoom } from "@/lib/api/instances/hospitalisation";
+import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
 
 interface AttributionModalProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ type RoomOption = {
   type: string;
   availability: string;
   status: RoomStatus;
+  beds: BedOption[];
 };
 
 type BedStatus = "available" | "occupied";
@@ -29,71 +32,133 @@ type BedOption = {
   status: BedStatus;
 };
 
-const rooms: RoomOption[] = [
-  {
-    id: "204",
-    label: "Ch. 204",
-    type: "DOUBLE",
-    availability: "1/2 dispo",
-    status: "available",
-  },
-  {
-    id: "205",
-    label: "Ch. 205",
-    type: "SALLE COMMUNE",
-    availability: "2/4 dispo",
-    status: "available",
-  },
-  {
-    id: "208",
-    label: "Ch. 208",
-    type: "INDIVIDUELLE",
-    availability: "Occupee",
-    status: "occupied",
-  },
-  {
-    id: "210",
-    label: "Ch. 210",
-    type: "DOUBLE",
-    availability: "2/2 dispo",
-    status: "available",
-  },
-];
+function decodeBase64Url(input: string): string {
+  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  if (typeof window === "undefined") return "";
+  return window.atob(padded);
+}
 
-const bedsByRoom: Record<string, BedOption[]> = {
-  "204": [
-    { id: "A", label: "Lit A", status: "occupied" },
-    { id: "B", label: "Lit B", status: "available" },
-  ],
-  "205": [
-    { id: "A", label: "Lit A", status: "available" },
-    { id: "B", label: "Lit B", status: "available" },
-  ],
-  "208": [
-    { id: "A", label: "Lit A", status: "occupied" },
-    { id: "B", label: "Lit B", status: "occupied" },
-  ],
-  "210": [
-    { id: "A", label: "Lit A", status: "available" },
-    { id: "B", label: "Lit B", status: "available" },
-  ],
-};
+function resolveServiceIdFromAuth(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const token = window.localStorage?.getItem("auth_token");
+  if (token) {
+    const parts = token.split(".");
+    if (parts.length >= 2) {
+      try {
+        const payload = JSON.parse(decodeBase64Url(parts[1])) as Record<string, unknown>;
+        const candidate =
+          payload.serviceId ?? payload.service_id ?? payload.idService ?? payload.service;
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      } catch {
+        /* session mock ou autre */
+      }
+    }
+  }
+
+  return getClinicalServiceIdFromBrowser();
+}
+
+function mapRooms(chambres: PlanLitRoom[]): RoomOption[] {
+  return chambres.map((chambre) => {
+    const beds: BedOption[] = chambre.lits.map((lit) => ({
+      id: lit.litId,
+      label: `Lit ${lit.codeLit}`,
+      status: lit.statut === "DISPONIBLE" ? "available" : "occupied",
+    }));
+    const availableCount = beds.filter((bed) => bed.status === "available").length;
+    const totalCount = beds.length;
+    const roomStatus: RoomStatus = availableCount > 0 ? "available" : "occupied";
+
+    return {
+      id: chambre.chambreId,
+      label: `Ch. ${chambre.numeroChambre}`,
+      type: chambre.type,
+      availability: availableCount > 0 ? `${availableCount}/${totalCount} dispo` : "Occupee",
+      status: roomStatus,
+      beds,
+    };
+  });
+}
 
 export function AttributionModal({ isOpen, onClose, notification }: AttributionModalProps) {
-  const [selectedRoom, setSelectedRoom] = useState("204");
-  const [selectedBed, setSelectedBed] = useState("B");
+  const [selectedRoom, setSelectedRoom] = useState("");
+  const [selectedBed, setSelectedBed] = useState("");
+  const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const rawPatientName = notification.patient
     ? `${notification.patient.nom || ""} ${notification.patient.prenom || ""}`.trim()
     : "";
   const patientName = rawPatientName.length > 0 ? rawPatientName : "Patient inconnu";
   const patientId = notification.patientId || notification.id ? String(notification.patientId || notification.id) : "-";
+  const effectiveServiceId = resolveServiceIdFromAuth() ?? notification.serviceId;
 
   const selectedRoomStatus = useMemo(
     () => rooms.find((room) => room.id === selectedRoom)?.status,
     [selectedRoom]
   );
-  const beds = useMemo(() => bedsByRoom[selectedRoom] ?? [], [selectedRoom]);
+  const beds = useMemo(
+    () => rooms.find((room) => room.id === selectedRoom)?.beds ?? [],
+    [rooms, selectedRoom]
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (!effectiveServiceId) {
+      setErrorMessage("Service introuvable dans la session.");
+      setRooms([]);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchBedPlan = async () => {
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const response = await hospitalisationApi.getBedPlan(effectiveServiceId);
+        if (!isMounted) return;
+        const mappedRooms = mapRooms(response.data?.chambres ?? []);
+        setRooms(mappedRooms);
+
+        const firstAvailableRoom = mappedRooms.find((room) => room.status === "available");
+        const firstAvailableBed = firstAvailableRoom?.beds.find((bed) => bed.status === "available");
+        setSelectedRoom(firstAvailableRoom?.id ?? mappedRooms[0]?.id ?? "");
+        setSelectedBed(firstAvailableBed?.id ?? firstAvailableRoom?.beds[0]?.id ?? "");
+      } catch (error) {
+        if (!isMounted) return;
+        setErrorMessage("Impossible de charger les chambres et lits du service.");
+        setRooms([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchBedPlan();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, effectiveServiceId]);
+
+  const handleConfirm = async () => {
+    if (!selectedBed) return;
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      await hospitalisationApi.assignBed(notification.id, selectedBed);
+      onClose();
+    } catch (error) {
+      setErrorMessage("Echec de l'attribution du lit. Veuillez reessayer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -108,7 +173,7 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
       >
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 text-gray-400 hover:text-gray-600"
+          className="absolute cursor-pointer right-5 top-5 text-gray-400 hover:text-gray-600"
           aria-label="Fermer la modale"
         >
           <X className="h-4 w-4" />
@@ -130,12 +195,18 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
                 Selection de la chambre
               </p>
               <p className="text-[10px] font-semibold text-gray-400">
-                Filtre par: <span className="text-gray-500">Chirurgie Viscerale</span>
+                Filtre par: <span className="text-gray-500">{effectiveServiceId ?? "Service inconnu"}</span>
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {rooms.filter((room) => room.status !== "occupied").map((room) => {
+            {isLoading ? (
+              <div className="flex items-center gap-2 rounded-[12px] border border-gray-200 bg-[#F8FAFC] px-4 py-3 text-[12px] font-semibold text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des chambres...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {rooms.filter((room) => room.status !== "occupied").map((room) => {
                 const isSelected = selectedRoom === room.id;
                 const isDisabled = room.status === "occupied";
 
@@ -147,8 +218,8 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
                     onClick={() => {
                       if (!isDisabled) {
                         setSelectedRoom(room.id);
-                        const defaultBed = bedsByRoom[room.id]?.find((bed) => bed.status === "available");
-                        setSelectedBed(defaultBed?.id ?? bedsByRoom[room.id]?.[0]?.id ?? "A");
+                        const defaultBed = room.beds.find((bed) => bed.status === "available");
+                        setSelectedBed(defaultBed?.id ?? room.beds[0]?.id ?? "");
                       }
                     }}
                     className={cn(
@@ -185,14 +256,15 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
                   </button>
                 );
               })}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="mb-6">
             <p className="mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-gray-400">
               Selection du lit (Chambre {selectedRoom})
             </p>
-            {selectedRoomStatus === "occupied" ? (
+            {selectedRoomStatus === "occupied" || beds.length === 0 ? (
               <div className="rounded-[12px] border border-gray-200 bg-gray-50 px-4 py-3 text-[11.5px] font-semibold text-gray-400">
                 Chambre occupee. Aucun lit disponible.
               </div>
@@ -247,6 +319,12 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
             )}
           </div>
 
+          {errorMessage ? (
+            <div className="mb-6 rounded-[10px] border border-red-100 bg-red-50 px-4 py-3 text-[11.5px] font-semibold text-red-600">
+              {errorMessage}
+            </div>
+          ) : null}
+
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <p className="mb-2 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-gray-400">
@@ -274,15 +352,17 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
             <button
               type="button"
               onClick={onClose}
-              className="text-[12.5px] font-bold text-gray-500 hover:text-gray-700"
+              className="text-[12.5px] cursor-pointer font-bold text-gray-500 hover:text-gray-700"
             >
               Annuler
             </button>
             <button
               type="button"
-              className="rounded-[12px] bg-[#006A8C] px-5 py-2.5 text-[12.5px] font-extrabold text-white shadow-[0px_8px_18px_rgba(0,106,140,0.25)] hover:bg-[#005a76]"
+              disabled={!selectedBed || isSubmitting || isLoading}
+              onClick={handleConfirm}
+              className="rounded-[12px] cursor-pointer bg-[#006A8C] px-5 py-2.5 text-[12.5px] font-extrabold text-white shadow-[0px_8px_18px_rgba(0,106,140,0.25)] hover:bg-[#005a76]"
             >
-              Confirmer l'attribution
+              {isSubmitting ? "Attribution..." : "Confirmer l'attribution"}
             </button>
           </div>
         </div>
