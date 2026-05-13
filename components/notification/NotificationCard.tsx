@@ -6,6 +6,7 @@ import { EnrichedNotification, useNotificationStore } from "@/stores/notificatio
 import { hospitalisationApi, StatutDemande } from "@/lib/api/instances/hospitalisation";
 import { cn } from "@/lib/utils";
 import { PatientInfoModal } from "./PatientInfoModal";
+import { AttributionModal } from "./AttributionModal";
 function formatRelativeTime(date: string | number | Date) {
   const now = new Date().getTime();
   const diff = now - new Date(date).getTime();
@@ -28,6 +29,7 @@ interface NotificationCardProps {
 export function NotificationCard({ notification }: NotificationCardProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showPatientInfo, setShowPatientInfo] = useState(false);
+  const [showAttributionModal, setShowAttributionModal] = useState(false);
   const updateNotificationStatus = useNotificationStore((state) => state.updateNotificationStatus);
   const [relativeTime, setRelativeTime] = useState("");
 
@@ -165,6 +167,7 @@ export function NotificationCard({ notification }: NotificationCardProps) {
                   </button>
                   <button 
                     className="px-6 py-2 rounded-[10px] cursor-pointer bg-[#10B981] text-white text-[12.5px] font-bold hover:bg-[#059669] transition-colors shadow-sm"
+                    onClick={() => setShowAttributionModal(true)}
                   >
                     Attribuer chambre / Lit
                   </button>
@@ -185,6 +188,11 @@ export function NotificationCard({ notification }: NotificationCardProps) {
         isOpen={showPatientInfo} 
         onClose={() => setShowPatientInfo(false)} 
         notification={notification} 
+      />
+      <AttributionModal
+        isOpen={showAttributionModal}
+        onClose={() => setShowAttributionModal(false)}
+        notification={notification}
       />
     </div>
   );
