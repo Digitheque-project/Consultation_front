@@ -1,4 +1,7 @@
-import { MOCK_SESSION_VERSION } from "@/lib/auth/constants";
+import {
+  DEFAULT_CLINICAL_SERVICE_ID,
+  MOCK_SESSION_VERSION,
+} from "@/lib/auth/constants";
 
 export type MockAuthModule = "accueil" | "admin" | "clinical" | "billing";
 
@@ -7,6 +10,8 @@ export type MockSessionPayload = {
   sub: string;
   module: MockAuthModule;
   iat: number;
+  /** Présent lorsque l’accueil clinique est choisi à la connexion (ou déduit pour les anciennes sessions). */
+  serviceId?: string;
 };
 
 const MODULE_HOME: Record<MockAuthModule, string> = {
@@ -36,7 +41,21 @@ export function createMockSessionPayload(
     sub,
     module,
     iat: Date.now(),
+    ...(module === "clinical"
+      ? { serviceId: DEFAULT_CLINICAL_SERVICE_ID }
+      : {}),
   };
+}
+
+/** Service courant pour l’UI clinique à partir de la session mock (null si autre module). */
+export function resolveClinicalServiceId(
+  session: MockSessionPayload | null
+): string | null {
+  if (!session || session.module !== "clinical") {
+    return null;
+  }
+  const id = session.serviceId?.trim();
+  return id && id.length > 0 ? id : DEFAULT_CLINICAL_SERVICE_ID;
 }
 
 /**
@@ -73,11 +92,19 @@ export function decodeMockSession(
     if (typeof o.iat !== "number" || !Number.isFinite(o.iat)) {
       return null;
     }
+    const serviceIdFromJson =
+      typeof o.serviceId === "string" && o.serviceId.trim().length > 0
+        ? o.serviceId.trim()
+        : undefined;
+
     return {
       v: MOCK_SESSION_VERSION,
       sub: o.sub,
       module: o.module,
       iat: o.iat,
+      serviceId:
+        serviceIdFromJson ??
+        (o.module === "clinical" ? DEFAULT_CLINICAL_SERVICE_ID : undefined),
     };
   } catch {
     return null;

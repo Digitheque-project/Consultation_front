@@ -25,6 +25,42 @@ export interface HospitalisationNotification extends Hospitalisation {
   receivedAt?: number;
 }
 
+type BedStatusApi = "DISPONIBLE" | "OCCUPE" | string;
+
+export interface PlanLitHospitalisation {
+  id: string;
+  patientId: string;
+  dateEntrer: string;
+  motifHospitalisation: string;
+  statutHospitalisation: string;
+  diagnostic?: string | null;
+  soinsCount: number;
+}
+
+export interface PlanLitBed {
+  litId: string;
+  codeLit: string;
+  statut: BedStatusApi;
+  hospitalisation?: PlanLitHospitalisation | null;
+}
+
+export interface PlanLitRoom {
+  chambreId: string;
+  numeroChambre: number;
+  type: string;
+  lits: PlanLitBed[];
+}
+
+export interface PlanLitsResponse {
+  serviceId: string;
+  chambres: PlanLitRoom[];
+  stats: {
+    totalLits: number;
+    litsOccupes: number;
+    totalPatients: number;
+  };
+}
+
 export const hospitalisationApi = {
   getActives: async (limit?: number) => {
     return clientApi.get<Hospitalisation[]>("/hospitalisations/actives", {
@@ -54,5 +90,9 @@ export const hospitalisationApi = {
   
   getAvailableBeds: async (serviceId: string) => {
     return clientApi.get(`/hospitalisations/services/${serviceId}/lits/disponibles`);
-  }
+  },
+
+  getBedPlan: async (serviceId: string) => {
+    return clientApi.get<PlanLitsResponse>(`/hospitalisations/plan-lits/${serviceId}`);
+  },
 };
