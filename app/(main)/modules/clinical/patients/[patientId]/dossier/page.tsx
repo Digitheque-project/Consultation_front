@@ -5,11 +5,17 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { ehr } from "@/lib/clinical/ehr-theme";
-import { readDossierPatientPrefill } from "@/lib/clinical/dossier-patient-prefill";
+import {
+  readDossierPatientPrefill,
+  type DossierPatientRoutePrefill,
+} from "@/lib/clinical/dossier-patient-prefill";
 import {
   ObservationForm,
   type ObservationPatientInfo,
 } from "@/components/clinical/dossier-patient/ObservationForm";
+import { DiagnosticTab } from "@/components/clinical/dossier-patient/DiagnosticTab";
+import { PrescriptionsTab } from "@/components/clinical/dossier-patient/PrescriptionsTab";
+import { SuiviTab } from "@/components/clinical/dossier-patient/SuiviTab";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -129,10 +135,13 @@ export default function DossierPatientDetailPage() {
     [],
   );
 
-  const prefill = useMemo(
-    () => (patientId ? readDossierPatientPrefill(patientId) : null),
-    [patientId],
-  );
+  const [prefill, setPrefill] = useState<DossierPatientRoutePrefill | null>(null);
+
+  useEffect(() => {
+    if (patientId) {
+      setPrefill(readDossierPatientPrefill(patientId));
+    }
+  }, [patientId]);
 
   const hydratedPatientInfo = useMemo(
     () => toObservationPatientInfo(prefill?.patient ?? null),
@@ -318,7 +327,13 @@ export default function DossierPatientDetailPage() {
                 patientId={patientId}
                 hydratedPatientInfo={hydratedPatientInfo}
               />
-            ) : activeTab !== "observation" ? (
+            ) : activeTab === "diagnostic" && patientId ? (
+              <DiagnosticTab patientId={patientId} />
+            ) : activeTab === "prescription" && patientId ? (
+              <PrescriptionsTab patientId={patientId} />
+            ) : activeTab === "suivi" && patientId ? (
+              <SuiviTab patientId={patientId} />
+            ) : activeTab !== "observation" && activeTab !== "diagnostic" && activeTab !== "prescription" && activeTab !== "suivi" ? (
               <p className="text-center text-[14px] font-medium text-slate-500">
                 Cet onglet sera branché prochainement.
               </p>

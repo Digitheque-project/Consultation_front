@@ -109,12 +109,12 @@ export function DiagnosticTab({ patientId, medecinNom = 'Dr. Jean Pierre' }: Pro
     fontSize: 13,
     color: ehr.text,
     outline: 'none',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Manrope', sans-serif",
     boxSizing: 'border-box',
   };
 
   return (
-    <div style={{ display: 'flex', gap: '24px', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', gap: '24px', fontFamily: "'Manrope', sans-serif" }}>
 
       <div style={{ flex: 1 }}>
         <EhrFormSection
@@ -299,7 +299,7 @@ export function DiagnosticTab({ patientId, medecinNom = 'Dr. Jean Pierre' }: Pro
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: 'pointer',
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'Manrope', sans-serif",
                   }}
                 >
                   ✏️ Modifier
@@ -323,7 +323,7 @@ export function DiagnosticTab({ patientId, medecinNom = 'Dr. Jean Pierre' }: Pro
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: 'pointer',
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'Manrope', sans-serif",
                   }}
                 >
                   + Ajouter nouveau diagnostic
@@ -348,7 +348,7 @@ export function DiagnosticTab({ patientId, medecinNom = 'Dr. Jean Pierre' }: Pro
                       fontSize: 13,
                       fontWeight: 600,
                       cursor: 'pointer',
-                      fontFamily: "'Inter', sans-serif",
+                      fontFamily: "'Manrope', sans-serif",
                     }}
                   >
                     Annuler
@@ -370,7 +370,7 @@ export function DiagnosticTab({ patientId, medecinNom = 'Dr. Jean Pierre' }: Pro
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: form.diagnosticPrincipal.trim() ? 'pointer' : 'not-allowed',
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'Manrope', sans-serif",
                   }}
                 >
                   {isSaving ? '⏳ Enregistrement...' : '✓ Valider le diagnostic'}
