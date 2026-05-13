@@ -11,7 +11,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   hospitalisationApi,
   type PlanLitBed,
@@ -22,6 +22,7 @@ import {
 import { DEFAULT_CLINICAL_SERVICE_ID } from "@/lib/auth/constants";
 import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
 import { cn } from "@/lib/utils";
+import { writeDossierPatientPrefill } from "@/lib/clinical/dossier-patient-prefill";
 
 const DOT_STABLE = "#006A8C";
 const DOT_SURVEILLANCE = "#F59E0B";
@@ -389,9 +390,12 @@ function MaintenanceBedCard({ codeLit }: { codeLit: string }) {
 
 function PatientQuickPreviewPanel({
   selection,
+  serviceId,
 }: {
   selection: LitSelection | null;
+  serviceId: string | null;
 }) {
+  const router = useRouter();
   if (!selection) {
     return (
       <div className="flex min-h-[380px] flex-col items-center justify-center rounded-[22px] border border-gray-100 bg-white px-6 py-12 text-center shadow-[0px_4px_16px_rgba(17,17,26,0.05)]">
@@ -567,6 +571,24 @@ function PatientQuickPreviewPanel({
         <button
           type="button"
           className="rounded-[12px] bg-[#F1F5F9] py-3 text-center text-[11.5px] font-extrabold text-gray-700 transition-colors hover:bg-[#E2E8F0]"
+          onClick={(e) => {
+            e.stopPropagation();
+            const { hosp, patient, chambreNumero, codeLit } = selection;
+            writeDossierPatientPrefill(hosp.patientId, {
+              hospitalisationId: hosp.id,
+              serviceId: serviceId ?? undefined,
+              chambreNumero,
+              codeLit,
+              patient,
+            });
+            const qs = new URLSearchParams();
+            if (serviceId) qs.set("serviceId", serviceId);
+            if (hosp.id) qs.set("hospitalisationId", hosp.id);
+            const q = qs.toString();
+            router.push(
+              `/modules/clinical/patients/${encodeURIComponent(hosp.patientId)}/dossier${q ? `?${q}` : ""}`,
+            );
+          }}
         >
           Voir dossier
         </button>
@@ -872,7 +894,10 @@ export default function GestionPatientsPage() {
         </div>
 
         <div className="space-y-5">
-          <PatientQuickPreviewPanel selection={selection} />
+          <PatientQuickPreviewPanel
+            selection={selection}
+            serviceId={serviceId}
+          />
 
           <div
             className="rounded-[22px] text-white p-6 relative overflow-hidden"
