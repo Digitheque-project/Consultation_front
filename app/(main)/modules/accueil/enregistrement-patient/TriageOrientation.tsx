@@ -7,6 +7,7 @@ import {
   Sun, Sunset, Info, AlertTriangle, Clock,
   ChevronRight, Activity, Microscope,
 } from 'lucide-react';
+import { createHospitalisationRequest, type HospitalisationCreationPayload } from '@/lib/api/services/hospitalisations';
 
 interface TriageOrientationProps {
   patient?: {
@@ -18,6 +19,8 @@ interface TriageOrientationProps {
     motif?: string;
   };
   onRetour?: () => void;
+  /** Affiche un bandeau après enregistrement réussi à l’étape 1. */
+  registrationSaved?: boolean;
 }
 
 type Parcours = 'consultation' | 'hospitalisation' | 'pharmacie' | 'paraclinique';
@@ -149,14 +152,19 @@ function PriorityBtn({ value, current, onChange }: { value: string; current: str
   );
 }
 
-function SubmitBtn({ label }: { label: string }) {
+function SubmitBtn({ label, onSubmit, onCancel }: { label: string; onSubmit?: () => void; onCancel?: () => void }) {
   return (
     <>
-      <button type="button" className="px-5 py-2.5 text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="px-5 py-2.5 text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors"
+      >
         Annuler
       </button>
       <button
         type="button"
+        onClick={onSubmit}
         className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 active:scale-[0.98] rounded-xl transition-all shadow-sm shadow-blue-200"
       >
         <Send size={14} />
@@ -168,7 +176,7 @@ function SubmitBtn({ label }: { label: string }) {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function TriageOrientation({ patient, onRetour }: TriageOrientationProps) {
+export default function TriageOrientation({ patient, onRetour, registrationSaved }: TriageOrientationProps) {
   const [parcours, setParcours]         = useState<Parcours>('consultation');
   const [selectedSlot, setSelectedSlot] = useState('Mer15-matin');
   const [priority, setPriority]         = useState<Priority>('normal');
@@ -181,6 +189,12 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
   ]);
   const [pharmPriority, setPharmPriority] = useState<'standard' | 'urgent'>('standard');
 
+  const [hospitalisationServiceId, setHospitalisationServiceId] = useState('MEDECINE_INTERNE');
+  const [hospitalisationCommentaire, setHospitalisationCommentaire] = useState('');
+  const [hospitalisationError, setHospitalisationError] = useState<string | null>(null);
+  const [hospitalisationSuccess, setHospitalisationSuccess] = useState(false);
+  const [hospitalisationLoading, setHospitalisationLoading] = useState(false);
+
   // Paraclinique
   const [examens, setExamens] = useState<ExamenLine[]>([
     { id: 1, type: 'biologie', nom: 'NFS complète',        precision: 'Avec formule leucocytaire', urgence: false },
@@ -189,6 +203,36 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
   ]);
   const [paraMotif, setParaMotif]       = useState('');
   const [paraPriority, setParaPriority] = useState<Priority>('normal');
+
+  const handleHospitalisationSubmit = async () => {
+    setHospitalisationError(null);
+    setHospitalisationSuccess(false);
+    setHospitalisationLoading(true);
+
+    if (!patient?.id) {
+      setHospitalisationError('Identifiant patient manquant.');
+      setHospitalisationLoading(false);
+      return;
+    }
+
+    const payload: HospitalisationCreationPayload = {
+      patientId: patient.id,
+      serviceId: hospitalisationServiceId,
+      dateEntrer: new Date().toISOString(),
+      motifHospitalisation: patient.motif || 'Demande d\'hospitalisation',
+      type: 'Hospitalisation',
+      commentaire: hospitalisationCommentaire,
+    };
+
+    try {
+      await createHospitalisationRequest(payload);
+      setHospitalisationSuccess(true);
+    } catch (error) {
+      setHospitalisationError(error instanceof Error ? error.message : 'Une erreur est survenue');
+    } finally {
+      setHospitalisationLoading(false);
+    }
+  };
 
   const pt = patient || { nom: 'RAKOTOMALALA', prenom: 'Jean', id: '#CHUA-00441', age: '45 ans', genre: 'Masculin', motif: '' };
 
@@ -223,6 +267,12 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-6 max-w-7xl mx-auto space-y-6">
+        {registrationSaved && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <Check size={18} className="shrink-0 text-emerald-600" />
+            <span>Patient enregistré avec succès.</span>
+          </div>
+        )}
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
@@ -464,21 +514,31 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
           {parcours === 'hospitalisation' && (
             <SectionCard
               title="Demande d'hospitalisation"
-              footer={<SubmitBtn label="Envoyer la demande d'admission" />}
+              footer={<SubmitBtn label="Envoyer la demande d'admission" onSubmit={handleHospitalisationSubmit} />}
             >
               <div className="grid grid-cols-12 gap-6">
 
-                {/* Left: service only */}
+                {/* Left: service and demande info */}
                 <div className="col-span-5 space-y-5">
                   <div>
+                    <label className={LABEL}>Motif d'hospitalisation</label>
+                    <div className="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-800 cursor-not-allowed">
+                      {pt.motif || '—'}
+                    </div>
+                  </div>
+
+                  <div>
                     <label className={LABEL}>Service de destination</label>
-                    <select className={INPUT}>
-                      <option value="">Sélectionnez un service…</option>
-                      <option>Médecine Interne</option>
-                      <option>Chirurgie</option>
-                      <option>Pédiatrie</option>
-                      <option>Cardiologie</option>
-                      <option>Neurologie</option>
+                    <select
+                      className={INPUT}
+                      value={hospitalisationServiceId}
+                      onChange={e => setHospitalisationServiceId(e.target.value)}
+                    >
+                      <option value="MEDECINE_INTERNE">Médecine Interne</option>
+                      <option value="chirurgie">Chirurgie</option>
+                      <option value="PEDIATRIE">Pédiatrie</option>
+                      <option value="CARDIOLOGIE">Cardiologie</option>
+                      <option value="NEUROLOGIE">Neurologie</option>
                     </select>
                   </div>
 
@@ -494,34 +554,38 @@ export default function TriageOrientation({ patient, onRetour }: TriageOrientati
                       </div>
                     </div>
                   </div>
-
-                  {/* Motif de la visite venant de l'enregistrement */}
-                  <div>
-                    <p className={LABEL}>Motif de la visite</p>
-                    <div className={`w-full px-4 py-3 rounded-xl border text-[13px] leading-relaxed ${
-                      pt.motif
-                        ? 'bg-gray-50 border-gray-200 text-gray-700'
-                        : 'bg-gray-50 border-dashed border-gray-200 text-gray-400 italic'
-                    }`}>
-                      {pt.motif || 'Aucun motif renseigné lors de l\'enregistrement.'}
-                    </div>
-                    <p className="mt-1.5 text-[10px] text-gray-400 font-medium tracking-wide uppercase">
-                      Saisi lors de l'enregistrement du patient
-                    </p>
-                  </div>
                 </div>
 
                 {/* Right: observations */}
-                <div className="col-span-7 space-y-2 flex flex-col">
-                  <label className={LABEL}>Information complémentaires</label>
-                  <textarea
-                    rows={10}
-                    placeholder="Diagnostics évoqués, antécédents pertinents, traitements en cours, informations complémentaires à transmettre…"
-                    className={`${INPUT} resize-none leading-relaxed flex-1`}
-                  />
-                  {/* <p className="text-[11px] text-gray-400">
-                    Ces observations seront jointes à la demande transmise au service de destination.
-                  </p> */}
+                <div className="col-span-7 space-y-4 flex flex-col">
+                  <div>
+                    <label className={LABEL}>Informations complémentaires</label>
+                    <textarea
+                      rows={10}
+                      placeholder="Diagnostics évoqués, antécédents pertinents, traitements en cours, informations complémentaires à transmettre…"
+                      className={`${INPUT} resize-none leading-relaxed flex-1`}
+                      value={hospitalisationCommentaire}
+                      onChange={e => setHospitalisationCommentaire(e.target.value)}
+                    />
+                  </div>
+
+                  {hospitalisationError && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {hospitalisationError}
+                    </div>
+                  )}
+
+                  {hospitalisationSuccess && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                      Demande d'hospitalisation envoyée avec succès.
+                    </div>
+                  )}
+
+                  {hospitalisationLoading && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                      Envoi de la demande en cours…
+                    </div>
+                  )}
                 </div>
               </div>
             </SectionCard>
