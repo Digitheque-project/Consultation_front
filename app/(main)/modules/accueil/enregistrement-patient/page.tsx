@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { User, MapPin, Phone, Heart, Building2, Info, CheckCircle2 } from 'lucide-react';
+import { User, MapPin, Phone, Heart, Building2, Info, CheckCircle2, UserPlus } from 'lucide-react';
 import TriageOrientation from './TriageOrientation';
 import { fetchPriseEnCharge, PriseEnCharge } from '@/lib/api/services/prise-en-charge';
+import {
+  getRegisterApiErrorMessage,
+  registerPatient,
+  updateRegisteredPatient,
+  type RegisterPatientPayload,
+} from '@/lib/api/services/patient-registration';
+import { readMockSessionFromBrowser } from '@/lib/auth/mock-auth-browser';
 
 interface FormData {
   nom: string;
@@ -19,6 +26,20 @@ interface FormData {
   motif: string;
   priseEnCharge: string;
 }
+
+const INITIAL_FORM: FormData = {
+  nom: '',
+  prenom: '',
+  sexe: '',
+  dateNaissance: '',
+  cin: '',
+  profession: '',
+  adresse: '',
+  telPersonnel: '',
+  telUrgence: '',
+  motif: '',
+  priseEnCharge: '',
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -42,8 +63,47 @@ const formatAge = (age: number | null, dateNaissance?: string): string => {
 
 const isMinor = (age: number | null): boolean => age !== null && age < 18;
 
-// Required fields list (CIN excluded — handled separately)
-const REQUIRED_FIELDS: (keyof FormData)[] = ['nom', 'sexe', 'dateNaissance'];
+function mapSexeToApi(sexe: string): 'MALE' | 'FEMALE' | null {
+  if (sexe === 'masculin') return 'MALE';
+  if (sexe === 'feminin') return 'FEMALE';
+  return null;
+}
+
+function normalizeTel(raw: string): string {
+  return raw.replace(/\s/g, '').trim();
+}
+
+function buildRegisterPayload(
+  formData: FormData,
+  minor: boolean,
+  createdBy: string
+): RegisterPatientPayload | null {
+  const sexe = mapSexeToApi(formData.sexe);
+  if (!sexe) return null;
+  return {
+    nom: formData.nom.trim(),
+    prenom: formData.prenom.trim(),
+    sexe,
+    dateNaissance: formData.dateNaissance,
+    cin: minor ? '' : formData.cin.trim(),
+    profession: formData.profession.trim(),
+    adresse: formData.adresse.trim(),
+    telephone: normalizeTel(formData.telPersonnel),
+    contactUrgence: normalizeTel(formData.telUrgence),
+    priseEnChargeCode: formData.priseEnCharge.trim() || 'NORMAL',
+    createdBy,
+  };
+}
+
+// Required fields list (CIN is required for adults)
+const REQUIRED_FIELDS: (keyof FormData)[] = ['nom', 'prenom', 'sexe', 'dateNaissance'];
+
+function isFieldInvalid(field: keyof FormData, minor: boolean, formData: FormData) {
+  if (field === 'cin') {
+    return !minor && !formData.cin.trim();
+  }
+  return !formData[field];
+}
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
@@ -109,20 +169,12 @@ function Field({ label, children, className = '', required, error }: {
 export default function EnregistrementPatient() {
   const [step, setStep] = useState<'form' | 'triage'>('form');
   const [submitted, setSubmitted] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const [formData, setFormData] = useState<FormData>({
-    nom: '',
-    prenom: '',
-    sexe: '',
-    dateNaissance: '',
-    cin: '',
-    profession: '',
-    adresse: '',
-    telPersonnel: '+261 34 50 974 56',
-    telUrgence: '+261 38 21 500 43',
-    motif: '',
-    priseEnCharge: '',
-  });
+  const [formData, setFormData] = useState<FormData>({ ...INITIAL_FORM });
 
   const age = getAge(formData.dateNaissance);
   const minor = isMinor(age);
@@ -156,28 +208,66 @@ export default function EnregistrementPatient() {
 
   // Field-level error: only show after first submit attempt
   const hasError = (field: keyof FormData) =>
-    submitted && REQUIRED_FIELDS.includes(field) && !formData[field];
+    submitted && isFieldInvalid(field, minor, formData);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const resetNouveauPatient = () => {
+    setPatientId(null);
+    setFormData({ ...INITIAL_FORM });
+    setSubmitted(false);
+    setApiError(null);
+    setSaveSuccess(false);
+    setSaveLoading(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    const allValid = REQUIRED_FIELDS.every(f => !!formData[f]);
-    if (allValid) setStep('triage');
+    setApiError(null);
+    const allValid = REQUIRED_FIELDS.every(f => !!formData[f]) && (minor || !!formData.cin.trim());
+    if (!allValid) return;
+
+    const createdBy = readMockSessionFromBrowser()?.sub ?? 'unknown';
+    const payload = buildRegisterPayload(formData, minor, createdBy);
+    if (!payload) {
+      setApiError('Veuillez sélectionner un sexe valide.');
+      return;
+    }
+
+    setSaveLoading(true);
+    try {
+      if (patientId) {
+        await updateRegisteredPatient(patientId, payload);
+      } else {
+        const newId = await registerPatient(payload);
+        setPatientId(newId);
+      }
+      setSaveSuccess(true);
+      setStep('triage');
+    } catch (err) {
+      setApiError(getRegisterApiErrorMessage(err));
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   // ── ÉTAPE 2 : Triage ──────────────────────────────────────────────────────
   if (step === 'triage') {
+    const idLabel = patientId ?? '—';
     return (
       <TriageOrientation
+        registrationSaved={saveSuccess}
         patient={{
-          nom: formData.nom || 'M. RAKOTOMALALA',
-          prenom: formData.prenom || 'Jean',
-          id: '#CHUA-00441',
-          age: formatAge(age, formData.dateNaissance) || '45 ans',
-          genre: formData.sexe === 'feminin' ? 'Féminin' : 'Masculin',
-          motif: formData.motif || 'Aucun motif saisi',
+          nom: formData.nom,
+          prenom: formData.prenom,
+          id: idLabel,
+          age: formatAge(age, formData.dateNaissance) || '—',
+          genre: formData.sexe === 'feminin' ? 'Féminin' : formData.sexe === 'masculin' ? 'Masculin' : '—',
+          motif: formData.motif.trim() || 'Aucun motif saisi',
         }}
-        onRetour={() => setStep('form')}
+        onRetour={() => {
+          setSaveSuccess(false);
+          setStep('form');
+        }}
       />
     );
   }
@@ -188,7 +278,7 @@ export default function EnregistrementPatient() {
       <div className="p-8 max-w-7xl mx-auto mb-8">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-8">
           <div>
             <h1 className="text-[22px] font-semibold text-gray-900 tracking-tight">
               Inscription patient
@@ -196,14 +286,20 @@ export default function EnregistrementPatient() {
             <p className="text-[13px] text-gray-400 mt-1">
               Renseignez les informations du nouveau patient
             </p>
+            {patientId && (
+              <p className="text-[12px] text-blue-600 font-medium mt-2">
+                Dossier en cours · ID : {patientId}
+              </p>
+            )}
           </div>
-          {/* <button
+          <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-xl transition-all shadow-sm shadow-blue-200"
+            onClick={resetNouveauPatient}
+            className="flex items-center justify-center gap-2 self-start px-4 py-2.5 text-[13px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-xl transition-all"
           >
-            <Calendar size={14} />
-            Nouveau rendez-vous
-          </button> */}
+            <UserPlus size={16} />
+            Nouveau patient
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -284,11 +380,11 @@ export default function EnregistrementPatient() {
 
                 {/* CIN — masqué si mineur */}
                 {!minor && (
-                  <Field label="CIN / Pièce d'identité">
+                  <Field label="CIN / Pièce d'identité" required error={hasError('cin')}>
                     <input
                       type="text"
                       placeholder="Numéro d'identité"
-                      className={inputBase(false)}
+                      className={inputBase(hasError('cin'))}
                       value={formData.cin}
                       onChange={set('cin')}
                     />
@@ -449,18 +545,37 @@ export default function EnregistrementPatient() {
                 </div>
               )}
 
+              {apiError && (
+                <div className="mx-5 mb-4 p-3.5 bg-red-50 rounded-xl border border-red-200">
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500 text-sm mt-0.5 shrink-0">⚠</span>
+                    <p className="text-xs text-red-600 leading-relaxed font-medium">{apiError}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="px-5 pb-5 space-y-2.5">
                 <button
                   type="submit"
-                  className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-sm shadow-green-200"
+                  disabled={saveLoading}
+                  className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:pointer-events-none active:scale-[0.98] text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-sm shadow-green-200"
                 >
-                  <CheckCircle2 size={16} />
-                  Enregistrer le patient
+                  {saveLoading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                      Enregistrement…
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} />
+                      Enregistrer le patient
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setSubmitted(false); setFormData(prev => ({ ...prev })); }}
+                  onClick={() => { setSubmitted(false); setApiError(null); }}
                   className="w-full text-sm font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] py-3 rounded-xl transition-all"
                 >
                   Annuler

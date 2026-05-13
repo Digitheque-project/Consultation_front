@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response.data);
   } catch (error) {
-    return NextResponse.json({ message: "Failed to load notifications." }, { status: 502 });
+    console.error('Erreur lors de la récupération des notifications du backend:', error);
+    // Retourner un tableau vide au lieu d'une erreur pour permettre au frontend d'utiliser les données par défaut
+    return NextResponse.json([]);
   }
 }

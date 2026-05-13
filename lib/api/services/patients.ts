@@ -23,3 +23,13 @@ export async function fetchPatients(): Promise<Patient[]> {
   const response = await axios.get<Patient[]>(`${API_URL}/patients`);
   return response.data;
 }
+
+export async function fetchPatientById(id: string): Promise<Patient | null> {
+  try {
+    const response = await axios.get<Patient>(`${API_URL}/patients/${encodeURIComponent(id)}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur lors de la récupération du patient ${id}:`, error);
+    return null;
+  }
+}
