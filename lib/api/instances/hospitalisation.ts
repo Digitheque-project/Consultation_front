@@ -81,18 +81,27 @@ export const hospitalisationApi = {
     });
   },
 
-  assignBed: async (idHospitalisation: string, idLit: string) => {
-    return clientApi.post("/hospitalisations/affectations-lits", {
-      idHospitalisation,
-      idLit,
-    });
+  getHospitalisationById: async (id: string) => {
+    return clientApi.get<Hospitalisation>(`/hospitalisations/id/${encodeURIComponent(id)}`);
   },
-  
+
+  assignBed: async (payload: {
+    idHospitalisation: string;
+    idLit: string;
+  }) => {
+    return clientApi.post("/hospitalisations/affectations-lits", payload);
+  },
+
   getAvailableBeds: async (serviceId: string) => {
-    return clientApi.get(`/hospitalisations/services/${serviceId}/lits/disponibles`);
+    return clientApi.get(
+      `/hospitalisations/services/${encodeURIComponent(serviceId)}/lits/disponibles`,
+    );
   },
 
   getBedPlan: async (serviceId: string) => {
-    return clientApi.get<PlanLitsResponse>(`/hospitalisations/plan-lits/${serviceId}`);
+    return clientApi.get<PlanLitsResponse>(
+      `/api/hospitalisations/plan-lits/${encodeURIComponent(serviceId)}`,
+      { baseURL: "" }
+    );
   },
 };

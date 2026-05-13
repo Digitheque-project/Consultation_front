@@ -2,9 +2,16 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { BedSingle, Loader2, X } from "lucide-react";
-import { EnrichedNotification } from "@/stores/notification-store";
+import {
+  EnrichedNotification,
+  useNotificationStore,
+} from "@/stores/notification-store";
 import { cn } from "@/lib/utils";
-import { hospitalisationApi, type PlanLitRoom } from "@/lib/api/instances/hospitalisation";
+import {
+  hospitalisationApi,
+  type PlanLitRoom,
+} from "@/lib/api/instances/hospitalisation";
+import { DEFAULT_CLINICAL_SERVICE_ID } from "@/lib/auth/constants";
 import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
 
 interface AttributionModalProps {
@@ -39,6 +46,12 @@ function decodeBase64Url(input: string): string {
   return window.atob(padded);
 }
 
+function trimServiceId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const t = value.trim();
+  return t.length > 0 ? t : null;
+}
+
 function resolveServiceIdFromAuth(): string | null {
   if (typeof window === "undefined") return null;
 
@@ -47,11 +60,19 @@ function resolveServiceIdFromAuth(): string | null {
     const parts = token.split(".");
     if (parts.length >= 2) {
       try {
-        const payload = JSON.parse(decodeBase64Url(parts[1])) as Record<string, unknown>;
-        const candidate =
-          payload.serviceId ?? payload.service_id ?? payload.idService ?? payload.service;
-        if (typeof candidate === "string" && candidate.trim().length > 0) {
-          return candidate.trim();
+        const payload = JSON.parse(decodeBase64Url(parts[1])) as Record<
+          string,
+          unknown
+        >;
+        const candidates = [
+          payload.serviceId,
+          payload.service_id,
+          payload.idService,
+        ];
+        for (const raw of candidates) {
+          if (typeof raw === "string" && raw.trim().length > 0) {
+            return raw.trim();
+          }
         }
       } catch {
         /* session mock ou autre */
@@ -69,92 +90,226 @@ function mapRooms(chambres: PlanLitRoom[]): RoomOption[] {
       label: `Lit ${lit.codeLit}`,
       status: lit.statut === "DISPONIBLE" ? "available" : "occupied",
     }));
-    const availableCount = beds.filter((bed) => bed.status === "available").length;
+    const availableCount = beds.filter(
+      (bed) => bed.status === "available",
+    ).length;
     const totalCount = beds.length;
-    const roomStatus: RoomStatus = availableCount > 0 ? "available" : "occupied";
+    const roomStatus: RoomStatus =
+      availableCount > 0 ? "available" : "occupied";
 
     return {
       id: chambre.chambreId,
       label: `Ch. ${chambre.numeroChambre}`,
       type: chambre.type,
-      availability: availableCount > 0 ? `${availableCount}/${totalCount} dispo` : "Occupee",
+      availability:
+        availableCount > 0
+          ? `${availableCount}/${totalCount} dispo`
+          : "Occupee",
       status: roomStatus,
       beds,
     };
   });
 }
 
-export function AttributionModal({ isOpen, onClose, notification }: AttributionModalProps) {
+// Nouvelle fonction à ajouter juste après mapRooms()
+function mapAvailableLitsToRooms(lits: any[]): RoomOption[] {
+  const roomsMap = new Map<string, RoomOption>();
+
+  lits.forEach((lit) => {
+    const chambreId = lit.idChambre || "unknown";
+    const roomKey = `chambre-${chambreId}`;
+
+    if (!roomsMap.has(roomKey)) {
+      roomsMap.set(roomKey, {
+        id: chambreId,
+        label: `Ch. ${lit.numeroChambre || "?"}`,
+        type: "Standard", // Tu peux améliorer ça plus tard
+        availability: "",
+        status: "available",
+        beds: [],
+      });
+    }
+
+    const room = roomsMap.get(roomKey)!;
+
+    room.beds.push({
+      id: lit.id ?? lit.idLit,
+      label: `Lit ${lit.codeLit}`,
+      status: lit.statut === "DISPONIBLE" ? "available" : "occupied",
+    });
+  });
+
+  // Calcul de l'availability pour chaque chambre
+  return Array.from(roomsMap.values()).map((room) => {
+    const availableCount = room.beds.filter(
+      (b) => b.status === "available",
+    ).length;
+    const totalCount = room.beds.length;
+
+    return {
+      ...room,
+      availability:
+        availableCount > 0
+          ? `${availableCount}/${totalCount} dispo`
+          : "Occupée",
+      status: availableCount > 0 ? "available" : "occupied",
+    };
+  });
+}
+
+export function AttributionModal({
+  isOpen,
+  onClose,
+  notification,
+}: AttributionModalProps) {
+  const removeNotification = useNotificationStore((s) => s.removeNotification);
   const [selectedRoom, setSelectedRoom] = useState("");
   const [selectedBed, setSelectedBed] = useState("");
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [planServiceId, setPlanServiceId] = useState<string | null>(null);
 
   const rawPatientName = notification.patient
     ? `${notification.patient.nom || ""} ${notification.patient.prenom || ""}`.trim()
     : "";
-  const patientName = rawPatientName.length > 0 ? rawPatientName : "Patient inconnu";
-  const patientId = notification.patientId || notification.id ? String(notification.patientId || notification.id) : "-";
-  const effectiveServiceId = resolveServiceIdFromAuth() ?? notification.serviceId;
+  const patientName =
+    rawPatientName.length > 0 ? rawPatientName : "Patient inconnu";
+  const patientId =
+    notification.patientId || notification.id
+      ? String(notification.patientId || notification.id)
+      : "-";
 
+  /**
+   * Le service des lits doit être exactement celui de l’hospitalisation en base
+   * (`chambre.serviceId === hospitalisation.serviceId`), sinon 422.
+   * On lit d’abord `GET /hospitalisations/id/:id` pour éviter un serviceId de notif
+   * périmé ou filtré à tort (ex. identifiants non-UUID alors que `id_service` est varchar).
+   */
   const selectedRoomStatus = useMemo(
     () => rooms.find((room) => room.id === selectedRoom)?.status,
-    [selectedRoom]
+    [selectedRoom],
   );
   const beds = useMemo(
     () => rooms.find((room) => room.id === selectedRoom)?.beds ?? [],
-    [rooms, selectedRoom]
+    [rooms, selectedRoom],
   );
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    if (!effectiveServiceId) {
-      setErrorMessage("Service introuvable dans la session.");
-      setRooms([]);
+    if (!isOpen) {
+      setPlanServiceId(null);
       return;
     }
 
     let isMounted = true;
+
+    const resolveServiceId = async (): Promise<string | null> => {
+      if (notification.id) {
+        try {
+          const res = await hospitalisationApi.getHospitalisationById(
+            notification.id,
+          );
+          const fromApi = trimServiceId(res.data?.serviceId);
+          if (fromApi) return fromApi;
+        } catch {
+          /* notif ou session sans accès à l’entité : repli ci-dessous */
+        }
+      }
+
+      const fromNotification = trimServiceId(notification.serviceId);
+      if (fromNotification) return fromNotification;
+
+      const fromEnv = trimServiceId(
+        process.env.NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID,
+      );
+      if (fromEnv) return fromEnv;
+
+      const fromAuth = trimServiceId(resolveServiceIdFromAuth());
+      if (fromAuth) return fromAuth;
+
+      return trimServiceId(DEFAULT_CLINICAL_SERVICE_ID);
+    };
+
     const fetchBedPlan = async () => {
       setIsLoading(true);
       setErrorMessage(null);
+      setPlanServiceId(null);
+
+      const serviceId = await resolveServiceId();
+
+      if (!isMounted) return;
+
+      if (!serviceId) {
+        setErrorMessage("Service introuvable pour cette hospitalisation.");
+        setRooms([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setPlanServiceId(serviceId);
+
       try {
-        const response = await hospitalisationApi.getBedPlan(effectiveServiceId);
+        const response = await hospitalisationApi.getAvailableBeds(serviceId);
+
         if (!isMounted) return;
-        const mappedRooms = mapRooms(response.data?.chambres ?? []);
+
+        const mappedRooms = mapAvailableLitsToRooms(response.data || []);
         setRooms(mappedRooms);
 
-        const firstAvailableRoom = mappedRooms.find((room) => room.status === "available");
-        const firstAvailableBed = firstAvailableRoom?.beds.find((bed) => bed.status === "available");
+        const firstAvailableRoom = mappedRooms.find(
+          (room) => room.status === "available",
+        );
+        const firstAvailableBed = firstAvailableRoom?.beds.find(
+          (bed) => bed.status === "available",
+        );
+
         setSelectedRoom(firstAvailableRoom?.id ?? mappedRooms[0]?.id ?? "");
-        setSelectedBed(firstAvailableBed?.id ?? firstAvailableRoom?.beds[0]?.id ?? "");
-      } catch (error) {
+        setSelectedBed(
+          firstAvailableBed?.id ?? firstAvailableRoom?.beds[0]?.id ?? "",
+        );
+      } catch {
         if (!isMounted) return;
-        setErrorMessage("Impossible de charger les chambres et lits du service.");
+        setErrorMessage("Impossible de charger les lits disponibles.");
         setRooms([]);
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
 
-    fetchBedPlan();
+    void fetchBedPlan();
+
     return () => {
       isMounted = false;
     };
-  }, [isOpen, effectiveServiceId]);
+  }, [isOpen, notification.id, notification.serviceId]);
 
   const handleConfirm = async () => {
-    if (!selectedBed) return;
+    if (!selectedBed) {
+      setErrorMessage("Veuillez sélectionner un lit.");
+      return;
+    }
+    if (!notification.id) {
+      setErrorMessage("Identifiant d'hospitalisation manquant.");
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
+
     try {
-      await hospitalisationApi.assignBed(notification.id, selectedBed);
+      await hospitalisationApi.assignBed({
+        idHospitalisation: notification.id,
+        idLit: selectedBed,
+      });
+
+      removeNotification(notification.id);
       onClose();
-    } catch (error) {
-      setErrorMessage("Echec de l'attribution du lit. Veuillez reessayer.");
+    } catch (error: any) {
+      const msg = error.response?.data?.message;
+      setErrorMessage(
+        msg || error.response?.data?.error || "Échec de l'attribution du lit.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -185,7 +340,8 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
               Attribution Chambre & Lit
             </h2>
             <p className="mt-1 text-[11.5px] font-semibold text-gray-500">
-              Patient: <span className="text-[#0EA5E9]">{patientName}</span> (ID: {patientId})
+              Patient: <span className="text-[#0EA5E9]">{patientName}</span>{" "}
+              (ID: {patientId})
             </p>
           </div>
 
@@ -195,7 +351,10 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
                 Selection de la chambre
               </p>
               <p className="text-[10px] font-semibold text-gray-400">
-                Filtre par: <span className="text-gray-500">{effectiveServiceId ?? "Service inconnu"}</span>
+                Filtre par:{" "}
+                <span className="text-gray-500">
+                  {planServiceId ?? "Service inconnu"}
+                </span>
               </p>
             </div>
 
@@ -206,65 +365,91 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {rooms.filter((room) => room.status !== "occupied").map((room) => {
-                const isSelected = selectedRoom === room.id;
-                const isDisabled = room.status === "occupied";
+                {rooms
+                  .filter((room) => room.status !== "occupied")
+                  .map((room) => {
+                    const isSelected = selectedRoom === room.id;
+                    const isDisabled = room.status === "occupied";
 
-                return (
-                  <button
-                    key={room.id}
-                    type="button"
-                    disabled={isDisabled}
-                    onClick={() => {
-                      if (!isDisabled) {
-                        setSelectedRoom(room.id);
-                        const defaultBed = room.beds.find((bed) => bed.status === "available");
-                        setSelectedBed(defaultBed?.id ?? room.beds[0]?.id ?? "");
-                      }
-                    }}
-                    className={cn(
-                      "flex flex-col items-start gap-1 rounded-[12px] border px-4 py-3 text-left transition-colors",
-                      isSelected
-                        ? "border-[#0EA5E9] bg-white shadow-[0px_6px_18px_rgba(14,165,233,0.12)]"
-                        : "border-gray-200 bg-white",
-                      isDisabled && "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300"
-                    )}
-                  >
-                    <p
-                      className={cn(
-                        "text-[12.5px] font-extrabold",
-                        isSelected ? "text-[#0EA5E9]" : "text-gray-900",
-                        isDisabled && "text-gray-300"
-                      )}
-                    >
-                      {room.label}
-                    </p>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400">
-                      {room.type}
-                    </p>
-                    <div className="flex items-center gap-1.5 text-[9.5px] font-semibold">
-                      <span
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                          if (!isDisabled) {
+                            setSelectedRoom(room.id);
+                            const defaultBed = room.beds.find(
+                              (bed) => bed.status === "available",
+                            );
+                            setSelectedBed(
+                              defaultBed?.id ?? room.beds[0]?.id ?? "",
+                            );
+                          }
+                        }}
                         className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          room.status === "available" ? "bg-[#10B981]" : "bg-[#F97316]"
+                          "flex flex-col items-start gap-1 rounded-[12px] border px-4 py-3 text-left transition-colors",
+                          isSelected
+                            ? "border-[#0EA5E9] bg-white shadow-[0px_6px_18px_rgba(14,165,233,0.12)]"
+                            : "border-gray-200 bg-white",
+                          isDisabled &&
+                            "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300",
                         )}
-                      ></span>
-                      <span className={room.status === "available" ? "text-gray-600" : "text-[#F97316]"}>
-                        {room.availability}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+                      >
+                        <p
+                          className={cn(
+                            "text-[12.5px] font-extrabold",
+                            isSelected ? "text-[#0EA5E9]" : "text-gray-900",
+                            isDisabled && "text-gray-300",
+                          )}
+                        >
+                          {room.label}
+                        </p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                          {room.type}
+                        </p>
+                        <div className="flex items-center gap-1.5 text-[9.5px] font-semibold">
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              room.status === "available"
+                                ? "bg-[#10B981]"
+                                : "bg-[#F97316]",
+                            )}
+                          ></span>
+                          <span
+                            className={
+                              room.status === "available"
+                                ? "text-gray-600"
+                                : "text-[#F97316]"
+                            }
+                          >
+                            {room.availability}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
               </div>
             )}
           </div>
 
           <div className="mb-6">
             <p className="mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-gray-400">
-              Selection du lit (Chambre {selectedRoom})
+              Selection du lit (Chambre {selectedRoom || "—"})
             </p>
-            {selectedRoomStatus === "occupied" || beds.length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center gap-2 rounded-[12px] border border-gray-200 bg-[#F8FAFC] px-4 py-3 text-[12px] font-semibold text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des lits...
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="rounded-[12px] border border-gray-200 bg-gray-50 px-4 py-3 text-[11.5px] font-semibold text-gray-400">
+                Aucun lit disponible pour ce service (réponse vide ou erreur
+                réseau). Vérifiez que l’identifiant ci-dessus correspond bien au
+                service testé dans l’API.
+              </div>
+            ) : selectedRoomStatus === "occupied" || beds.length === 0 ? (
               <div className="rounded-[12px] border border-gray-200 bg-gray-50 px-4 py-3 text-[11.5px] font-semibold text-gray-400">
                 Chambre occupee. Aucun lit disponible.
               </div>
@@ -283,30 +468,35 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
                       className={cn(
                         "flex items-center gap-3 rounded-[12px] border px-4 py-3 text-left transition-colors",
                         isSelected ? "border-[#0EA5E9]" : "border-gray-200",
-                        isDisabled && "cursor-not-allowed bg-gray-50 text-gray-300"
+                        isDisabled &&
+                          "cursor-not-allowed bg-gray-50 text-gray-300",
                       )}
                     >
                       <div
                         className={cn(
                           "flex h-8 w-8 items-center justify-center rounded-[8px]",
                           isSelected ? "bg-[#E0F2FE]" : "bg-[#F8FAFC]",
-                          isDisabled && "bg-gray-100"
+                          isDisabled && "bg-gray-100",
                         )}
                       >
                         <BedSingle
                           className={cn(
                             "h-4 w-4",
                             isSelected ? "text-[#0EA5E9]" : "text-gray-400",
-                            isDisabled && "text-gray-300"
+                            isDisabled && "text-gray-300",
                           )}
                         />
                       </div>
                       <div>
-                        <p className="text-[12px] font-extrabold text-gray-900">{bed.label}</p>
+                        <p className="text-[12px] font-extrabold text-gray-900">
+                          {bed.label}
+                        </p>
                         <p
                           className={cn(
                             "text-[9.5px] font-semibold",
-                            bed.status === "available" ? "text-[#10B981]" : "text-[#F97316]"
+                            bed.status === "available"
+                              ? "text-[#10B981]"
+                              : "text-[#F97316]",
                           )}
                         >
                           {bed.status === "available" ? "Disponible" : "Occupe"}
