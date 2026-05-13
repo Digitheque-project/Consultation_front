@@ -6,6 +6,7 @@ import {
   decodeMockSession,
   encodeMockSession,
   getModuleHomePath,
+  resolveClinicalServiceId,
   type MockAuthModule,
   type MockSessionPayload,
 } from "@/lib/auth/mock-session";
@@ -61,6 +62,11 @@ export function readMockSessionFromBrowser(): MockSessionPayload | null {
   } catch {
     return null;
   }
+}
+
+/** `serviceId` clinique issu du cookie / localStorage mock (null si hors module clinique). */
+export function getClinicalServiceIdFromBrowser(): string | null {
+  return resolveClinicalServiceId(readMockSessionFromBrowser());
 }
 
 export function getPostLoginRedirect(

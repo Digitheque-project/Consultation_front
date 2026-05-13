@@ -5,6 +5,7 @@ import { BedSingle, Loader2, X } from "lucide-react";
 import { EnrichedNotification } from "@/stores/notification-store";
 import { cn } from "@/lib/utils";
 import { hospitalisationApi, type PlanLitRoom } from "@/lib/api/instances/hospitalisation";
+import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
 
 interface AttributionModalProps {
   isOpen: boolean;
@@ -42,19 +43,23 @@ function resolveServiceIdFromAuth(): string | null {
   if (typeof window === "undefined") return null;
 
   const token = window.localStorage?.getItem("auth_token");
-  if (!token) return null;
-
-  const parts = token.split(".");
-  if (parts.length < 2) return null;
-
-  try {
-    const payload = JSON.parse(decodeBase64Url(parts[1])) as Record<string, unknown>;
-    const candidate =
-      payload.serviceId ?? payload.service_id ?? payload.idService ?? payload.service;
-    return typeof candidate === "string" && candidate.trim().length > 0 ? candidate : null;
-  } catch {
-    return null;
+  if (token) {
+    const parts = token.split(".");
+    if (parts.length >= 2) {
+      try {
+        const payload = JSON.parse(decodeBase64Url(parts[1])) as Record<string, unknown>;
+        const candidate =
+          payload.serviceId ?? payload.service_id ?? payload.idService ?? payload.service;
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      } catch {
+        /* session mock ou autre */
+      }
+    }
   }
+
+  return getClinicalServiceIdFromBrowser();
 }
 
 function mapRooms(chambres: PlanLitRoom[]): RoomOption[] {
@@ -168,7 +173,7 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
       >
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 text-gray-400 hover:text-gray-600"
+          className="absolute cursor-pointer right-5 top-5 text-gray-400 hover:text-gray-600"
           aria-label="Fermer la modale"
         >
           <X className="h-4 w-4" />
@@ -347,7 +352,7 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
             <button
               type="button"
               onClick={onClose}
-              className="text-[12.5px] font-bold text-gray-500 hover:text-gray-700"
+              className="text-[12.5px] cursor-pointer font-bold text-gray-500 hover:text-gray-700"
             >
               Annuler
             </button>
@@ -355,7 +360,7 @@ export function AttributionModal({ isOpen, onClose, notification }: AttributionM
               type="button"
               disabled={!selectedBed || isSubmitting || isLoading}
               onClick={handleConfirm}
-              className="rounded-[12px] bg-[#006A8C] px-5 py-2.5 text-[12.5px] font-extrabold text-white shadow-[0px_8px_18px_rgba(0,106,140,0.25)] hover:bg-[#005a76]"
+              className="rounded-[12px] cursor-pointer bg-[#006A8C] px-5 py-2.5 text-[12.5px] font-extrabold text-white shadow-[0px_8px_18px_rgba(0,106,140,0.25)] hover:bg-[#005a76]"
             >
               {isSubmitting ? "Attribution..." : "Confirmer l'attribution"}
             </button>
