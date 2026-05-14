@@ -22,6 +22,54 @@ export type RegisterPatientResponse = {
   patientId?: string;
 };
 
+function normalizeTel(raw: string): string {
+  return raw.replace(/\s/g, '').trim();
+}
+
+function normalizeSexeForApi(sexe?: string): 'MALE' | 'FEMALE' | null {
+  if (!sexe) return null;
+  const u = sexe.toUpperCase();
+  if (u === 'MALE' || u === 'M') return 'MALE';
+  if (u === 'FEMALE' || u === 'F') return 'FEMALE';
+  return null;
+}
+
+/**
+ * Corps PATCH `/patients/:id` — même schéma que l'enregistrement.
+ * `priseEnChargeCode` : la liste patient n'expose que `priseEnChargeId` ; on retombe sur NORMAL comme à l'enregistrement si besoin.
+ */
+export function buildRegisterPayloadFromPatient(
+  p: {
+    nom?: string;
+    prenom?: string;
+    sexe?: string;
+    dateNaissance?: string;
+    cin?: string;
+    profession?: string;
+    adresse?: string;
+    telephone?: string;
+    contactUrgence?: string;
+    priseEnChargeCode?: string;
+  },
+  createdBy: string
+): RegisterPatientPayload | null {
+  const sexe = normalizeSexeForApi(p.sexe);
+  if (!sexe || !p.nom?.trim() || !p.dateNaissance) return null;
+  return {
+    nom: p.nom.trim(),
+    prenom: (p.prenom ?? '').trim(),
+    sexe,
+    dateNaissance: p.dateNaissance,
+    cin: (p.cin ?? '').trim(),
+    profession: (p.profession ?? '').trim(),
+    adresse: (p.adresse ?? '').trim(),
+    telephone: normalizeTel(p.telephone ?? ''),
+    contactUrgence: normalizeTel(p.contactUrgence ?? ''),
+    priseEnChargeCode: (p.priseEnChargeCode ?? '').trim() || 'NORMAL',
+    createdBy,
+  };
+}
+
 function pickPatientId(data: unknown): string | undefined {
   if (!data || typeof data !== 'object') return undefined;
   const o = data as Record<string, unknown>;

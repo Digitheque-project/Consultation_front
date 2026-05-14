@@ -1,12 +1,26 @@
 ﻿'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import {
-  CheckCircle, Eye, FileText,
-  ChevronLeft, ChevronRight, Calendar, Clock,
-  Activity, TrendingUp, Stethoscope, FlaskConical,
-  RefreshCcw, X, Filter, Users, Search,
+  CheckCircle,
+  CheckCircle2,
+  Eye,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Clock,
+  Activity,
+  Stethoscope,
+  FlaskConical,
+  RefreshCcw,
+  RefreshCw,
+  X,
+  Filter,
+  Users,
+  Search,
 } from 'lucide-react';
 import {
   ALL_RDV,
@@ -35,6 +49,8 @@ const STATUT_OPTIONS = [
 ];
 
 export default function RendezVousMain() {
+  const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab]     = useState<TabId>('consultation');
   const [statut, setStatut]           = useState('Tous');
   const [dateMode, setDateMode]       = useState<DateMode>('single');
@@ -87,9 +103,11 @@ export default function RendezVousMain() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const pageData   = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const hasFilter = statut !== 'Tous'
-    || (dateMode === 'single' && !!dateSingle)
-    || (dateMode === 'range' && (!!dateFrom || !!dateTo));
+  const hasFilter =
+    statut !== 'Tous' ||
+    search.trim() !== '' ||
+    (dateMode === 'single' && !!dateSingle) ||
+    (dateMode === 'range' && (!!dateFrom || !!dateTo));
 
   const clearFilters = () => {
     setStatut('Tous');
@@ -100,82 +118,135 @@ export default function RendezVousMain() {
     setPage(1);
   };
 
-  return (
-    <div className="min-h-full bg-gradient-to-b from-slate-50 via-gray-50 to-slate-100/80">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8 lg:px-8">
+  const handleRefresh = () => {
+    setRefreshing(true);
+    router.refresh();
+    window.setTimeout(() => setRefreshing(false), 600);
+  };
 
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between">
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans">
+      <div className="mx-auto max-w-6xl space-y-6 p-6 lg:p-8">
+
+        {/* ── Header (aligné liste / hospitalisation) ── */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-[22px] font-semibold text-gray-900 tracking-tight">
+            <h1 className="text-xl font-medium tracking-tight text-gray-900">
               Liste des rendez-vous
             </h1>
-            <p className="text-[13px] text-gray-400 mt-1">
-              Gérez les flux de patients et les plannings cliniques en temps réel.
+            <p className="mt-1 text-xs text-gray-500">
+              Gérez les flux de patients et les plannings cliniques.
             </p>
           </div>
-          {/* <button
+          <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-xl transition-all shadow-sm shadow-blue-200"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className={cn(
+              'inline-flex items-center gap-2 self-start rounded-xl border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100',
+              refreshing && 'cursor-not-allowed opacity-60',
+            )}
           >
-            <Calendar size={14} />
-            Nouveau rendez-vous
-          </button> */}
+            <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} />
+            Actualiser
+          </button>
         </div>
 
-        {/* ── Stats ── */}
-        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-stretch">
-          <div className="flex shrink-0 items-center gap-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 px-5 py-5 text-white shadow-lg shadow-blue-600/25 ring-1 ring-white/10 sm:px-6 lg:w-56 lg:flex-col lg:items-start lg:justify-center lg:py-6">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
-              <Calendar className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/90">Total RDV</p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-3xl font-bold tabular-nums leading-none sm:text-4xl">{counts.total}</span>
-                <span className="text-xs text-blue-200/90">filtrés</span>
+        {/* Synthèse — total mis en avant (même logique que hospitalisation / liste patients) */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50/90 via-white to-white p-5 shadow-md ring-1 ring-blue-100/80 sm:col-span-2 lg:col-span-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-600">
+              Total RDV
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                <Calendar className="h-6 w-6" aria-hidden />
+              </div>
+              <div>
+                <p className="text-4xl font-semibold tabular-nums leading-none tracking-tight text-blue-950">
+                  {counts.total}
+                </p>
+                <p className="mt-1.5 text-xs text-gray-600">Vue filtrée actuelle</p>
               </div>
             </div>
           </div>
 
-          <div className="grid flex-1 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {[
-              { label: 'Planifiés',  value: counts.planifie, sub: 'à venir',   accent: 'text-blue-700',   iconBg: 'bg-blue-50 ring-blue-100/80',   icon: Activity },
-              { label: 'En attente', value: counts.attente,  sub: 'en salle',  accent: 'text-violet-700', iconBg: 'bg-violet-50 ring-violet-100/80', icon: Users },
-              { label: 'En cours',   value: counts.enCours,  sub: 'actifs',    accent: 'text-orange-600', iconBg: 'bg-orange-50 ring-orange-100/80', icon: Clock },
-              { label: 'Terminés',   value: counts.termine,  sub: 'complétés', accent: 'text-emerald-700', iconBg: 'bg-emerald-50 ring-emerald-100/80', icon: TrendingUp },
-            ].map((s, i) => {
-              const Icon = s.icon;
-              return (
+          {[
+            {
+              key: 'planifie',
+              label: 'Planifiés',
+              hint: 'À venir',
+              value: counts.planifie,
+              Icon: Activity,
+              iconWrap: 'bg-blue-50 text-blue-600',
+              card: 'border border-gray-100 bg-white',
+            },
+            {
+              key: 'attente',
+              label: 'En attente',
+              hint: 'En salle',
+              value: counts.attente,
+              Icon: Users,
+              iconWrap: 'bg-violet-50 text-violet-600',
+              card: 'border border-gray-100 bg-white',
+            },
+            {
+              key: 'encours',
+              label: 'En cours',
+              hint: 'Actifs',
+              value: counts.enCours,
+              Icon: Clock,
+              iconWrap: 'bg-orange-50 text-orange-600',
+              card: 'border border-gray-100 bg-white',
+            },
+            {
+              key: 'termine',
+              label: 'Terminés',
+              hint: 'Complétés',
+              value: counts.termine,
+              Icon: CheckCircle2,
+              iconWrap: 'bg-emerald-50 text-emerald-600',
+              card: 'border border-gray-100 bg-white',
+            },
+          ].map(s => {
+            const Icon = s.Icon;
+            return (
+              <div
+                key={s.key}
+                className={cn(
+                  'flex min-h-[5rem] items-center gap-3 rounded-xl p-4 shadow-sm lg:col-span-1',
+                  s.card,
+                )}
+              >
                 <div
-                  key={i}
-                  className="group flex items-center gap-3 rounded-2xl border border-gray-100/90 bg-white px-4 py-4 shadow-sm shadow-gray-200/40 ring-1 ring-gray-100/80 transition-shadow hover:shadow-md hover:ring-gray-200/90 sm:px-5 sm:py-4"
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                    s.iconWrap,
+                  )}
                 >
-                  <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1', s.iconBg)}>
-                    <Icon size={17} className={s.accent} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{s.label}</p>
-                    <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
-                      <span className={cn('text-2xl font-bold tabular-nums leading-none', s.accent)}>{s.value}</span>
-                      <span className="text-[11px] text-gray-400">{s.sub}</span>
-                    </div>
-                  </div>
+                  <Icon className="h-[1.125rem] w-[1.125rem]" aria-hidden />
                 </div>
-              );
-            })}
-          </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">{s.label}</p>
+                  <p className="mt-0.5 text-xl font-medium tabular-nums leading-none text-gray-800">
+                    {s.value}
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-400">{s.hint}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* ── Main card ── */}
-        <div className="overflow-hidden rounded-2xl border border-gray-100/90 bg-white shadow-md shadow-gray-200/50 ring-1 ring-gray-100/80">
+        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
 
           {/* Toolbar */}
-          <div className="space-y-3 border-b border-gray-100 bg-gradient-to-b from-white to-gray-50/30 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="space-y-3 border-b border-gray-100 bg-white px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 
               {/* Tabs */}
-              <div className="flex flex-wrap gap-1 rounded-xl border border-gray-100 bg-gray-50/90 p-1 ring-1 ring-gray-100/60">
+              <div className="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
                 {TABS.map(tab => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
@@ -185,13 +256,13 @@ export default function RendezVousMain() {
                       key={tab.id}
                       onClick={() => switchTab(tab.id)}
                       className={cn(
-                        'flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-all sm:px-4',
+                        'flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors sm:px-4',
                         isActive
-                          ? 'border border-gray-200/80 bg-white font-semibold text-blue-700 shadow-sm shadow-gray-200/50 ring-1 ring-gray-100'
-                          : 'text-gray-500 hover:bg-white/60 hover:text-gray-800',
+                          ? 'bg-blue-600 font-semibold text-white shadow-sm'
+                          : 'text-gray-600 hover:bg-white hover:text-gray-900',
                       )}
                     >
-                      <Icon size={13} className={isActive ? 'text-blue-500' : 'text-gray-400'} />
+                      <Icon size={13} className={isActive ? 'text-white' : 'text-gray-400'} />
                       <span className="hidden sm:inline">{tab.label}</span>
                       <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                     </button>
@@ -208,7 +279,7 @@ export default function RendezVousMain() {
                     placeholder="Patient, ID, service…"
                     value={search}
                     onChange={e => applySearch(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-9 text-[13px] text-gray-800 shadow-inner shadow-gray-100/50 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-xl border border-gray-100 bg-gray-50 py-2.5 pl-10 pr-9 text-sm text-gray-800 placeholder:text-gray-400 transition-colors focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15"
                   />
                   {search && (
                     <button
@@ -237,9 +308,9 @@ export default function RendezVousMain() {
                     type="button"
                     onClick={() => setShowFilters(v => !v)}
                     className={cn(
-                      'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-[13px] font-medium transition-all',
+                      'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-[13px] font-medium transition-colors',
                       showFilters || hasFilter
-                        ? 'border-blue-200 bg-blue-50 text-blue-800 shadow-sm shadow-blue-100/50 ring-1 ring-blue-100/60'
+                        ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-500/20'
                         : 'border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:bg-gray-50',
                     )}
                   >
@@ -253,7 +324,7 @@ export default function RendezVousMain() {
 
             {/* Filter panel */}
             {showFilters && (
-              <div className="rounded-2xl border border-gray-100 bg-gray-50/90 p-4 ring-1 ring-gray-100/80 sm:p-5">
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 sm:p-5">
                 <div className="flex flex-wrap items-end gap-6">
                   <div className="space-y-2">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Statut</p>
@@ -266,8 +337,8 @@ export default function RendezVousMain() {
                           className={cn(
                             'rounded-xl border px-3 py-1.5 text-[12px] font-semibold transition-all',
                             statut === opt.value
-                              ? 'border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-500/25'
-                              : 'border-gray-200 bg-white text-gray-600 hover:border-blue-200 hover:text-blue-700',
+                              ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900',
                           )}
                         >
                           {opt.label}
@@ -280,17 +351,17 @@ export default function RendezVousMain() {
 
                   <div className="space-y-2">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Période</p>
-                    <div className="flex gap-1 bg-white border border-gray-200 p-1 rounded-xl">
+                    <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
                       {(['single', 'range'] as DateMode[]).map(m => (
                         <button
                           key={m}
                           type="button"
                           onClick={() => applyDateMode(m)}
                         className={cn(
-                          'rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all',
+                          'rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors',
                           dateMode === m
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                            : 'text-gray-500 hover:bg-gray-50',
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800',
                         )}
                         >
                           {m === 'single' ? 'Date exacte' : 'Intervalle'}
@@ -306,7 +377,7 @@ export default function RendezVousMain() {
                         type="date"
                         value={dateSingle}
                         onChange={e => applyDateSingle(e.target.value)}
-                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                        className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15"
                       />
                     </div>
                   ) : (
@@ -314,13 +385,13 @@ export default function RendezVousMain() {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Du</p>
                         <input type="date" value={dateFrom} onChange={e => applyDateFrom(e.target.value)}
-                          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15" />
+                          className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15" />
                       </div>
                       <span className="pb-2.5 text-gray-400 text-sm">→</span>
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Au</p>
                         <input type="date" value={dateTo} onChange={e => applyDateTo(e.target.value)}
-                          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 shadow-sm transition-colors focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15" />
+                          className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15" />
                       </div>
                     </div>
                   )}
@@ -331,7 +402,7 @@ export default function RendezVousMain() {
                         'rounded-xl border px-3 py-2 text-[12px] font-semibold',
                         filtered.length === 0
                           ? 'border-red-100 bg-red-50 text-red-700'
-                          : 'border-blue-100 bg-blue-50 text-blue-800',
+                          : 'border-gray-200 bg-gray-50 text-gray-700',
                       )}
                     >
                       {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
@@ -346,7 +417,7 @@ export default function RendezVousMain() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-gray-200 bg-gradient-to-b from-gray-50 to-gray-50/30">
+                <tr className="border-b border-gray-200 bg-gray-100/95">
                   {[
                     { key: 'id',      label: 'ID RDV',            right: false },
                     { key: 'patient', label: 'Patient',           right: false },
@@ -358,7 +429,7 @@ export default function RendezVousMain() {
                     <th
                       key={h.key}
                       className={cn(
-                        'whitespace-nowrap px-4 py-3.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 sm:px-6',
+                        'whitespace-nowrap px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-700 sm:px-6',
                         h.right ? 'text-right' : 'text-left',
                       )}
                     >
@@ -372,7 +443,7 @@ export default function RendezVousMain() {
                   <tr>
                     <td colSpan={6} className="px-4 py-20 text-center sm:px-6">
                       <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 ring-1 ring-gray-200/80">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100">
                           <Search className="h-6 w-6 text-gray-400" />
                         </div>
                         <p className="text-base font-semibold text-gray-700">Aucun résultat trouvé</p>
@@ -382,7 +453,7 @@ export default function RendezVousMain() {
                         <button
                           type="button"
                           onClick={clearFilters}
-                          className="mt-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-md shadow-blue-500/25 transition-colors hover:bg-blue-700"
+                          className="mt-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
                         >
                           Tout réinitialiser
                         </button>
@@ -395,18 +466,18 @@ export default function RendezVousMain() {
                   return (
                     <tr
                       key={rdv.id + i}
-                      className="group border-b border-gray-100/80 bg-white transition-colors hover:bg-gradient-to-r hover:from-blue-50/40 hover:to-transparent"
+                      className="group border-b border-gray-50 bg-white transition-colors hover:bg-gray-50"
                     >
 
                       {/* ID */}
-                      <td className="px-4 py-4 sm:px-6 sm:py-[1.125rem]">
-                        <span className="inline-block rounded-lg border border-blue-100 bg-blue-50/90 px-2.5 py-1 font-mono text-[11px] font-bold tracking-wide text-blue-700 shadow-sm ring-1 ring-blue-100/60">
+                      <td className="px-4 py-4 sm:px-6 sm:py-5">
+                        <span className="inline-block rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 font-mono text-xs font-semibold text-gray-700">
                           {rdv.id}
                         </span>
                       </td>
 
                       {/* Patient */}
-                      <td className="px-4 py-4 sm:px-6 sm:py-[1.125rem]">
+                      <td className="px-4 py-4 sm:px-6 sm:py-5">
                         <div className="flex items-center gap-3">
                           <div
                             className={cn(
@@ -435,13 +506,13 @@ export default function RendezVousMain() {
                       </td>
 
                       {/* Service */}
-                      <td className="px-4 py-4 sm:px-6 sm:py-[1.125rem]">
+                      <td className="px-4 py-4 sm:px-6 sm:py-5">
                         <p className="text-[13px] font-medium text-gray-900">{rdv.service}</p>
                         <p className="mt-0.5 text-[11px] text-gray-500">{rdv.medecin}</p>
                       </td>
 
                       {/* Date */}
-                      <td className="px-4 py-4 sm:px-6 sm:py-[1.125rem]">
+                      <td className="px-4 py-4 sm:px-6 sm:py-5">
                         <p className="text-[13px] font-medium text-gray-900">{dayLabel(rdv.date)}</p>
                         <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-gray-500">
                           <Clock size={12} className="shrink-0 text-gray-400" />
@@ -450,24 +521,23 @@ export default function RendezVousMain() {
                       </td>
 
                       {/* Statut */}
-                      <td className="px-4 py-4 sm:px-6 sm:py-[1.125rem]">
+                      <td className="px-4 py-4 sm:px-6 sm:py-5">
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold tracking-wide shadow-sm ring-1 ring-black/[0.04]',
+                            'inline-flex max-w-full items-center rounded-lg px-2.5 py-1 text-xs font-semibold leading-snug',
                             cfg.cls,
                           )}
                         >
-                          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', cfg.dot)} />
                           {cfg.label}
                         </span>
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-4 sm:px-6 sm:py-[1.125rem]">
+                      <td className="px-4 py-4 sm:px-6 sm:py-5">
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           <Link
                             href={`/modules/accueil/rendez-vous/${encodeURIComponent(rdv.id)}`}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200/90 bg-blue-50 px-3 py-1.5 text-[12px] font-medium text-blue-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-100 hover:shadow-md"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-[12px] font-medium text-blue-800 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-100"
                           >
                             <Eye size={13} />
                             Voir détails
@@ -475,7 +545,7 @@ export default function RendezVousMain() {
                           {rdv.statut === 'PLANIFIÉ' && (
                             <button
                               type="button"
-                              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-emerald-600 to-emerald-700 px-3 py-1.5 text-[12px] font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98]"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
                             >
                               <CheckCircle size={13} />
                               Confirmer l&apos;arrivée
@@ -500,7 +570,7 @@ export default function RendezVousMain() {
           </div>
 
           {/* Pagination */}
-          <div className="flex flex-col gap-4 border-t border-gray-100 bg-gradient-to-r from-gray-50/90 via-white to-gray-50/50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+          <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-center text-[12px] text-gray-500 sm:text-left">
               {filtered.length === 0
                 ? 'Aucun résultat'
@@ -523,7 +593,7 @@ export default function RendezVousMain() {
                   className={cn(
                     'flex h-9 min-w-[2.25rem] items-center justify-center rounded-xl text-[12px] font-semibold transition-all',
                     page === p
-                      ? 'bg-gradient-to-b from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 ring-1 ring-blue-500/20'
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:bg-gray-50',
                   )}
                 >
