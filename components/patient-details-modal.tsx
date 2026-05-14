@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   X,
   Edit,
@@ -16,14 +17,17 @@ import {
   Lock,
   Save,
   XCircle,
+  Loader2,
 } from 'lucide-react';
 import type { Patient } from '@/lib/api/services/patients';
+import { getRegisterApiErrorMessage } from '@/lib/api/services/patient-registration';
+import { fetchPriseEnCharge, type PriseEnCharge } from '@/lib/api/services/prise-en-charge';
 
 type PatientDetailsModalProps = {
   open: boolean;
   patient?: Patient | null;
   onClose: () => void;
-  onSave?: (updated: Patient) => void;
+  onSave?: (updated: Patient) => void | Promise<void>;
 };
 
 const formatDate = (dateString?: string): string => {
@@ -63,20 +67,56 @@ const getInitials = (nom?: string, prenom?: string): string => {
   return ((nom?.[0] ?? '') + (prenom?.[0] ?? '')).toUpperCase() || '?';
 };
 
+function resolvePecCodeForForm(p: Patient, opts: PriseEnCharge[]): string {
+  const fromApi = p.priseEnChargeCode?.trim();
+  if (fromApi) return fromApi;
+  const byId = opts.find((o) => o.id === p.priseEnChargeId)?.code;
+  if (byId) return byId;
+  const normal = opts.find((o) => o.code?.toUpperCase() === 'NORMAL' && o.actif);
+  if (normal) return normal.code;
+  const first = opts.find((o) => o.actif);
+  return first?.code ?? '';
+}
+
+function sortPecOptions(opts: PriseEnCharge[]): PriseEnCharge[] {
+  return [...opts].filter((o) => o.actif).sort((a, b) => {
+    if (a.code === 'NORMAL') return -1;
+    if (b.code === 'NORMAL') return 1;
+    return a.libelle.localeCompare(b.libelle, 'fr');
+  });
+}
+
 export function PatientDetailsModal({ open, patient, onClose, onSave }: PatientDetailsModalProps) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Patient>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const { data: pecRaw = [], isLoading: pecLoading } = useQuery({
+    queryKey: ['prise-en-charge'],
+    queryFn: fetchPriseEnCharge,
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const pecOptions = useMemo(() => sortPecOptions(pecRaw), [pecRaw]);
 
   useEffect(() => {
     if (!open) {
       setEditing(false);
       setForm({});
+      setSaving(false);
+      setSaveError(null);
     }
   }, [open]);
 
   useEffect(() => {
-    if (patient) setForm(patient);
-  }, [patient]);
+    if (!open || !patient || editing) return;
+    setForm({
+      ...patient,
+      priseEnChargeCode: resolvePecCodeForForm(patient, pecRaw),
+    });
+  }, [open, patient, pecRaw, editing]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,16 +140,45 @@ export function PatientDetailsModal({ open, patient, onClose, onSave }: PatientD
   };
 
   const handleCancel = () => {
-    setForm(patient);
+    setForm({
+      ...patient,
+      priseEnChargeCode: resolvePecCodeForForm(patient, pecRaw),
+    });
     setEditing(false);
+    setSaveError(null);
   };
 
-  const handleSave = () => {
-    onSave?.({ ...patient, ...form } as Patient);
-    setEditing(false);
+  const handleSave = async () => {
+    const merged = { ...patient, ...form } as Patient;
+    if (!onSave) {
+      setEditing(false);
+      return;
+    }
+    setSaveError(null);
+    setSaving(true);
+    try {
+      await onSave(merged);
+      setEditing(false);
+    } catch (err) {
+      setSaveError(getRegisterApiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const displayName = `${form.nom ?? patient.nom} ${form.prenom ?? patient.prenom ?? ''}`;
+
+  const pecCodeResolved =
+    patient.priseEnChargeCode?.trim()
+    ?? pecRaw.find((o) => o.id === patient.priseEnChargeId)?.code
+    ?? '';
+  const pecRowForDisplay = pecCodeResolved ? pecRaw.find((o) => o.code === pecCodeResolved) : undefined;
+  const pecDisplayLine =
+    pecLoading && !pecCodeResolved
+      ? 'Chargement…'
+      : pecCodeResolved
+        ? (pecRowForDisplay?.libelle ? `${pecCodeResolved} — ${pecRowForDisplay.libelle}` : pecCodeResolved)
+        : '—';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
@@ -302,13 +371,37 @@ export function PatientDetailsModal({ open, patient, onClose, onSave }: PatientD
           {/* Informations administratives */}
           <section>
             <SectionTitle icon={<ClipboardList size={12} />} label="Informations administratives" />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Field icon={<ClipboardList size={13} />} label="ID prise en charge" value={patient.priseEnChargeId ?? '-'} />
+            <div className="grid gap-2">
+              <EditField label="Code prise en charge" icon={<ClipboardList size={13} />} editing={editing}>
+                {editing ? (
+                  <select
+                    className={inputClass}
+                    value={form.priseEnChargeCode ?? ''}
+                    onChange={(e) => handleChange('priseEnChargeCode', e.target.value)}
+                    disabled={pecLoading && pecOptions.length === 0}
+                  >
+                    <option value="">— Choisir —</option>
+                    {pecOptions.map((opt) => (
+                      <option key={opt.id} value={opt.code}>
+                        {opt.code} — {opt.libelle}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <FieldValue value={pecDisplayLine} />
+                )}
+              </EditField>
               <Field icon={<Calendar size={13} />} label="Ajouté le" value={formatDate(patient.createdAt)} />
             </div>
           </section>
 
         </div>
+
+        {saveError && (
+          <div className="flex-shrink-0 border-t border-red-100 bg-red-50/90 px-6 py-3 text-sm text-red-800">
+            {saveError}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex-shrink-0 flex items-center justify-between gap-4 border-t border-gray-100 px-6 py-4 bg-gray-50/60">
@@ -321,19 +414,21 @@ export function PatientDetailsModal({ open, patient, onClose, onSave }: PatientD
               <>
                 <button
                   type="button"
+                  disabled={saving}
                   onClick={handleCancel}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50"
                 >
                   <XCircle size={14} />
                   Annuler
                 </button>
                 <button
                   type="button"
-                  onClick={handleSave}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+                  disabled={saving}
+                  onClick={() => void handleSave()}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
                 >
-                  <Save size={14} />
-                  Enregistrer
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  {saving ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
               </>
             ) : (

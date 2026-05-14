@@ -12,6 +12,8 @@ export type Patient = {
   telephone?: string;
   contactUrgence?: string;
   priseEnChargeId?: number;
+  /** Code métier (ex. NORMAL) — renvoyé par l’API si disponible */
+  priseEnChargeCode?: string;
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
