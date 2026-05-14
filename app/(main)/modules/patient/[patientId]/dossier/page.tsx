@@ -187,6 +187,9 @@ export default function DossierPatientDetailPage() {
       : `Patient ${patientId.slice(0, 8)}`;
 
   const backHref = useMemo(() => {
+    const returnUrl = searchParams.get("returnUrl");
+    if (returnUrl) return returnUrl;
+    
     const sid = searchParams.get("serviceId") ?? prefill?.serviceId;
     if (sid) return `/modules/clinical/patients?serviceId=${encodeURIComponent(sid)}`;
     return "/modules/clinical/patients";

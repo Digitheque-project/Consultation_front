@@ -586,7 +586,7 @@ function PatientQuickPreviewPanel({
             if (hosp.id) qs.set("hospitalisationId", hosp.id);
             const q = qs.toString();
             router.push(
-              `/modules/clinical/patients/${encodeURIComponent(hosp.patientId)}/dossier${q ? `?${q}` : ""}`,
+              `/modules/patient/${encodeURIComponent(hosp.patientId)}/dossier${q ? `?${q}` : ""}`,
             );
           }}
         >
