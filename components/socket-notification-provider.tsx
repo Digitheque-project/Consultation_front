@@ -47,12 +47,17 @@ export function SocketNotificationProvider() {
       
       const audio = audioRef.current;
       
+      // Mettre le volume à 0 pour éviter le son parasite lors du déverrouillage
+      const originalVolume = audio.volume;
+      audio.volume = 0;
+      
       // Essayer de jouer et pauser immédiatement pour débloquer le contexte
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
           audio.pause();
           audio.currentTime = 0;
+          audio.volume = originalVolume; // Restaurer le volume
           audioUnlocked.current = true;
           
           window.removeEventListener("click", unlockAudio);
@@ -61,7 +66,10 @@ export function SocketNotificationProvider() {
           console.log("[Socket] Audio context successfully unlocked!");
         }).catch(() => {
           // Si ça échoue, on réessaiera au prochain clic
+          audio.volume = originalVolume;
         });
+      } else {
+        audio.volume = originalVolume;
       }
     };
 
@@ -95,7 +103,7 @@ export function SocketNotificationProvider() {
       const receivedAt = Number.isNaN(receivedAtValue) ? Date.now() : receivedAtValue;
 
       const enriched: EnrichedNotification = {
-        ...(payload as EnrichedNotification),
+        ...(payload as unknown as EnrichedNotification),
         patient: patientData ?? undefined,
         receivedAt,
       };

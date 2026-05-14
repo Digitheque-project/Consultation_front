@@ -4,6 +4,8 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Search, BarChart2, ClipboardList, CheckCircle } from "lucide-react";
 import { useNotificationStore, EnrichedNotification, PatientInfo } from "@/stores/notification-store";
 import { hospitalisationApi, StatutDemande } from "@/lib/api/instances/hospitalisation";
+import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
+import { DEFAULT_CLINICAL_SERVICE_ID } from "@/lib/auth/constants";
 import { NotificationCard } from "@/components/notification/NotificationCard";
 import { NotificationSkeleton } from "@/components/notification/NotificationSkeleton";
 import { cn } from "@/lib/utils";
@@ -13,6 +15,7 @@ export default function NotificationPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("Toutes");
+  const [bedStats, setBedStats] = useState<{ totalLits: number; litsOccupes: number; disponibilites: number } | null>(null);
 
   const normalizePatientInfo = (raw: unknown, fallbackId?: string): PatientInfo | undefined => {
     if (!raw || typeof raw !== "object") return undefined;
@@ -43,6 +46,25 @@ export default function NotificationPage() {
     // Reset unread count when viewing the page
     resetUnread();
   }, [resetUnread]);
+
+  useEffect(() => {
+    const fetchBedStats = async () => {
+      try {
+        const serviceId = getClinicalServiceIdFromBrowser() ?? DEFAULT_CLINICAL_SERVICE_ID;
+        const res = await hospitalisationApi.getBedPlan(serviceId);
+        const totalLits = res.data.stats.totalLits;
+        const litsOccupes = res.data.stats.litsOccupes;
+        setBedStats({
+          totalLits,
+          litsOccupes,
+          disponibilites: totalLits - litsOccupes
+        });
+      } catch (error) {
+        console.error("Failed to fetch bed plan stats:", error);
+      }
+    };
+    fetchBedStats();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -187,11 +209,15 @@ export default function NotificationPage() {
             <div className="mb-8">
               <div className="flex justify-between items-end mb-3.5">
                 <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-[0.1em]">Capacité des lits</span>
-                <span className="text-[18px] font-extrabold text-[#006A8C]">28 <span className="text-gray-300 font-bold">/ 32</span></span>
+                {bedStats ? (
+                  <span className="text-[18px] font-extrabold text-[#006A8C]">{bedStats.litsOccupes} <span className="text-gray-300 font-bold">/ {bedStats.totalLits}</span></span>
+                ) : (
+                  <span className="text-[18px] font-extrabold text-gray-300">- / -</span>
+                )}
               </div>
               
               <div className="h-[7px] w-full bg-gray-100 rounded-full mb-4 flex overflow-hidden">
-                <div className="h-full bg-[#0EA5E9] rounded-full" style={{ width: '87.5%' }}></div>
+                <div className="h-full bg-[#0EA5E9] rounded-full transition-all duration-500" style={{ width: bedStats && bedStats.totalLits > 0 ? `${(bedStats.litsOccupes / bedStats.totalLits) * 100}%` : '0%' }}></div>
               </div>
               
               <div className="flex justify-between items-center text-[11px] font-bold">
@@ -201,7 +227,7 @@ export default function NotificationPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
-                  <span className="text-gray-400">Disponibles (4)</span>
+                  <span className="text-gray-400">Disponibles {bedStats ? `(${bedStats.disponibilites})` : ''}</span>
                 </div>
               </div>
             </div>
