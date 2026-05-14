@@ -799,9 +799,38 @@ export default function GestionPatientsPage() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center gap-2 rounded-[22px] border border-gray-100 bg-white py-16 text-[13px] font-semibold text-gray-500 shadow-sm">
-              <Loader2 className="h-5 w-5 animate-spin text-[#006A8C]" />
-              Chargement du plan des lits…
+            <div className="space-y-6">
+              {[1, 2].map((roomIndex) => (
+                <div
+                  key={roomIndex}
+                  className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] p-5 sm:p-6"
+                >
+                  <div className="flex items-center gap-2 mb-5 animate-pulse">
+                    <div className="w-3.5 h-3.5 bg-gray-200 rounded" />
+                    <div className="h-3 w-24 bg-gray-200 rounded" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((bedIndex) => (
+                      <div
+                        key={bedIndex}
+                        className="relative bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 min-h-[140px] flex flex-col justify-between animate-pulse"
+                      >
+                        <div className="mb-2">
+                          <div className="h-5 w-12 bg-gray-200 rounded-[6px]" />
+                        </div>
+                        <div className="space-y-3">
+                          <div className="h-3.5 w-3/4 bg-gray-200 rounded" />
+                          <div className="h-2.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-50">
+                          <div className="h-3 w-3 bg-gray-200 rounded-full" />
+                          <div className="h-2.5 w-20 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : vue === "liste" ? (
             <div className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
