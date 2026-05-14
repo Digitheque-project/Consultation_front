@@ -35,6 +35,7 @@ export interface PlanLitHospitalisation {
   statutHospitalisation: string;
   diagnostic?: string | null;
   soinsCount: number;
+  patient?: Record<string, unknown> | null;
 }
 
 export interface PlanLitBed {
