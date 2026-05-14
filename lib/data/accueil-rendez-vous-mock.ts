@@ -150,22 +150,22 @@ export const STATUT_CONFIG: Record<
 	PLANIFIÉ: {
 		label: 'Planifié',
 		dot: 'bg-blue-500',
-		cls: 'text-blue-700 bg-blue-50 border border-blue-200',
+		cls: 'border border-blue-200/90 bg-blue-50 text-blue-900 shadow-sm shadow-blue-100/40 ring-1 ring-blue-100/30',
 	},
 	'EN COURS': {
 		label: 'En cours',
 		dot: 'bg-orange-500',
-		cls: 'text-orange-700 bg-orange-50 border border-orange-200',
+		cls: 'border border-orange-200/90 bg-orange-50 text-orange-900 shadow-sm shadow-orange-100/40 ring-1 ring-orange-100/30',
 	},
 	'EN ATTENTE': {
 		label: 'En attente',
-		dot: 'bg-purple-500',
-		cls: 'text-purple-700 bg-purple-50 border border-purple-200',
+		dot: 'bg-violet-500',
+		cls: 'border border-violet-200/90 bg-violet-50 text-violet-900 shadow-sm shadow-violet-100/40 ring-1 ring-violet-100/30',
 	},
 	TERMINÉ: {
 		label: 'Terminé',
-		dot: 'bg-green-500',
-		cls: 'text-green-700 bg-green-50 border border-green-200',
+		dot: 'bg-emerald-500',
+		cls: 'border border-emerald-200/90 bg-emerald-50 text-emerald-900 shadow-sm shadow-emerald-100/40 ring-1 ring-emerald-100/30',
 	},
 };
 
