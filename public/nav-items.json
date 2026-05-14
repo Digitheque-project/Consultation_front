@@ -1,4 +1,4 @@
-﻿{
+{
   "items": [
     {
       "label": "Tableau de bord",
@@ -12,7 +12,7 @@
     },
     {
       "label": "Consultation externe",
-      "href": "/consultation",
+      "href": "/modules/clinical/consultation-externe",
       "icon": "file-text"
     },
     {
