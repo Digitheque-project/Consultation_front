@@ -124,7 +124,7 @@ export default function ResultatsParacliniquesTab({ patientId }: Props) {
   });
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ fontFamily: "'Manrope', sans-serif" }}>
       <EhrFormSection title="Filtres" subtitle="Affiner la liste des examens paracliniques" sectionBadge="01" collapsible defaultOpen>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end' }}>
           <div>

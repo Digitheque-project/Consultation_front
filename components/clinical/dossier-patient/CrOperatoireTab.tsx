@@ -175,7 +175,7 @@ export function CrOperatoireTab({ patientId }: { patientId: string }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: ehr.textMuted, fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: ehr.textMuted, fontFamily: "'Manrope', sans-serif" }}>
         Chargement...
       </div>
     );
@@ -198,7 +198,7 @@ export function CrOperatoireTab({ patientId }: { patientId: string }) {
     ) : null;
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", color: ehr.text, maxWidth: '960px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '960px', margin: '0 auto', paddingBottom: '40px' }}>
 
       {/* Barre liste + actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
@@ -546,6 +546,6 @@ const fieldLabelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   width: '100%', border: '1px solid #e2e8f0', borderRadius: '8px',
   padding: '7px 10px', fontSize: '13px', color: '#1e293b',
-  outline: 'none', fontFamily: "'Inter', sans-serif",
+  outline: 'none', fontFamily: "'Manrope', sans-serif",
   boxSizing: 'border-box', backgroundColor: '#ffffff',
 };

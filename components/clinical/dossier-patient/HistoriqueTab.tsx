@@ -60,12 +60,12 @@ export default function HistoriqueTab({ patientId }: Props) {
   };
 
   if (loading) {
-    return <div className="text-center py-8 text-gray-500">Chargement de l'historique...</div>;
+    return <div className="text-center py-8 text-gray-500" style={{ fontFamily: "'Manrope', sans-serif" }}>Chargement de l'historique...</div>;
   }
 
   if (historique.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500" style={{ fontFamily: "'Manrope', sans-serif" }}>
         <History size={48} className="mx-auto mb-3 text-gray-300" />
         <p>Aucun historique disponible pour ce patient.</p>
       </div>
@@ -73,7 +73,7 @@ export default function HistoriqueTab({ patientId }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="flex items-center gap-2 text-gray-600 border-b pb-2">
         <History size={20} />
         <h3 className="font-medium">Journal des actions</h3>

@@ -16,6 +16,10 @@ import {
 import { DiagnosticTab } from "@/components/clinical/dossier-patient/DiagnosticTab";
 import { PrescriptionsTab } from "@/components/clinical/dossier-patient/PrescriptionsTab";
 import { SuiviTab } from "@/components/clinical/dossier-patient/SuiviTab";
+import { CrOperatoireTab } from "@/components/clinical/dossier-patient/CrOperatoireTab";
+import { SortieTab } from "@/components/clinical/dossier-patient/SortieTab";
+import HistoriqueTab from "@/components/clinical/dossier-patient/HistoriqueTab";
+import ResultatsParacliniquesTab from "@/components/clinical/dossier-patient/ResultatsParacliniquesTab";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -333,7 +337,15 @@ export default function DossierPatientDetailPage() {
               <PrescriptionsTab patientId={patientId} />
             ) : activeTab === "suivi" && patientId ? (
               <SuiviTab patientId={patientId} />
-            ) : activeTab !== "observation" && activeTab !== "diagnostic" && activeTab !== "prescription" && activeTab !== "suivi" ? (
+            ) : activeTab === "cr_operatoire" && patientId ? (
+              <CrOperatoireTab patientId={patientId} />
+            ) : activeTab === "sortie" && patientId ? (
+              <SortieTab patientId={patientId} />
+            ) : activeTab === "historique" && patientId ? (
+              <HistoriqueTab patientId={patientId} />
+            ) : activeTab === "resultats" && patientId ? (
+              <ResultatsParacliniquesTab patientId={patientId} />
+            ) : activeTab !== "observation" && activeTab !== "diagnostic" && activeTab !== "prescription" && activeTab !== "suivi" && activeTab !== "cr_operatoire" && activeTab !== "sortie" && activeTab !== "historique" && activeTab !== "resultats" ? (
               <p className="text-center text-[14px] font-medium text-slate-500">
                 Cet onglet sera branché prochainement.
               </p>

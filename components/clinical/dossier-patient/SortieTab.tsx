@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { dossierPatientApi as api } from '@/lib/clinical/dossier-patient-api';
 import { EhrFormSection } from '@/components/clinical/dossier-patient/EhrFormSection';
 import { ehr } from '@/lib/clinical/ehr-theme';
+import { Home, ArrowRightLeft, AlertTriangle, FileCheck, UserMinus, FileText, ClipboardList, PenTool, Trash2, CheckCircle2 } from 'lucide-react';
 
 interface Sortie {
   id?: string;
@@ -24,11 +25,11 @@ interface Sortie {
 }
 
 const TYPES_SORTIE = [
-  { key: 'NORMALE', label: 'Sortie normale /\nRetour à domicile', icon: '🏠' },
-  { key: 'TRANSFERT', label: 'Transfert vers service\n/ hôpital', icon: '🚶' },
-  { key: 'CONTRE_AVIS', label: 'Sortie contre avis /\nÉvadé', icon: '⚠️' },
-  { key: 'DECHARGE', label: 'Décharge\nadministrative', icon: '✅' },
-  { key: 'DECES', label: 'Décès', icon: '✝️' },
+  { key: 'NORMALE', label: 'Sortie normale /\nRetour à domicile', icon: <Home size={22} /> },
+  { key: 'TRANSFERT', label: 'Transfert vers service\n/ hôpital', icon: <ArrowRightLeft size={22} /> },
+  { key: 'CONTRE_AVIS', label: 'Sortie contre avis /\nÉvadé', icon: <AlertTriangle size={22} /> },
+  { key: 'DECHARGE', label: 'Décharge\nadministrative', icon: <FileCheck size={22} /> },
+  { key: 'DECES', label: 'Décès', icon: <UserMinus size={22} /> },
 ];
 
 export function SortieTab({ patientId }: { patientId: string }) {
@@ -132,13 +133,13 @@ export function SortieTab({ patientId }: { patientId: string }) {
   const isCloture = form.statut === 'CLOTURE';
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#64748b', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#64748b', fontFamily: "'Manrope', sans-serif" }}>
       Chargement...
     </div>
   );
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", color: ehr.text, maxWidth: '960px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '960px', margin: '0 auto', paddingBottom: '40px' }}>
 
       <EhrFormSection
         title="Sortie du patient"
@@ -164,11 +165,11 @@ export function SortieTab({ patientId }: { patientId: string }) {
                 color: form.typeSortie === t.key ? ehr.primary : '#475569',
                 cursor: isCloture ? 'default' : 'pointer',
                 textAlign: 'center',
-                fontFamily: "'Inter', sans-serif",
+                fontFamily: "'Manrope', sans-serif",
                 transition: 'all 0.15s',
               }}
             >
-              <div style={{ fontSize: '22px', marginBottom: '8px' }}>{t.icon}</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>{t.icon}</div>
               <div style={{ fontSize: '11px', fontWeight: 600, lineHeight: 1.4, whiteSpace: 'pre-line' }}>{t.label}</div>
             </button>
           ))}
@@ -297,20 +298,20 @@ export function SortieTab({ patientId }: { patientId: string }) {
                   onClick={() => !isCloture && setForm({ ...form, ordonnanceSortieGeneree: !form.ordonnanceSortieGeneree })}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '16px' }}>📄</span>
+                    <FileText size={16} />
                     <span style={{ fontSize: '13px', fontWeight: 600, color: form.ordonnanceSortieGeneree ? '#16a34a' : '#05668D' }}>Ordonnance de sortie</span>
                   </div>
-                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{form.ordonnanceSortieGeneree ? '✅' : '›'}</span>
+                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{form.ordonnanceSortieGeneree ? <CheckCircle2 size={16} color="#16a34a" /> : '›'}</span>
                 </div>
                 <div
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer', backgroundColor: form.instructionsPostOpGenerees ? '#f0fdf4' : 'white' }}
                   onClick={() => !isCloture && setForm({ ...form, instructionsPostOpGenerees: !form.instructionsPostOpGenerees })}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '16px' }}>📋</span>
+                    <ClipboardList size={16} />
                     <span style={{ fontSize: '13px', fontWeight: 600, color: form.instructionsPostOpGenerees ? '#16a34a' : '#475569' }}>Instructions de sortie post-op</span>
                   </div>
-                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{form.instructionsPostOpGenerees ? '✅' : '›'}</span>
+                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{form.instructionsPostOpGenerees ? <CheckCircle2 size={16} color="#16a34a" /> : '›'}</span>
                 </div>
               </div>
             </div>
@@ -341,7 +342,7 @@ export function SortieTab({ patientId }: { patientId: string }) {
         <p style={sectionLabelStyle}>SIGNATURE NUMÉRIQUE DU MÉDECIN</p>
         {isCloture && form.signatureHorodatage ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', width: 'fit-content' }}>
-            <span style={{ fontSize: '18px' }}>✅</span>
+            <CheckCircle2 size={18} color="#16a34a" />
             <div>
               <p style={{ fontSize: '13px', fontWeight: 600, color: '#16a34a', margin: 0 }}>Signature validée</p>
               <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
@@ -367,7 +368,7 @@ export function SortieTab({ patientId }: { patientId: string }) {
               />
               {!signed && (
                 <div style={{ position: 'absolute', pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '298px', marginTop: '-120px', height: '120px' }}>
-                  <span style={{ fontSize: '20px', color: '#cbd5e1' }}>✍️</span>
+                  <PenTool size={20} color="#cbd5e1" />
                   <span style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>Cliquer pour signer</span>
                 </div>
               )}
@@ -376,9 +377,9 @@ export function SortieTab({ patientId }: { patientId: string }) {
               <button
                 type="button"
                 onClick={clearSignature}
-                style={{ marginTop: '6px', fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                style={{ marginTop: '6px', fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                🗑 Effacer la signature
+                <Trash2 size={12} /> Effacer la signature
               </button>
             )}
           </div>
@@ -445,6 +446,6 @@ const fieldLabelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   width: '100%', border: '1px solid #e2e8f0', borderRadius: '8px',
   padding: '9px 12px', fontSize: '13px', color: '#1e293b',
-  outline: 'none', fontFamily: "'Inter', sans-serif",
+  outline: 'none', fontFamily: "'Manrope', sans-serif",
   boxSizing: 'border-box', backgroundColor: '#ffffff',
 };
