@@ -431,12 +431,12 @@ export default function PlanningCompletPage() {
                 </div>
               </div>
             ) : (
-              <div className="max-w-[240px]">
-                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-100">
+              <div className="max-w-[240px] mx-auto text-center flex flex-col items-center">
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 border border-gray-100">
                   <Search className="w-8 h-8 text-gray-300" />
                 </div>
-                <h3 className="text-[16px] font-black text-gray-800 mb-2 leading-tight">Aucune consultation sélectionnée</h3>
-                <p className="text-[13px] text-gray-400 font-medium">
+                <h3 className="text-[16px] font-black text-gray-800 mb-2 leading-tight text-center">Aucune consultation sélectionnée</h3>
+                <p className="text-[13px] text-gray-400 font-medium text-center">
                   Cliquez sur un rendez-vous dans le planning pour afficher les informations détaillées ici.
                 </p>
               </div>

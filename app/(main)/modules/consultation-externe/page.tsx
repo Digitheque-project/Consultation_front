@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 
 import { useWaitingConsultations } from '@/hooks/use-consultations';
 import { consultationApi } from '@/lib/api/consultation';
+import { PatientInfoModal } from "@/components/notification/PatientInfoModal";
+import { PatientInfo } from "@/stores/notification-store";
 
 type Appointment = {
   id: number;
@@ -269,91 +271,24 @@ export default function ConsultationExternePage() {
           </div>
         </div>
 
-        {patientInfo ? (
-          <div className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4'>
-            <div className='relative w-full max-w-3xl rounded-[32px] bg-white shadow-[0_32px_120px_rgba(15,23,42,0.18)] ring-1 ring-slate-200 border border-slate-100 max-h-[calc(100vh-4rem)] overflow-hidden'>
-              <div className='flex h-full flex-col'>
-                <div className='flex flex-col gap-6 border-b border-slate-200 bg-white px-8 py-8 sm:flex-row sm:items-center sm:justify-between'>
-                  <div>
-                    <p className='text-[11px] uppercase tracking-[0.35em] text-slate-400 font-semibold mb-2'>Informations du patient</p>
-                    <div className='flex flex-wrap items-center gap-3'>
-                      <h2 className='text-3xl font-extrabold text-slate-900'>{patientInfo.name}</h2>
-                      {patientInfo.coverage ? (
-                        <span className='rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase text-emerald-700'>{patientInfo.coverage}</span>
-                      ) : null}
-                    </div>
-                    <div className='mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500'>
-                      <span>{patientInfo.date}</span>
-                      <span className='inline-flex h-1 w-1 rounded-full bg-slate-300' />
-                      <span>{patientInfo.type}</span>
-                    </div>
-                  </div>
-                  <button onClick={handleClosePatientInfo} className='rounded-full border border-slate-200 bg-slate-50 p-3 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900'>
-                    <span className='text-xl leading-none'>×</span>
-                  </button>
-                </div>
-
-                <div className='min-h-0 overflow-y-auto bg-slate-50 px-8 py-6'>
-                  <div className='grid gap-6 lg:grid-cols-2'>
-                    <div className='rounded-[28px] bg-white p-6 shadow-sm border border-slate-200'>
-                      <div className='grid gap-4 sm:grid-cols-2'>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Nom complet</p>
-                          <p className='text-sm font-semibold text-slate-900'>{patientInfo.name}</p>
-                        </div>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Type</p>
-                          <p className='text-sm font-semibold text-slate-900'>{patientInfo.type}</p>
-                        </div>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Date</p>
-                          <p className='text-sm font-semibold text-slate-900'>{patientInfo.date}</p>
-                        </div>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>CIN / ID</p>
-                          <p className='text-sm font-semibold text-slate-900'>{patientInfo.idNumber ?? '-'}</p>
-                        </div>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Profession</p>
-                          <p className='text-sm font-semibold text-slate-900'>{patientInfo.profession ?? '-'}</p>
-                        </div>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Téléphone</p>
-                          <p className='text-sm font-semibold text-slate-900'>{patientInfo.phone ?? '-'}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className='rounded-[28px] bg-white p-6 shadow-sm border border-slate-200'>
-                      <div className='grid gap-4 sm:grid-cols-2'>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Adresse</p>
-                          <p className='text-sm font-semibold text-slate-900'>{patientInfo.address ?? '-'}</p>
-                        </div>
-                        <div>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Contact d'urgence</p>
-                          <p className='text-sm font-semibold text-[#005b82]'>{patientInfo.emergencyContact ?? '-'}</p>
-                        </div>
-                        <div className='sm:col-span-2'>
-                          <p className='text-[10px] uppercase tracking-[0.35em] text-slate-400 font-bold mb-2'>Motif de consultation</p>
-                          <div className='rounded-3xl bg-slate-100 p-4 text-sm text-slate-600'>"{patientInfo.motif ?? 'Aucun motif renseigné.'}"</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className='space-y-4 border-t border-slate-200 bg-white px-8 py-6 sm:flex sm:items-center sm:justify-between sm:space-y-0'>
-                  <button onClick={handleClosePatientInfo} className='w-full rounded-full border border-slate-200 bg-slate-50 px-8 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100 sm:w-auto'>Fermer</button>
-                  <button onClick={() => {
-                    if (!patientInfo) return;
-                    handleStart(patientInfo);
-                    handleClosePatientInfo();
-                  }} className='w-full rounded-full bg-[#005b82] px-8 py-3 text-sm font-bold text-white transition hover:bg-[#004a6b] sm:w-auto'>Commencer la consultation</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        {patientInfo && (
+          <PatientInfoModal
+            isOpen={!!patientInfo}
+            onClose={handleClosePatientInfo}
+            patientData={{
+              nom: patientInfo.name,
+              prenom: "",
+              cin: patientInfo.idNumber,
+              telephone: patientInfo.phone,
+              adresse: patientInfo.address,
+              contactUrgence: patientInfo.emergencyContact,
+              profession: patientInfo.profession,
+              motif: patientInfo.motif,
+            } as PatientInfo}
+            onAction={() => handleStart(patientInfo)}
+            actionLabel="Commencer la consultation"
+          />
+        )}
       </div>
     </div>
   );
