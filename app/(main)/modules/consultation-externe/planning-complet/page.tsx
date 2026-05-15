@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   format,
@@ -21,11 +22,19 @@ import {
   User,
   Clock,
   CheckCircle2,
+  Search,
+  ArrowLeft,
+  X,
+  MapPin,
+  Phone,
+  Building2,
+  CalendarDays,
+  Calendar,
+  Briefcase,
+  Activity,
   AlertCircle,
   HelpCircle,
-  Calendar,
-  MoreVertical,
-  Search
+  MoreVertical
 } from "lucide-react";
 import { useAllConsultations } from "@/hooks/use-consultations";
 import { ConsultationApi } from "@/lib/api/consultation";
@@ -46,6 +55,9 @@ export default function PlanningCompletPage() {
   const [now, setNow] = useState(new Date());
   const [isMounted, setIsMounted] = useState(false);
   const dateInputRef = React.useRef<HTMLInputElement>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalDate, setModalDate] = useState<Date | null>(null);
+  const [isFixedDate, setIsFixedDate] = useState(true);
 
   // Update current time indicator every minute
   useEffect(() => {
@@ -69,6 +81,12 @@ export default function PlanningCompletPage() {
     if (!isNaN(newDate.getTime())) {
       setCurrentDate(newDate);
     }
+  };
+
+  const openAddModal = (date: Date, fixed = true) => {
+    setModalDate(date);
+    setIsFixedDate(fixed);
+    setIsModalOpen(true);
   };
 
   const triggerDatePicker = () => {
@@ -153,10 +171,19 @@ export default function PlanningCompletPage() {
     <div className="flex-1 h-full flex flex-col bg-[#F8FAFC] overflow-hidden">
       {/* --- HEADER --- */}
       <header className="bg-white border-b border-gray-200 px-8 py-6 flex-none flex flex-col md:flex-row md:items-center justify-between gap-4 text-slate-700 z-30 shadow-sm">
-        <div>
-          <h1 className="text-[24px] font-black text-gray-900 tracking-tight">Planning complet de la consultation externe</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[14px] font-medium text-gray-500">Dr. Jean Pierre</span>
+        <div className="flex items-start gap-5">
+          <Link
+            href="/modules/consultation-externe"
+            className="group inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-sm border border-gray-100 hover:bg-[#EAF3FA] transition-all text-[#006A8C] hover:scale-105 active:scale-95 mt-1"
+            title="Retour"
+          >
+            <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
+          </Link>
+          <div>
+            <h1 className="text-[24px] font-black text-gray-900 tracking-tight">Planning complet de la consultation externe</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[14px] font-medium text-gray-500">Dr. Jean Pierre</span>
+            </div>
           </div>
         </div>
 
@@ -190,7 +217,10 @@ export default function PlanningCompletPage() {
           </Button>
 
           <div className="relative">
-            <Button className="bg-[#005b82] hover:bg-[#004a6b] text-white rounded-xl px-5 h-11 font-black text-[13px] shadow-lg shadow-blue-900/10 gap-2">
+            <Button
+              onClick={() => openAddModal(new Date(), false)}
+              className="bg-[#005b82] cursor-pointer hover:bg-[#004a6b] text-white rounded-xl px-5 h-11 font-black text-[13px] shadow-lg shadow-blue-900/10 gap-2"
+            >
               <Plus className="w-4 h-4" strokeWidth={3} />
               NOUVEAU RENDEZ-VOUS
             </Button>
@@ -328,9 +358,13 @@ export default function PlanningCompletPage() {
           {/* Grid Footer - FIXED ACTION BAR */}
           <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr] border-t border-gray-100 bg-white flex-none">
             <div className="border-r border-gray-100 bg-gray-50/10"></div>
-            {weekDays.map((_, idx) => (
+            {weekDays.map((day, idx) => (
               <div key={idx} className="p-3 border-r border-gray-100 last:border-r-0">
-                <Button variant="ghost" className="w-full h-10 rounded-xl border border-dashed border-gray-200 text-gray-600 hover:text-[#005b82] hover:bg-blue-50 hover:border-blue-200 text-[11px] font-bold gap-2">
+                <Button
+                  onClick={() => openAddModal(day)}
+                  variant="ghost"
+                  className="w-full h-10 cursor-pointer rounded-xl border border-dashed border-gray-200 text-gray-600 hover:text-[#005b82] hover:bg-blue-50 hover:border-blue-200 text-[11px] font-bold gap-2"
+                >
                   <Plus className="w-3 h-3" />
                   AJOUTER
                 </Button>
@@ -421,10 +455,20 @@ export default function PlanningCompletPage() {
                   </div>
                 </div>
 
-                <div className="mt-auto pt-8">
+                <div className="mt-auto pt-8 space-y-3">
+                  {!selectedAppointment.termine && (
+                    <Button
+                      onClick={() => handleStartPrescription(selectedAppointment)}
+                      className="w-full bg-[#005b82] cursor-pointer hover:bg-[#004a6b] h-14 rounded-2xl font-black text-[14px] text-white shadow-xl shadow-blue-900/10 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      COMMENCER LA CONSULTATION
+                    </Button>
+                  )}
                   <Button
                     onClick={() => handleStartPrescription(selectedAppointment)}
-                    className="w-full bg-[#005b82] hover:bg-[#004a6b] h-14 rounded-2xl font-black text-[14px] text-white shadow-xl shadow-blue-900/10 active:scale-[0.98] transition-all"
+                    variant="outline"
+                    className="w-full h-14 cursor-pointer rounded-2xl font-black text-[14px] text-gray-600 border-gray-100 hover:bg-gray-50 active:scale-[0.98] transition-all"
                   >
                     ACCÉDER AU DOSSIER
                   </Button>
@@ -444,6 +488,175 @@ export default function PlanningCompletPage() {
           </div>
         </aside>
       </div>
+
+      {/* --- PATIENT INFORMATION MODAL --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-gray-900/40 backdrop-blur-[2px]"
+            onClick={() => setIsModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative w-full max-w-3xl bg-white rounded-[32px] shadow-[0px_32px_64px_-12px_rgba(0,0,0,0.14)] overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
+              <h2 className="text-[20px] font-black text-gray-900">Information Patient</h2>
+              <div className="flex items-center gap-6">
+                {isFixedDate ? (
+                  <span className="text-[14px] font-bold text-[#005b82] uppercase tracking-tight">
+                    {modalDate && format(modalDate, "EEEE, dd MMMM yyyy", { locale: fr })}
+                  </span>
+                ) : (
+                  <div className="relative flex items-center gap-2 bg-[#F1F5F9] rounded-xl px-3 py-2 border border-blue-100 hover:border-blue-300 transition-all group">
+                    <Calendar className="w-3.5 h-3.5 text-[#005b82]" />
+                    <input
+                      type="date"
+                      value={modalDate ? format(modalDate, "yyyy-MM-dd") : ""}
+                      onChange={(e) => setModalDate(new Date(e.target.value))}
+                      className="bg-transparent border-none text-[12px] font-black text-[#005b82] uppercase tracking-tight outline-none cursor-pointer"
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 cursor-pointer rounded-full transition-colors text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
+              <div className="space-y-8">
+                {/* 1. Identité */}
+                <section className="space-y-5">
+                  <div className="flex items-center gap-2 text-[#005b82]">
+                    <User className="w-4 h-4" strokeWidth={2.5} />
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.15em]">Identité du patient</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nom</label>
+                      <input type="text" placeholder="Nom" className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl px-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100 transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Prénom</label>
+                      <input type="text" placeholder="Prénom" className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl px-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sexe</label>
+                      <select className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl px-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100 outline-none cursor-pointer">
+                        <option>Masculin</option>
+                        <option>Féminin</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date de naissance</label>
+                      <div className="relative">
+                        <input type="text" placeholder="JJ/MM/AAAA" className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl px-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Profession</label>
+                      <input type="text" placeholder="Profession" className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl px-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100" />
+                    </div>
+                    <div className="space-y-1 pb-1">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Âge (calculé)</p>
+                      <p className="text-[20px] font-black text-[#005b82] tracking-tight">XX ans</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* 2. Coordonnées */}
+                <section className="space-y-5">
+                  <div className="flex items-center gap-2 text-[#005b82]">
+                    <MapPin className="w-4 h-4" strokeWidth={2.5} />
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.15em]">Coordonnées & Contact</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1 space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Adresse domicile</label>
+                      <textarea placeholder="Adresse exacte" className="w-full h-[72px] bg-[#F1F5F9]/80 border-none rounded-xl p-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100 resize-none leading-relaxed" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Téléphone personnel</label>
+                      <div className="relative">
+                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <input type="text" placeholder="034 00 000 00" className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl pl-10 pr-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Téléphone d'urgence</label>
+                      <div className="relative">
+                        <Activity className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <input type="text" placeholder="032 00 000 00" className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl pl-10 pr-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100" />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* 3. Prise en charge & Jour */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <section className="space-y-5">
+                    <div className="flex items-center gap-2 text-[#005b82]">
+                      <Building2 className="w-4 h-4" strokeWidth={2.5} />
+                      <h3 className="text-[11px] font-black uppercase tracking-[0.15em]">Prise en charge</h3>
+                    </div>
+                    <select className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl px-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100 outline-none">
+                      <option>Simple</option>
+                      <option>Prise en charge 100%</option>
+                      <option>Assurance</option>
+                    </select>
+                  </section>
+
+                  <section className="space-y-5">
+                    <div className="flex items-center gap-2 text-gray-900">
+                      <h3 className="text-[11px] font-black uppercase tracking-[0.15em]">Jour</h3>
+                    </div>
+                    <select className="w-full h-11 bg-[#F1F5F9]/80 border-none rounded-xl px-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100 outline-none">
+                      <option>Matin</option>
+                      <option>Après-midi</option>
+                    </select>
+                  </section>
+                </div>
+
+                {/* 4. Motif */}
+                <section className="space-y-5">
+                  <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Motif de la visite / Plaintes</h3>
+                  <div className="relative">
+                    <Briefcase className="absolute left-4 top-4 w-4 h-4 text-gray-400" />
+                    <textarea
+                      placeholder="Décrivez les symptômes ou le motif de consultation..."
+                      className="w-full h-24 bg-[#F1F5F9]/80 border-none rounded-xl pl-11 pr-4 py-4 text-[13px] font-bold text-gray-900 focus:ring-2 focus:ring-blue-100 resize-none"
+                    />
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-5 bg-gray-50/50 border-t border-gray-100 flex items-center justify-end gap-6">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-[13px] cursor-pointer font-bold text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Fermer
+              </button>
+              <Button className="bg-[#005b82] cursor-pointer hover:bg-[#004a6b] text-white rounded-full px-8 h-11 font-black text-[13px] shadow-lg shadow-blue-900/10 gap-2">
+                <Plus className="w-4 h-4" strokeWidth={3} />
+                AJOUTER
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

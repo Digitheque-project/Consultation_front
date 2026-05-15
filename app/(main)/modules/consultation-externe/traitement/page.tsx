@@ -4,6 +4,23 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useConsultation, useFinalizeConsultation } from '@/hooks/use-consultations';
 import { ConsultationApi } from '@/lib/api/consultation';
+import {
+  ArrowLeft,
+  User,
+  Stethoscope,
+  Clock,
+  FileText,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  Save,
+  ClipboardList,
+  Calendar,
+  AlertCircle
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 type Appointment = {
   id: number;
@@ -131,7 +148,7 @@ export default function TraitementPage() {
 
       alert('Consultation finalisée avec succès!');
       // Rediriger vers la page de prescription
-      window.location.href = '/modules/consultation-externe/prescription';
+      window.location.href = '/modules/consultation-externe';
     } catch (err) {
       alert('Erreur lors de la sauvegarde: ' + (err instanceof Error ? err.message : 'Erreur inconnue'));
     }
@@ -209,362 +226,492 @@ export default function TraitementPage() {
   if (!appointment) return null;
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 px-6 py-10"><div className="max-w-5xl mx-auto rounded-3xl bg-white p-10 shadow-sm border border-slate-200"><p className="text-slate-600">Chargement de l'interface de traitement...</p></div></div>}>
-      <div className="bg-slate-50 py-8 px-6">
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F8FA] px-6 py-10"><div className="max-w-5xl mx-auto rounded-3xl bg-white p-10 shadow-sm border border-slate-200"><p className="text-slate-600">Chargement de l'interface de traitement...</p></div></div>}>
+      <div className="bg-[#F5F8FA] min-h-screen py-8 px-6">
         <div className="max-w-7xl mx-auto">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Traitement de consultation</h1>
-            <p className="text-sm text-slate-500">Interface de prescription et de suivi du patient.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/modules/consultation-externe/prescription" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
-              Prescription
+          {/* Header Section */}
+          <div className="mb-10 flex items-start gap-5">
+            <Link
+              href="/modules/consultation-externe"
+              className="group inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-sm border border-gray-100 hover:bg-[#EAF3FA] transition-all text-[#006A8C] hover:scale-105 active:scale-95 mt-1"
+              title="Retour"
+            >
+              <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
             </Link>
-            <Link href="/modules/consultation-externe/consultations-waiting" className="rounded-full bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">
-              Consultations en attente
-            </Link>
-          </div>
-        </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <section className="space-y-6 rounded-3xl bg-white p-6 shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between gap-6">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">{appointment.n}</h2>
-                <p className="text-sm text-slate-500">{appointment.a} • {appointment.g}</p>
-              </div>
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">{appointment.s}</span>
+            <div className="flex flex-col gap-1.5">
+              <h1 className="text-[28px] font-extrabold text-gray-900 leading-tight tracking-tight">
+                Traitement de consultation
+              </h1>
+              <p className="text-[14px] text-gray-500 font-medium">
+                Interface de prescription et de suivi du patient.
+              </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Rendez-vous</p>
-                <p className="mt-2 text-sm font-bold text-slate-800">{appointment.t}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Statut</p>
-                <p className="mt-2 text-sm font-bold text-slate-800">{appointment.s}</p>
-              </div>
-            </div>
-            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">Raison</p>
-              <p className="mt-3 text-sm text-slate-700">{appointment.motif || 'Aucun motif renseigné.'}</p>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-bold text-slate-700">Observations médicales</label>
-                <textarea
-                  value={observation.notes}
-                  onChange={(e) => setObservation({ ...observation, notes: e.target.value })}
-                  className="mt-2 w-full min-h-[120px] rounded-3xl border border-slate-200 bg-white p-4 text-sm text-slate-700 outline-none focus:border-blue-700"
-                  placeholder="Notes d'observation sur le patient..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-bold text-slate-700">Diagnostic</label>
-                <input
-                  type="text"
-                  value={observation.diagnostic}
-                  onChange={(e) => setObservation({ ...observation, diagnostic: e.target.value })}
-                  className="mt-2 w-full rounded-3xl border border-slate-200 bg-white p-4 text-sm text-slate-700 outline-none focus:border-blue-700"
-                  placeholder="Diagnostic principal..."
-                />
-              </div>
-            </div>
-          </section>
-
-          <aside className="space-y-5 rounded-3xl bg-white p-6 shadow-sm border border-slate-100">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Contact</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">Patient inconnu</p>
-              <p className="text-sm text-slate-500">Information disponible après enregistrement.</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Statut</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">{appointment.g}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Allergies</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <span className="rounded-full bg-red-100 px-3 py-1 text-[11px] font-semibold text-red-600">Aucune</span>
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <div className="mt-8 rounded-3xl bg-white p-6 shadow-sm border border-slate-100">
-          <div className="flex items-center gap-8 border-b border-slate-200 pb-6">
-            <button onClick={() => setActiveSection('non-medicamentaux')} className={"flex items-center gap-2 py-4 transition-all " + (activeSection === 'non-medicamentaux' ? 'text-blue-700 border-b-2 border-blue-700 font-bold' : 'text-slate-500 border-b-2 border-transparent hover:text-blue-700 font-medium')}>
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-              <span className="text-sm">Prescriptions non médicamenteuses</span>
-            </button>
-            <button onClick={() => setActiveSection('medicament')} className={"flex items-center gap-2 py-4 transition-all " + (activeSection === 'medicament' ? 'text-blue-700 border-b-2 border-blue-700 font-bold' : 'text-slate-500 border-b-2 border-transparent hover:text-blue-700 font-medium')}>
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-              <span className="text-sm">Prescriptions médicamenteuses</span>
-            </button>
           </div>
 
-          {activeSection === 'medicament' ? (
-            <>
-              <div className="space-y-4 pt-6">
-                <h4 className="text-lg font-bold text-blue-700">Prescriptions médicamenteuses</h4>
-                <div className="bg-white border border-slate-100 rounded-xl overflow-hidden shadow-sm">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                      <tr>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">MÉDICAMENT</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">TYPE</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">DOSAGE</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">VOIE</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">QUANTITE</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">DURÉE</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">INSTRUCTIONS</th>
-                        <th className="px-4 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {medicaments.length === 0 ? (
-                        <tr className="bg-white">
-                          <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">
-                            Aucune prescription médicamenteuse ajoutée. Cliquez sur "Ajouter un médicament" pour commencer.
-                          </td>
-                        </tr>
-                      ) : medicaments.map((med) => (
-                        <tr key={med.id}>
-                          <td className="px-4 py-4">
-                            <input
-                              type="text"
-                              value={med.medicament}
-                              onChange={(e) => updateMedicament(med.id, 'medicament', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg focus:ring-blue-700 p-3"
-                              placeholder="Médicament..."
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input
-                              type="text"
-                              value={med.forme}
-                              onChange={(e) => updateMedicament(med.id, 'forme', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg focus:ring-blue-700 p-3"
-                              placeholder="Type..."
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input
-                              type="text"
-                              value={med.dosage}
-                              onChange={(e) => updateMedicament(med.id, 'dosage', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg focus:ring-blue-700 p-3"
-                              placeholder="Dosage..."
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input
-                              type="text"
-                              value={med.voie}
-                              onChange={(e) => updateMedicament(med.id, 'voie', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg focus:ring-blue-700 p-3"
-                              placeholder="Voie..."
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input
-                              type="text"
-                              value={med.posologie}
-                              onChange={(e) => updateMedicament(med.id, 'posologie', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg focus:ring-blue-700 p-3"
-                              placeholder="Quantité..."
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input
-                              type="text"
-                              value={med.duree}
-                              onChange={(e) => updateMedicament(med.id, 'duree', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg focus:ring-blue-700 p-3"
-                              placeholder="Durée..."
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input
-                              type="text"
-                              value={med.instructions}
-                              onChange={(e) => updateMedicament(med.id, 'instructions', e.target.value)}
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg focus:ring-blue-700 p-3"
-                              placeholder="Instructions..."
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <button type="button" onClick={() => removeMedicament(med.id)} className="text-slate-300 hover:text-red-500 transition-colors">
-                              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="p-6">
-                    <button type="button" onClick={addMedicament} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-blue-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors"><svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>Ajouter un médicament</button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-6 border-t border-slate-200 flex-col gap-4 sm:flex-row sm:gap-0">
-                <button type="button" className="px-8 py-3 w-full rounded-full border border-slate-200 bg-slate-100 text-sm font-bold text-slate-700 hover:bg-slate-200 transition-colors sm:w-auto">Annuler</button>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <button type="button" onClick={finalizeConsultation} disabled={saving} className="px-8 py-3 w-full rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm shadow-sm hover:opacity-90 transition-colors sm:w-auto disabled:opacity-50">
-                    {saving ? 'Sauvegarde...' : 'Valider la prescription'}
-                  </button>
-                  <button type="button" onClick={finalizeConsultation} disabled={saving} className="px-8 py-3 w-full rounded-full bg-blue-700 text-white font-bold text-sm shadow-sm hover:bg-blue-800 transition-colors sm:w-auto disabled:opacity-50">
-                    {saving ? 'Sauvegarde...' : 'Terminer la consultation'}
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-6 pt-6">
-                <div className="bg-white rounded-2xl p-6 custom-shadow border-l-4 border-blue-400">
-                  <div className="flex items-center space-x-2 text-blue-700 mb-4">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                    <h4 className="font-bold text-sm">Recommandations &amp; Notes</h4>
-                  </div>
-                  <textarea
-                    value={nonMedicaments.recommandationsNotes}
-                    onChange={(e) => setNonMedicaments({ ...nonMedicaments, recommandationsNotes: e.target.value })}
-                    className="w-full h-32 bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-600 focus:ring-1 focus:ring-blue-700 transition-all"
-                    placeholder="Ex: Régime hyposodé, repos strict..."
-                  />
-                </div>
-                <div className="bg-white rounded-2xl p-6 custom-shadow border-l-4 border-orange-400">
-                  <div className="flex items-center space-x-2 text-orange-600 mb-4">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                    <h4 className="font-bold text-sm">Contrôle / RDV de suivi</h4>
-                  </div>
-                  <textarea
-                    value={nonMedicaments.rdvMotif}
-                    onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvMotif: e.target.value })}
-                    className="w-full h-12 bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-600 focus:ring-1 focus:ring-blue-700 mb-4 transition-all"
-                    placeholder="Motif du rdv..."
-                  />
-                  <div className="flex items-center space-x-2">
-                    <div className="flex space-x-1.5">
-                      {(['NIVEAU_1', 'NIVEAU_2', 'NIVEAU_3', 'NIVEAU_4'] as const).map((niveau) => (
-                        <button
-                          key={niveau}
-                          onClick={() => setNonMedicaments({ ...nonMedicaments, rdvNiveau: niveau })}
-                          className={`w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                            nonMedicaments.rdvNiveau === niveau
-                              ? niveau === 'NIVEAU_1' ? 'bg-green-100 text-green-600' :
-                                niveau === 'NIVEAU_2' ? 'bg-yellow-100 text-yellow-600' :
-                                niveau === 'NIVEAU_3' ? 'bg-orange-100 text-orange-600 border border-orange-300' :
-                                'bg-red-100 text-red-600'
-                              : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {niveau.split('_')[1]}
-                        </button>
-                      ))}
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <Card className="rounded-[32px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
+              <CardHeader className="p-7 pb-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#EAF3FA] rounded-2xl flex items-center justify-center text-[#006A8C] border border-blue-50">
+                      <User className="w-6 h-6" strokeWidth={2.5} />
                     </div>
-                    <input
-                      value={nonMedicaments.rdvDate}
-                      onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvDate: e.target.value })}
-                      className="flex-1 bg-slate-50 border-none rounded-lg p-2 text-xs text-slate-600"
-                      placeholder="mm/dd/yyyy"
-                      type="date"
-                    />
+                    <div>
+                      <CardTitle className="text-[14px] sm:text-[16px] font-extrabold uppercase text-gray-900 tracking-tight">
+                        {appointment.n}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{appointment.a}</span>
+                        <div className="w-1 h-1 rounded-full bg-gray-300"></div>
+                        <span className="text-[11px] font-bold text-[#006A8C] uppercase tracking-widest">{appointment.g}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant={appointment.s.includes('ATTENTE') ? 'warning' : 'success'} className="px-4 py-1.5 text-[10px] uppercase tracking-[0.1em]">
+                    {appointment.s}
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-7 space-y-8">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-[20px] bg-[#F8FAFC] border border-gray-100 p-4">
+                    <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-[0.15em]">Horaire Rendez-vous</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[#006A8C]" strokeWidth={2.5} />
+                      <p className="text-[15px] font-black text-gray-900">{appointment.t}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-[20px] bg-[#F8FAFC] border border-gray-100 p-4">
+                    <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-[0.15em]">Priorité</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-orange-500" strokeWidth={2.5} />
+                      <p className="text-[15px] font-black text-gray-900">{appointment.g}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-6 pt-6">
-                <div className="bg-white rounded-2xl p-6 custom-shadow border-l-4 border-purple-400">
-                  <div className="flex items-center space-x-2 text-purple-700 mb-4">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                    <h4 className="font-bold text-sm">Demande d'examen para-clinique</h4>
+
+                <div className="rounded-3xl border border-gray-100 bg-[#F5F8FA]/50 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Stethoscope className="h-4 w-4 text-[#006A8C]" strokeWidth={2.5} />
+                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#64748B]">Motif de consultation</p>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[11px] uppercase tracking-[0.18em] text-slate-400 font-semibold">Service cible</label>
-                    <select
-                      value={nonMedicaments.examenService}
-                      onChange={(e) => setNonMedicaments({ ...nonMedicaments, examenService: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 focus:ring-blue-700"
-                    >
-                      <option value="">Sélectionner un service</option>
-                      {examenServices.map((service) => (
-                        <option key={service} value={service}>{service}</option>
-                      ))}
-                    </select>
-                    <label className="text-[11px] uppercase tracking-[0.18em] text-slate-400 font-semibold">Motif de demande</label>
+                  <p className="text-[13px] font-medium text-gray-600 leading-relaxed">{appointment.motif || 'Aucun motif renseigné.'}</p>
+                </div>
+
+                <div className="space-y-6 pt-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Observations médicales</label>
                     <textarea
-                      value={nonMedicaments.examenMotif}
-                      onChange={(e) => setNonMedicaments({ ...nonMedicaments, examenMotif: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-600 focus:ring-blue-700 transition-all"
-                      placeholder="Motif de la demande d'examen..."
-                      rows={4}
+                      value={observation.notes}
+                      onChange={(e) => setObservation({ ...observation, notes: e.target.value })}
+                      className="w-full min-h-[140px] rounded-[24px] border border-gray-100 bg-white p-5 text-[14px] text-gray-700 shadow-sm focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] outline-none transition-all placeholder:text-gray-400"
+                      placeholder="Saisir les notes d'observation clinique..."
                     />
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      {(['STAT', 'URGENTE', 'NORMALE'] as const).map((priorite) => (
-                        <button
-                          key={priorite}
-                          onClick={() => setNonMedicaments({ ...nonMedicaments, examenPriorite: priorite })}
-                          className={`py-2 rounded-lg text-[10px] font-bold uppercase tracking-tight ${
-                            nonMedicaments.examenPriorite === priorite
-                              ? priorite === 'STAT' ? 'bg-red-600 text-white' :
-                                priorite === 'URGENTE' ? 'bg-slate-100 text-slate-500' :
-                                'bg-slate-100 text-slate-500'
-                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors'
-                          }`}
-                        >
-                          {priorite}
-                        </button>
-                      ))}
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Diagnostic final</label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                        <ClipboardList className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={observation.diagnostic}
+                        onChange={(e) => setObservation({ ...observation, diagnostic: e.target.value })}
+                        className="w-full rounded-2xl border border-gray-100 bg-white pl-11 pr-5 py-4 text-[14px] text-gray-700 shadow-sm focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] outline-none transition-all placeholder:text-gray-400"
+                        placeholder="Préciser le diagnostic..."
+                      />
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-2xl p-6 custom-shadow border-l-4 border-blue-700">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-2 text-blue-700">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                      <h4 className="font-bold text-sm">Demande d'hospitalisation</h4>
-                    </div>
-                    <span className="text-[9px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded leading-tight text-right">EN<br/>ATTENTE</span>
+              </CardContent>
+            </Card>
+
+            <aside className="space-y-6">
+              <Card className="rounded-[28px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] p-7">
+                <h3 className="text-[11px] font-extrabold text-[#006A8C] uppercase tracking-[0.1em] mb-6 flex items-center gap-2">
+                  <User className="h-4 w-4" /> Détails Patient
+                </h3>
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Identité</p>
+                    <p className="mt-1 text-[13px] font-extrabold text-gray-900">{appointment.n}</p>
+                    <p className="text-[12px] font-medium text-gray-500">Dossier : #PAT-{appointment.id}</p>
                   </div>
-                  <textarea
-                    value={nonMedicaments.hospitalisationMotif}
-                    onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationMotif: e.target.value })}
-                    className="w-full h-20 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-600 mb-3 transition-all focus:ring-blue-700"
-                    placeholder="Motif d'hospitalisation"
-                  />
-                  <label className="text-[11px] uppercase tracking-[0.18em] text-slate-400 font-semibold">Service cible</label>
-                  <select
-                    value={nonMedicaments.hospitalisationService}
-                    onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationService: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 focus:ring-blue-700"
-                  >
-                    <option value="">Sélectionner un service</option>
-                    {hospitalisationServices.map((service) => (
-                      <option key={service} value={service}>{service}</option>
-                    ))}
-                  </select>
+                  <div className="pt-4 border-t border-gray-50">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Urgence</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${appointment.g === 'Urgence' ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
+                      <p className="text-[13px] font-bold text-gray-900">{appointment.g}</p>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-gray-50">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Allergies connues</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge variant="destructive" className="bg-red-50 text-red-600 border-red-100 px-3 py-1 text-[10px]">
+                        Aucune signalée
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
+              </Card>
+
+              <div className="bg-[#EAF3FA] rounded-[28px] p-7 border border-[#D1E5F5]">
+                <h3 className="text-[10px] font-extrabold text-[#006A8C] uppercase tracking-[0.15em] mb-4">Aide au diagnostic</h3>
+                <p className="text-[12px] text-[#006A8C] font-medium leading-relaxed opacity-80">
+                  Consultez les antécédents médicaux complets du patient pour affiner votre diagnostic.
+                </p>
+                <Button variant="link" className="text-[#006A8C] p-0 h-auto font-bold text-[12px] mt-4 hover:no-underline">
+                  Consulter le dossier historique →
+                </Button>
               </div>
-              <div className="bg-white rounded-2xl p-4 custom-shadow flex items-center justify-between mt-8">
-                <button className="text-slate-500 font-bold px-8 py-3 hover:text-slate-700">Annuler</button>
-                <div className="flex space-x-4">
-                  <button onClick={finalizeConsultation} disabled={saving} className="bg-emerald-100 text-slate-900 font-bold px-10 py-3 rounded-xl flex items-center space-x-2 shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                    <span>{saving ? 'Sauvegarde...' : 'Valider la prescription'}</span>
-                  </button>
-                  <button onClick={finalizeConsultation} disabled={saving} className="bg-blue-700 text-white font-bold px-10 py-3 rounded-xl flex items-center space-x-2 shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-                    <span>{saving ? 'Sauvegarde...' : 'Terminer la consultation'}</span>
-                  </button>
+            </aside>
+          </div>
+
+          <Card className="mt-10 rounded-[32px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
+            <div className="flex items-center gap-10 border-b border-gray-100 px-8">
+              <button
+                onClick={() => setActiveSection('medicament')}
+                className={`flex items-center cursor-pointer gap-2.5 py-6 transition-all relative ${activeSection === 'medicament' ? 'text-[#006A8C] font-bold' : 'text-gray-400 hover:text-gray-600 font-medium'}`}
+              >
+                <FileText className="h-4.5 w-4.5" />
+                <span className="text-[13px] uppercase tracking-wider">Prescriptions médicamenteuses</span>
+                {activeSection === 'medicament' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#006A8C] rounded-t-full"></div>}
+              </button>
+              <button
+                onClick={() => setActiveSection('non-medicamentaux')}
+                className={`flex items-center cursor-pointer gap-2.5 py-6 transition-all relative ${activeSection === 'non-medicamentaux' ? 'text-[#006A8C] font-bold' : 'text-gray-400 hover:text-gray-600 font-medium'}`}
+              >
+                <ClipboardList className="h-4.5 w-4.5" />
+                <span className="text-[13px] uppercase tracking-wider">Prescriptions non médicamenteuses</span>
+                {activeSection === 'non-medicamentaux' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#006A8C] rounded-t-full"></div>}
+              </button>
+            </div>
+
+            <CardContent className="p-8">
+              {activeSection === 'medicament' ? (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h4 className="text-[18px] font-extrabold text-gray-900 tracking-tight">Liste des médicaments</h4>
+                      <p className="text-[12px] text-gray-500 font-medium">Ajoutez les produits et posologies nécessaires.</p>
+                    </div>
+                    <Badge variant="info" className="bg-[#EAF3FA] text-[#006A8C] border-none px-3 py-1 font-bold">
+                      {medicaments.length} MÉDICAMENT(S)
+                    </Badge>
+                  </div>
+
+                  <div className="border border-gray-100 rounded-[20px] overflow-hidden shadow-sm">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#F8FAFC] border-b border-gray-100">
+                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Médicament</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Type / Dosage</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Voie / Qté</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Durée / Instructions</th>
+                          <th className="px-6 py-4 w-10"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {medicaments.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-12 text-center">
+                              <div className="flex flex-col items-center gap-3">
+                                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
+                                  <FileText className="w-6 h-6" />
+                                </div>
+                                <p className="text-[13px] text-gray-400 font-medium">Aucune prescription ajoutée pour le moment.</p>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : medicaments.map((med) => (
+                          <tr key={med.id} className="hover:bg-[#F8FAFC]/50 transition-colors">
+                            <td className="px-4 py-4 align-top">
+                              <input
+                                type="text"
+                                value={med.medicament}
+                                onChange={(e) => updateMedicament(med.id, 'medicament', e.target.value)}
+                                className="w-full text-[13px] font-bold bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] p-3 transition-all"
+                                placeholder="Nom du médicament..."
+                              />
+                            </td>
+                            <td className="px-4 py-4 space-y-2 align-top">
+                              <input
+                                type="text"
+                                value={med.forme}
+                                onChange={(e) => updateMedicament(med.id, 'forme', e.target.value)}
+                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
+                                placeholder="Forme (ex: Comprimé)..."
+                              />
+                              <input
+                                type="text"
+                                value={med.dosage}
+                                onChange={(e) => updateMedicament(med.id, 'dosage', e.target.value)}
+                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
+                                placeholder="Dosage (ex: 500mg)..."
+                              />
+                            </td>
+                            <td className="px-4 py-4 space-y-2 align-top">
+                              <input
+                                type="text"
+                                value={med.voie}
+                                onChange={(e) => updateMedicament(med.id, 'voie', e.target.value)}
+                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
+                                placeholder="Voie (ex: Orale)..."
+                              />
+                              <input
+                                type="text"
+                                value={med.posologie}
+                                onChange={(e) => updateMedicament(med.id, 'posologie', e.target.value)}
+                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
+                                placeholder="Posologie/Quantité..."
+                              />
+                            </td>
+                            <td className="px-4 py-4 space-y-2 align-top">
+                              <input
+                                type="text"
+                                value={med.duree}
+                                onChange={(e) => updateMedicament(med.id, 'duree', e.target.value)}
+                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
+                                placeholder="Durée du traitement..."
+                              />
+                              <textarea
+                                value={med.instructions}
+                                onChange={(e) => updateMedicament(med.id, 'instructions', e.target.value)}
+                                className="w-full text-[11px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all h-10 min-h-[40px]"
+                                placeholder="Instructions complémentaires..."
+                              />
+                            </td>
+                            <td className="px-4 py-4 align-middle">
+                              <button
+                                type="button"
+                                onClick={() => removeMedicament(med.id)}
+                                className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="p-6 bg-[#F8FAFC]/30">
+                      <button
+                        type="button"
+                        onClick={addMedicament}
+                        className="w-full py-4 cursor-pointer border-2 border-dashed border-gray-200 rounded-[20px] text-[#006A8C] font-extrabold text-[13px] flex items-center justify-center gap-2 hover:bg-white hover:border-[#006A8C] hover:shadow-sm transition-all group"
+                      >
+                        <Plus className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                        AJOUTER UN MÉDICAMENT À LA LISTE
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-10 pt-8 border-t border-gray-50">
+                    <Button variant="outline" className="rounded-full px-10 h-12 text-[13px] font-bold text-gray-500 border-gray-200 hover:bg-gray-50 transition-all w-full sm:w-auto">
+                      ANNULER LES MODIFICATIONS
+                    </Button>
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                      <Button
+                        type="button"
+                        onClick={finalizeConsultation}
+                        disabled={saving}
+                        className="rounded-full px-8 h-12 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100 font-bold text-[13px] transition-all w-full sm:w-auto disabled:opacity-50 gap-2 shadow-none"
+                      >
+                        <Save className="w-4 h-4" />
+                        {saving ? 'SAUVEGARDE...' : 'VALIDER LA PRESCRIPTION'}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={finalizeConsultation}
+                        disabled={saving}
+                        className="rounded-full px-10 h-12 bg-[#006A8C] text-white hover:bg-[#004d66] font-extrabold text-[13px] transition-all w-full sm:w-auto disabled:opacity-50 gap-2 shadow-lg shadow-blue-900/10"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        {saving ? 'TRAITEMENT...' : 'TERMINER LA CONSULTATION'}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              ) : (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
+                      <div className="flex items-center gap-3 text-[#006A8C] mb-5">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <FileText className="w-4.5 h-4.5" />
+                        </div>
+                        <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Recommandations & Notes</h4>
+                      </div>
+                      <textarea
+                        value={nonMedicaments.recommandationsNotes}
+                        onChange={(e) => setNonMedicaments({ ...nonMedicaments, recommandationsNotes: e.target.value })}
+                        className="w-full h-36 bg-[#F8FAFC] border-none rounded-2xl p-5 text-[14px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20 transition-all placeholder:text-gray-400"
+                        placeholder="Ex: Régime hyposodé, repos strict, arrêt de travail..."
+                      />
+                    </div>
+
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
+                      <div className="flex items-center gap-3 text-[#006A8C] mb-5">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <Calendar className="w-4.5 h-4.5" />
+                        </div>
+                        <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Contrôle / RDV de suivi</h4>
+                      </div>
+                      <div className="space-y-4">
+                        <textarea
+                          value={nonMedicaments.rdvMotif}
+                          onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvMotif: e.target.value })}
+                          className="w-full h-16 bg-[#F8FAFC] border-none rounded-2xl p-4 text-[13px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20 transition-all"
+                          placeholder="Motif du prochain rendez-vous..."
+                        />
+                        <div className="flex flex-col sm:flex-row items-center gap-4">
+                          <div className="flex bg-[#F1F5F9] p-1.5 rounded-xl gap-1">
+                            {(['NIVEAU_1', 'NIVEAU_2', 'NIVEAU_3', 'NIVEAU_4'] as const).map((niveau) => (
+                              <button
+                                key={niveau}
+                                onClick={() => setNonMedicaments({ ...nonMedicaments, rdvNiveau: niveau })}
+                                className={`w-8 h-8 rounded-lg text-[11px] font-black flex items-center justify-center transition-all ${nonMedicaments.rdvNiveau === niveau
+                                  ? 'bg-white text-[#006A8C] shadow-sm'
+                                  : 'text-gray-400 hover:text-gray-600'
+                                  }`}
+                              >
+                                {niveau.split('_')[1]}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="relative flex-1 w-full">
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                              value={nonMedicaments.rdvDate}
+                              onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvDate: e.target.value })}
+                              className="w-full bg-[#F8FAFC] border-none rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20"
+                              type="date"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8">
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
+                      <div className="flex items-center gap-3 text-[#006A8C] mb-5">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <Stethoscope className="w-4.5 h-4.5" />
+                        </div>
+                        <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Examens para-cliniques</h4>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Service destinataire</label>
+                          <select
+                            value={nonMedicaments.examenService}
+                            onChange={(e) => setNonMedicaments({ ...nonMedicaments, examenService: e.target.value })}
+                            className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl p-3 text-[13px] text-gray-700 focus:border-[#006A8C] outline-none"
+                          >
+                            <option value="">Sélectionner un plateau technique...</option>
+                            {examenServices.map((service) => (
+                              <option key={service} value={service}>{service}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Description de l'examen</label>
+                          <textarea
+                            value={nonMedicaments.examenMotif}
+                            onChange={(e) => setNonMedicaments({ ...nonMedicaments, examenMotif: e.target.value })}
+                            className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl p-4 text-[13px] text-gray-700 focus:border-[#006A8C] transition-all min-h-[100px]"
+                            placeholder="Détails de l'examen demandé..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['STAT', 'URGENTE', 'NORMALE'] as const).map((priorite) => (
+                            <button
+                              key={priorite}
+                              onClick={() => setNonMedicaments({ ...nonMedicaments, examenPriorite: priorite })}
+                              className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${nonMedicaments.examenPriorite === priorite
+                                ? priorite === 'STAT' ? 'bg-red-600 text-white shadow-lg shadow-red-200' :
+                                  priorite === 'URGENTE' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' :
+                                    'bg-[#006A8C] text-white shadow-lg shadow-blue-200'
+                                : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                }`}
+                            >
+                              {priorite}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
+                      <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-3 text-[#006A8C]">
+                          <div className="p-2 bg-blue-50 rounded-lg">
+                            <Stethoscope className="w-4.5 h-4.5" />
+                          </div>
+                          <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Demande d'hospitalisation</h4>
+                        </div>
+                        <Badge className="bg-[#EAF3FA] text-[#006A8C] border-none font-black text-[9px] px-2 py-0.5">EN ATTENTE</Badge>
+                      </div>
+                      <div className="space-y-4">
+                        <textarea
+                          value={nonMedicaments.hospitalisationMotif}
+                          onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationMotif: e.target.value })}
+                          className="w-full h-24 bg-[#F8FAFC] border border-gray-100 rounded-xl p-4 text-[13px] text-gray-700 focus:border-[#006A8C] transition-all"
+                          placeholder="Motif justifiant l'hospitalisation..."
+                        />
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Service d'accueil</label>
+                          <select
+                            value={nonMedicaments.hospitalisationService}
+                            onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationService: e.target.value })}
+                            className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl p-3 text-[13px] text-gray-700 focus:border-[#006A8C] outline-none"
+                          >
+                            <option value="">Sélectionner un service clinique...</option>
+                            {hospitalisationServices.map((service) => (
+                              <option key={service} value={service}>{service}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="pt-2">
+                          <p className="text-[11px] text-gray-400 italic">La validation finale sera effectuée par le chef de service.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-10 pt-8 border-t border-gray-50">
+                    <Button variant="outline" className="rounded-full px-8 h-12 text-[13px] font-bold text-gray-500 border-gray-200">
+                      ANNULER
+                    </Button>
+                    <div className="flex gap-4">
+                      <Button
+                        onClick={finalizeConsultation}
+                        disabled={saving}
+                        className="rounded-full px-8 h-12 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100 font-bold text-[13px] gap-2 shadow-none"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>{saving ? 'SAUVEGARDE...' : 'VALIDER LA PRESCRIPTION'}</span>
+                      </Button>
+                      <Button
+                        onClick={finalizeConsultation}
+                        disabled={saving}
+                        className="rounded-full px-10 h-12 bg-[#006A8C] text-white hover:bg-[#004d66] font-extrabold text-[13px] gap-2 shadow-lg shadow-blue-900/10"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{saving ? 'TRAITEMENT...' : 'TERMINER LA CONSULTATION'}</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </div>
     </Suspense>
   );
 }
