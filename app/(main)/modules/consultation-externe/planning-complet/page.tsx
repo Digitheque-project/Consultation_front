@@ -1,80 +1,85 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import { 
+  format, 
+  addDays, 
+  startOfWeek, 
+  isSameDay, 
+  parse, 
+  differenceInMinutes,
+  addWeeks,
+  subWeeks,
+  isSameWeek
+} from "date-fns";
 import { fr } from "date-fns/locale";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Plus, 
+  User, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle,
+  HelpCircle,
+  Calendar,
+  MoreVertical,
+  Search
+} from "lucide-react";
 import { useAllConsultations } from "@/hooks/use-consultations";
 import { ConsultationApi } from "@/lib/api/consultation";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-type CalendarEvent = {
-  id: number;
-  title: string;
-  start: Date;
-  end: Date;
-  resource: ConsultationApi;
-};
-
-const locales = {
-  "fr-FR": fr,
-};
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+// -- Constants --
+const START_HOUR = 7;
+const END_HOUR = 18;
+const HOUR_HEIGHT = 100; // px per hour
+const TOTAL_HOURS = END_HOUR - START_HOUR;
 
 export default function PlanningCompletPage() {
   const router = useRouter();
   const [selectedAppointment, setSelectedAppointment] = useState<ConsultationApi | null>(null);
-  const [view, setView] = useState<"month" | "week" | "day">("week");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [now, setNow] = useState(new Date());
+
+  // Update current time indicator every minute
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const { data: consultations = [], isLoading: loading, error } = useAllConsultations();
 
-  const events: CalendarEvent[] = useMemo(() => {
-    return consultations.map((consultation) => {
-      // Parse the ISO date string
-      const dateObj = new Date(consultation.date);
-      const year = dateObj.getFullYear();
-      const month = dateObj.getMonth();
-      const day = dateObj.getDate();
-      
-      const [hours, minutes] = consultation.heure.split(":").map(Number);
-      
-      const start = new Date(year, month, day, hours, minutes);
-      const end = new Date(year, month, day, hours + 1, minutes);
+  // Navigation Logic
+  const startOfCurrentWeek = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1 }), [currentDate]);
+  const weekDays = useMemo(() => Array.from({ length: 6 }).map((_, i) => addDays(startOfCurrentWeek, i)), [startOfCurrentWeek]);
 
-      return {
-        id: consultation.id,
-        title: `Patient #${consultation.patientId}`,
-        start,
-        end,
-        resource: consultation,
-      };
+  const handleNextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
+  const handlePrevWeek = () => setCurrentDate(subWeeks(currentDate, 1));
+  const handleToday = () => setCurrentDate(new Date());
+
+  // Grouping consultations by day
+  const groupedConsultations = useMemo(() => {
+    const map: Record<string, ConsultationApi[]> = {};
+    consultations.forEach(c => {
+      const d = format(new Date(c.date), "yyyy-MM-dd");
+      if (!map[d]) map[d] = [];
+      map[d].push(c);
     });
+    return map;
   }, [consultations]);
 
-  const handleSelectEvent = (event: CalendarEvent) => {
-    setSelectedAppointment(event.resource);
-  };
-
-  const handleStartPrescription = async () => {
-    if (!selectedAppointment) return;
-
+  const handleStartPrescription = async (appointment: ConsultationApi) => {
     try {
-      // Utiliser la route de redirection centralisée
       const response = await fetch('/api/redirect/traitement', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          consultationId: selectedAppointment.id,
-          patientId: selectedAppointment.patientId,
+          consultationId: appointment.id,
+          patientId: appointment.patientId,
           from: 'planning-complet'
         }),
       });
@@ -83,233 +88,334 @@ export default function PlanningCompletPage() {
         const data = await response.json();
         router.push(data.redirectUrl);
       } else {
-        console.error('Erreur lors de la redirection');
-        // Fallback direct en cas d'erreur
-        router.push(`/modules/consultation-externe/traitement?consultationId=${selectedAppointment.id}&patientId=${selectedAppointment.patientId}`);
+        router.push(`/modules/consultation-externe/traitement?id=${appointment.id}`);
       }
-    } catch (error) {
-      console.error('Erreur réseau:', error);
-      // Fallback direct en cas d'erreur
-      router.push(`/modules/consultation-externe/traitement?consultationId=${selectedAppointment.id}&patientId=${selectedAppointment.patientId}`);
+    } catch (err) {
+      router.push(`/modules/consultation-externe/traitement?id=${appointment.id}`);
     }
   };
 
-  const agendaSummary = useMemo(() => {
-    return {
-      total: consultations.length,
-      urgent: consultations.filter((item) => item.urgence).length,
-      completed: consultations.filter((item) => item.termine).length,
-    };
-  }, [consultations]);
+  // Rendering Helpers
+  const renderTimeIndicator = () => {
+    const isThisWeek = isSameWeek(now, startOfCurrentWeek, { weekStartsOn: 1 });
+    if (!isThisWeek) return null;
 
-  const calendarStyles = `
-    .rbc-calendar {
-      font-family: inherit;
-    }
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
     
-    .rbc-header {
-      background-color: #f1f5f9;
-      border-color: #e2e8f0;
-      padding: 12px 4px;
-      font-weight: 600;
-      color: #475569;
-    }
-    
-    .rbc-today {
-      background-color: #f0f9ff;
-    }
-    
-    .rbc-off-range-bg {
-      background-color: #f8fafc;
-    }
-    
-    .rbc-event {
-      background-color: #3b82f6;
-      border: none;
-      border-radius: 8px;
-      padding: 4px 8px;
-      font-size: 13px;
-    }
-    
-    .rbc-event.rbc-event-urgent {
-      background-color: #ef4444;
-    }
-    
-    .rbc-event.rbc-event-completed {
-      background-color: #10b981;
-    }
-    
-    .rbc-event-label {
-      font-size: 12px;
-    }
-    
-    .rbc-event-content {
-      padding: 2px;
-    }
-    
-    .rbc-toolbar {
-      padding: 16px;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    
-    .rbc-toolbar button {
-      border: 1px solid #e2e8f0;
-      background-color: white;
-      color: #475569;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    
-    .rbc-toolbar button:hover {
-      background-color: #f1f5f9;
-      border-color: #cbd5e1;
-    }
-    
-    .rbc-toolbar button.rbc-active {
-      background-color: #005d8f;
-      color: white;
-      border-color: #005d8f;
-    }
-    
-    .rbc-toolbar-label {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1e293b;
-    }
-    
-    .rbc-day-bg,
-    .rbc-time-slot {
-      border-color: #e2e8f0;
-    }
-    
-    .rbc-timeslot-group {
-      border-color: #e2e8f0;
-    }
-    
-    .rbc-time-header-content {
-      border-color: #e2e8f0;
-    }
-    
-    .rbc-time-content {
-      border-color: #e2e8f0;
-    }
-  `;
+    if (hours < START_HOUR || hours >= END_HOUR) return null;
+
+    const top = ((hours - START_HOUR) * HOUR_HEIGHT) + (minutes / 60 * HOUR_HEIGHT);
+    const dayIndex = now.getDay() - 1; // 0 for Mon, 5 for Sat
+
+    if (dayIndex < 0 || dayIndex > 5) return null;
+
+    return (
+      <div 
+        className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+        style={{ top: `${top}px` }}
+      >
+        <div className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded ml-[-35px] shadow-sm">
+          {format(now, "HH:mm")}
+        </div>
+        <div className="flex-1 border-t-2 border-red-500 border-dashed opacity-60 ml-1"></div>
+      </div>
+    );
+  };
 
   return (
-    <div className="flex-1 flex overflow-hidden p-6 gap-6 h-[calc(100vh-64px)] text-slate-700">
-      <style>{calendarStyles}</style>
-      <section className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-[#e2e8f0] overflow-hidden">
-        <div className="p-6 border-b border-[#e2e8f0]">
-          <h2 className="text-xl font-bold text-slate-800">Planning complet de la consultation externe</h2>
-          <p className="text-sm text-slate-500 mt-1">Vue calendrier jour/semaine/mois des consultations enregistrées.</p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Consultations</p>
-              <p className="mt-3 text-3xl font-bold text-slate-900">{agendaSummary.total}</p>
+    <div className="flex-1 flex flex-col bg-[#F8FAFC] overflow-hidden">
+      {/* --- HEADER --- */}
+      <header className="bg-white border-b border-gray-200 px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 text-slate-700">
+        <div>
+          <h1 className="text-[24px] font-black text-gray-900 tracking-tight">Planning complet de la consultation externe</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[14px] font-medium text-gray-500">Dr. Jean Pierre</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[14px] font-medium text-gray-400">Chirurgie Viscérale</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl p-1 shadow-sm">
+            <Button variant="ghost" size="icon" onClick={handlePrevWeek} className="h-9 w-9 rounded-lg hover:bg-white hover:shadow-sm">
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </Button>
+            <div className="px-4 text-[14px] font-extrabold text-gray-800">
+              Semaine du {format(weekDays[0], "dd")} au {format(weekDays[5], "dd MMMM yyyy", { locale: fr })}
             </div>
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Urgentes</p>
-              <p className="mt-3 text-3xl font-bold text-red-600">{agendaSummary.urgent}</p>
+            <Button variant="ghost" size="icon" onClick={handleNextWeek} className="h-9 w-9 rounded-lg hover:bg-white hover:shadow-sm">
+              <ChevronRight className="w-5 h-5 text-gray-600" />
+            </Button>
+          </div>
+          
+          <Button onClick={handleToday} variant="outline" className="rounded-xl font-bold text-[13px] border-gray-200 shadow-sm px-5 bg-white hover:bg-gray-50">
+            Aujourd'hui
+          </Button>
+
+          <div className="relative">
+            <Button className="bg-[#005b82] hover:bg-[#004a6b] text-white rounded-xl px-5 h-11 font-black text-[13px] shadow-lg shadow-blue-900/10 gap-2">
+              <Plus className="w-4 h-4" strokeWidth={3} />
+              NOUVEAU RENDEZ-VOUS
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* --- MAIN CONTENT --- */}
+      <div className="flex-1 flex overflow-hidden p-8 gap-8">
+        <div className="flex-1 bg-white rounded-[32px] border border-gray-100 shadow-[0px_4px_24px_rgba(15,23,42,0.04)] flex flex-col overflow-hidden">
+          
+          {/* Grid Headers */}
+          <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-gray-100 bg-gray-50/50">
+            <div className="h-20 border-r border-gray-100"></div>
+            {weekDays.map((day, idx) => {
+              const dayStr = format(day, "yyyy-MM-dd");
+              const count = groupedConsultations[dayStr]?.length || 0;
+              const isToday = isSameDay(day, now);
+              
+              return (
+                <div key={idx} className={cn(
+                  "h-20 border-r border-gray-100 last:border-r-0 flex flex-col items-center justify-center gap-1",
+                  isToday && "bg-blue-50/30"
+                )}>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{format(day, "EEE", { locale: fr })}</span>
+                  <div className={cn(
+                    "w-8 h-8 flex items-center justify-center rounded-full text-[16px] font-black",
+                    isToday ? "bg-[#005b82] text-white shadow-md shadow-blue-200" : "text-gray-900"
+                  )}>
+                    {format(day, "dd")}
+                  </div>
+                  <span className={cn(
+                    "text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight",
+                    count >= 10 ? "bg-red-50 text-red-600" : count > 5 ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
+                  )}>
+                    Quota: {count}/10
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Grid Body */}
+          <div className="flex-1 overflow-y-auto relative">
+            <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr] relative min-h-[1100px]">
+              
+              {/* Vertical Time Scale */}
+              <div className="bg-gray-50/30 border-r border-gray-100">
+                {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
+                  <div key={i} className="h-[100px] flex items-start justify-center pt-4 border-b border-gray-50 last:border-b-0">
+                    <span className="text-[11px] font-black text-gray-400">{(START_HOUR + i).toString().padStart(2, '0')}:00</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Day Columns */}
+              {weekDays.map((day, dayIdx) => {
+                const dayStr = format(day, "yyyy-MM-dd");
+                const dayAppointments = groupedConsultations[dayStr] || [];
+                const isToday = isSameDay(day, now);
+
+                return (
+                  <div key={dayIdx} className={cn(
+                    "relative border-r border-gray-100 last:border-r-0",
+                    isToday && "bg-blue-50/10"
+                  )}>
+                    {/* Horizontal grid lines */}
+                    {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
+                      <div key={i} className="h-[100px] border-b border-gray-50 last:border-b-0"></div>
+                    ))}
+
+                    {/* Appointments */}
+                    {dayAppointments.map((appt) => {
+                      const [h, m] = appt.heure.split(":").map(Number);
+                      const top = ((h - START_HOUR) * HOUR_HEIGHT) + (m / 60 * HOUR_HEIGHT);
+                      const height = 90; // Fixed height for visual consistency, or calculate based on duration
+                      
+                      const isUrgent = appt.urgence;
+                      const isDone = appt.termine;
+
+                      return (
+                        <div 
+                          key={appt.id}
+                          onClick={() => setSelectedAppointment(appt)}
+                          className={cn(
+                            "absolute left-1 right-1 p-2.5 rounded-xl border transition-all cursor-pointer group hover:scale-[1.02] hover:shadow-xl z-10",
+                            isDone ? "bg-white border-emerald-100 shadow-sm" : 
+                            isUrgent ? "bg-white border-red-100 shadow-md" : 
+                            "bg-white border-blue-100 shadow-sm"
+                          )}
+                          style={{ top: `${top}px`, height: `${height}px` }}
+                        >
+                          {/* Left Color Strip */}
+                          <div className={cn(
+                            "absolute left-0 top-2 bottom-2 w-1 rounded-r-full",
+                            isDone ? "bg-emerald-500" : isUrgent ? "bg-red-500" : "bg-[#005b82]"
+                          )} />
+
+                          <div className="flex flex-col h-full pl-2">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] font-black text-gray-900">{appt.heure}</span>
+                              <Badge className={cn(
+                                "text-[8px] px-1.5 py-0 rounded-md font-black uppercase border-none",
+                                isUrgent ? "bg-red-100 text-red-700" : isDone ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-[#006A8C]"
+                              )}>
+                                {isUrgent ? "Urgent" : isDone ? "Terminé" : "Normal"}
+                              </Badge>
+                            </div>
+                            <span className="text-[11px] font-black text-gray-800 truncate uppercase">Patient #{appt.patientId}</span>
+                            <div className="mt-auto flex items-center justify-between">
+                              <span className={cn(
+                                "text-[9px] font-bold uppercase",
+                                isDone ? "text-emerald-600" : isUrgent ? "text-red-500" : "text-blue-500"
+                              )}>
+                                {isDone ? "✓ Terminé" : isUrgent ? "• En attente" : "• En attente"}
+                              </span>
+                              <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreVertical className="w-3 h-3 text-gray-400" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Column Footer Action */}
+                    <div className="absolute bottom-4 left-0 right-0 px-3 opacity-0 hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" className="w-full h-10 rounded-xl border border-dashed border-gray-200 text-gray-400 hover:text-[#005b82] hover:bg-blue-50 hover:border-blue-200 text-[11px] font-bold gap-2">
+                        <Plus className="w-3 h-3" />
+                        AJOUTER
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Render Current Time Line */}
+              {renderTimeIndicator()}
             </div>
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Terminées</p>
-              <p className="mt-3 text-3xl font-bold text-emerald-600">{agendaSummary.completed}</p>
+          </div>
+
+          {/* Footer Legend */}
+          <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-center gap-8">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-[-20px]">STATUTS :</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span className="text-[11px] font-bold text-gray-600">En attente</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="text-[11px] font-bold text-gray-600">Terminé</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+              <span className="text-[11px] font-bold text-gray-600">Urgent</span>
             </div>
           </div>
         </div>
-        <div className="flex-1 overflow-hidden bg-white">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-slate-600">
-              <div className="text-center">
-                <div className="mb-4">Chargement du calendrier...</div>
-              </div>
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">Erreur de chargement des consultations</div>
-            </div>
-          ) : (
-            <Calendar
-              localizer={localizer}
-              events={events}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: "100%" }}
-              onSelectEvent={handleSelectEvent}
-              view={view}
-              onView={(v) => setView(v as "month" | "week" | "day")}
-              views={["month", "week", "day"]}
-              defaultDate={new Date()}
-              defaultView="week"
-              eventPropGetter={(event: CalendarEvent) => {
-                let className = "";
-                if (event.resource.urgence) {
-                  className = "rbc-event-urgent";
-                } else if (event.resource.termine) {
-                  className = "rbc-event-completed";
-                }
-                return { className };
-              }}
-            />
-          )}
-        </div>
-      </section>
 
-      <aside className="w-80 flex flex-col space-y-4 overflow-y-auto">
-        <div className="rounded-3xl border border-[#e2e8f0] bg-white p-6 shadow-sm">
-          {selectedAppointment ? (
-            <>
-              <h3 className="text-lg font-bold text-slate-900">Patient #{selectedAppointment.patientId}</h3>
-              <p className="mt-2 text-sm text-slate-500">Consultation #{selectedAppointment.id}</p>
-              <div className="mt-4 space-y-3 text-sm text-slate-700">
-                <div className="flex justify-between">
-                  <span className="font-medium">Date</span>
-                  <span>{selectedAppointment.date}</span>
+        {/* --- SIDEBAR --- */}
+        <aside className="w-full lg:w-96 flex flex-col gap-8">
+          <div className="flex-1 bg-white rounded-[32px] p-8 shadow-[0px_4px_24px_rgba(15,23,42,0.04)] border border-gray-100 flex flex-col items-center justify-center text-center">
+            {selectedAppointment ? (
+              <div className="w-full h-full flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="mb-8">
+                  <div className="w-20 h-20 bg-blue-50 rounded-[24px] flex items-center justify-center text-[#005b82] mx-auto mb-4 border border-blue-100">
+                    <User className="w-10 h-10" strokeWidth={2.5} />
+                  </div>
+                  <h3 className="text-[20px] font-black text-gray-900 uppercase">Patient #{selectedAppointment.patientId}</h3>
+                  <Badge variant="outline" className="mt-2 border-gray-200 text-gray-500 font-bold px-3 py-1 rounded-full uppercase text-[10px] tracking-widest">
+                    ID: {selectedAppointment.id}
+                  </Badge>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Heure</span>
-                  <span>{selectedAppointment.heure}</span>
+
+                <div className="space-y-6 text-left w-full">
+                  <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Horaire</p>
+                        <div className="flex items-center gap-2 text-[#005b82]">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-[14px] font-black">{selectedAppointment.heure}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-right">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</p>
+                        <span className={cn(
+                          "text-[12px] font-black uppercase",
+                          selectedAppointment.urgence ? "text-red-500" : "text-blue-500"
+                        )}>
+                          {selectedAppointment.urgence ? "Urgent" : "Standard"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-1 space-y-4">
+                    <div>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Motif médical</p>
+                      <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm italic text-gray-600 text-[13px] leading-relaxed">
+                        "{selectedAppointment.observation?.diagnostic || "Aucun motif spécifique renseigné."}"
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between py-4 border-t border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center",
+                          selectedAppointment.termine ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+                        )}>
+                          {selectedAppointment.termine ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                        </div>
+                        <span className="text-[13px] font-extrabold text-gray-700">Statut actuel</span>
+                      </div>
+                      <Badge className={cn(
+                        "text-[10px] font-black uppercase px-4 py-1.5 rounded-full border-none",
+                        selectedAppointment.termine ? "bg-emerald-500 text-white" : "bg-[#005b82] text-white"
+                      )}>
+                        {selectedAppointment.termine ? "Terminé" : "En attente"}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Motif</span>
-                  <span>{selectedAppointment.observation?.diagnostic || "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Statut</span>
-                  <span className="font-semibold">{selectedAppointment.statut}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Urgent</span>
-                  <span className={selectedAppointment.urgence ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
-                    {selectedAppointment.urgence ? "Oui" : "Non"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Terminée</span>
-                  <span className={selectedAppointment.termine ? "text-green-600 font-semibold" : "text-slate-600"}>
-                    {selectedAppointment.termine ? "Oui" : "Non"}
-                  </span>
+
+                <div className="mt-auto pt-8">
+                  <Button
+                    onClick={() => handleStartPrescription(selectedAppointment)}
+                    className="w-full bg-[#005b82] hover:bg-[#004a6b] h-14 rounded-2xl font-black text-[14px] text-white shadow-xl shadow-blue-900/10 active:scale-[0.98] transition-all"
+                  >
+                    ACCÉDER AU DOSSIER
+                  </Button>
                 </div>
               </div>
-              <button
-                onClick={handleStartPrescription}
-                className="mt-6 w-full rounded-full bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition"
-              >
-                Prescrire pour cette consultation
-              </button>
-            </>
-          ) : (
-            <div className="text-slate-500">
-              <p className="text-sm font-bold">Aucun rendez-vous sélectionné</p>
-              <p className="mt-2 text-sm">Cliquez sur un événement du calendrier pour voir les détails.</p>
+            ) : (
+              <div className="max-w-[240px]">
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-100">
+                  <Search className="w-8 h-8 text-gray-300" />
+                </div>
+                <h3 className="text-[16px] font-black text-gray-800 mb-2 leading-tight">Aucune consultation sélectionnée</h3>
+                <p className="text-[13px] text-gray-400 font-medium">
+                  Cliquez sur un rendez-vous dans le planning pour afficher les informations détaillées ici.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Help Widget */}
+          <div className="bg-[#005b82] rounded-[32px] p-8 text-white relative overflow-hidden group">
+            <div className="absolute top-[-20px] right-[-20px] w-40 h-40 bg-white/10 rounded-full blur-3xl transition-all group-hover:scale-110" />
+            <div className="relative z-10">
+              <h4 className="text-[16px] font-black mb-2 uppercase tracking-tight">Besoin d'aide ?</h4>
+              <p className="text-[13px] text-blue-100 font-medium mb-6 leading-relaxed">
+                Consultez le guide utilisateur pour optimiser la gestion de votre planning.
+              </p>
+              <Button variant="outline" className="w-full bg-white/10 border-white/20 hover:bg-white/20 text-white rounded-xl font-bold py-5">
+                Voir le manuel d'utilisation
+              </Button>
             </div>
-          )}
-        </div>
-      </aside>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
