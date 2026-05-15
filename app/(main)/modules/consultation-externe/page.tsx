@@ -130,7 +130,7 @@ export default function ConsultationExternePage() {
           <div className="xl:col-span-2">
             <div className="mb-6 sm:mb-8">
               <h1 className="text-[20px] sm:text-[26px] font-extrabold text-gray-900 leading-tight tracking-tight">Mes consultations du jour</h1>
-              <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1.5 font-medium">Dr. Jean Pierre (Chirurgie Viscérale)</p>
+              <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1.5 font-medium">Dr. Jean Pierre</p>
             </div>
 
             <div className="space-y-6">
