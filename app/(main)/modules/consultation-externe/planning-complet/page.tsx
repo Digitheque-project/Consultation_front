@@ -316,13 +316,6 @@ export default function PlanningCompletPage() {
                       );
                     })}
 
-                    {/* Column Footer Action */}
-                    <div className="absolute bottom-4 left-0 right-0 px-3 cursor-pointer transition-opacity">
-                      <Button variant="ghost" className="w-full h-10 rounded-xl border border-dashed border-gray-200 text-gray-600 hover:text-[#005b82] hover:bg-blue-50 hover:border-blue-200 text-[11px] font-bold gap-2">
-                        <Plus className="w-3 h-3" />
-                        AJOUTER
-                      </Button>
-                    </div>
                   </div>
                 );
               })}
@@ -330,6 +323,19 @@ export default function PlanningCompletPage() {
               {/* Render Current Time Line */}
               {renderTimeIndicator()}
             </div>
+          </div>
+
+          {/* Grid Footer - FIXED ACTION BAR */}
+          <div className="grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr] border-t border-gray-100 bg-white flex-none">
+            <div className="border-r border-gray-100 bg-gray-50/10"></div>
+            {weekDays.map((_, idx) => (
+              <div key={idx} className="p-3 border-r border-gray-100 last:border-r-0">
+                <Button variant="ghost" className="w-full h-10 rounded-xl border border-dashed border-gray-200 text-gray-600 hover:text-[#005b82] hover:bg-blue-50 hover:border-blue-200 text-[11px] font-bold gap-2">
+                  <Plus className="w-3 h-3" />
+                  AJOUTER
+                </Button>
+              </div>
+            ))}
           </div>
 
           {/* Footer Legend - FIXED */}
