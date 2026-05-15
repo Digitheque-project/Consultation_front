@@ -57,6 +57,7 @@ export default function PlanningCompletPage() {
   const dateInputRef = React.useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState<Date | null>(null);
+  const [isFixedDate, setIsFixedDate] = useState(true);
 
   // Update current time indicator every minute
   useEffect(() => {
@@ -82,8 +83,9 @@ export default function PlanningCompletPage() {
     }
   };
 
-  const openAddModal = (date: Date) => {
+  const openAddModal = (date: Date, fixed = true) => {
     setModalDate(date);
+    setIsFixedDate(fixed);
     setIsModalOpen(true);
   };
 
@@ -215,7 +217,10 @@ export default function PlanningCompletPage() {
           </Button>
 
           <div className="relative">
-            <Button className="bg-[#005b82] hover:bg-[#004a6b] text-white rounded-xl px-5 h-11 font-black text-[13px] shadow-lg shadow-blue-900/10 gap-2">
+            <Button
+              onClick={() => openAddModal(new Date(), false)}
+              className="bg-[#005b82] cursor-pointer hover:bg-[#004a6b] text-white rounded-xl px-5 h-11 font-black text-[13px] shadow-lg shadow-blue-900/10 gap-2"
+            >
               <Plus className="w-4 h-4" strokeWidth={3} />
               NOUVEAU RENDEZ-VOUS
             </Button>
@@ -450,10 +455,20 @@ export default function PlanningCompletPage() {
                   </div>
                 </div>
 
-                <div className="mt-auto pt-8">
+                <div className="mt-auto pt-8 space-y-3">
+                  {!selectedAppointment.termine && (
+                    <Button
+                      onClick={() => handleStartPrescription(selectedAppointment)}
+                      className="w-full bg-[#005b82] cursor-pointer hover:bg-[#004a6b] h-14 rounded-2xl font-black text-[14px] text-white shadow-xl shadow-blue-900/10 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      COMMENCER LA CONSULTATION
+                    </Button>
+                  )}
                   <Button
                     onClick={() => handleStartPrescription(selectedAppointment)}
-                    className="w-full bg-[#005b82] hover:bg-[#004a6b] h-14 rounded-2xl font-black text-[14px] text-white shadow-xl shadow-blue-900/10 active:scale-[0.98] transition-all"
+                    variant="outline"
+                    className="w-full h-14 cursor-pointer rounded-2xl font-black text-[14px] text-gray-600 border-gray-100 hover:bg-gray-50 active:scale-[0.98] transition-all"
                   >
                     ACCÉDER AU DOSSIER
                   </Button>
@@ -489,9 +504,21 @@ export default function PlanningCompletPage() {
             <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
               <h2 className="text-[20px] font-black text-gray-900">Information Patient</h2>
               <div className="flex items-center gap-6">
-                <span className="text-[14px] font-bold text-[#005b82] uppercase tracking-tight">
-                  {modalDate && format(modalDate, "EEEE, dd MMMM yyyy", { locale: fr })}
-                </span>
+                {isFixedDate ? (
+                  <span className="text-[14px] font-bold text-[#005b82] uppercase tracking-tight">
+                    {modalDate && format(modalDate, "EEEE, dd MMMM yyyy", { locale: fr })}
+                  </span>
+                ) : (
+                  <div className="relative flex items-center gap-2 bg-[#F1F5F9] rounded-xl px-3 py-2 border border-blue-100 hover:border-blue-300 transition-all group">
+                    <Calendar className="w-3.5 h-3.5 text-[#005b82]" />
+                    <input
+                      type="date"
+                      value={modalDate ? format(modalDate, "yyyy-MM-dd") : ""}
+                      onChange={(e) => setModalDate(new Date(e.target.value))}
+                      className="bg-transparent border-none text-[12px] font-black text-[#005b82] uppercase tracking-tight outline-none cursor-pointer"
+                    />
+                  </div>
+                )}
                 <button
                   onClick={() => setIsModalOpen(false)}
                   className="p-2 hover:bg-gray-100 cursor-pointer rounded-full transition-colors text-gray-400 hover:text-gray-600"
