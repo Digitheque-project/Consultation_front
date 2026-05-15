@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   format,
@@ -25,7 +26,8 @@ import {
   HelpCircle,
   Calendar,
   MoreVertical,
-  Search
+  Search,
+  ArrowLeft
 } from "lucide-react";
 import { useAllConsultations } from "@/hooks/use-consultations";
 import { ConsultationApi } from "@/lib/api/consultation";
@@ -153,10 +155,19 @@ export default function PlanningCompletPage() {
     <div className="flex-1 h-full flex flex-col bg-[#F8FAFC] overflow-hidden">
       {/* --- HEADER --- */}
       <header className="bg-white border-b border-gray-200 px-8 py-6 flex-none flex flex-col md:flex-row md:items-center justify-between gap-4 text-slate-700 z-30 shadow-sm">
-        <div>
-          <h1 className="text-[24px] font-black text-gray-900 tracking-tight">Planning complet de la consultation externe</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[14px] font-medium text-gray-500">Dr. Jean Pierre</span>
+        <div className="flex items-start gap-5">
+          <Link
+            href="/modules/consultation-externe"
+            className="group inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-sm border border-gray-100 hover:bg-[#EAF3FA] transition-all text-[#006A8C] hover:scale-105 active:scale-95 mt-1"
+            title="Retour"
+          >
+            <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
+          </Link>
+          <div>
+            <h1 className="text-[24px] font-black text-gray-900 tracking-tight">Planning complet de la consultation externe</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[14px] font-medium text-gray-500">Dr. Jean Pierre</span>
+            </div>
           </div>
         </div>
 
@@ -330,7 +341,7 @@ export default function PlanningCompletPage() {
             <div className="border-r border-gray-100 bg-gray-50/10"></div>
             {weekDays.map((_, idx) => (
               <div key={idx} className="p-3 border-r border-gray-100 last:border-r-0">
-                <Button variant="ghost" className="w-full h-10 rounded-xl border border-dashed border-gray-200 text-gray-600 hover:text-[#005b82] hover:bg-blue-50 hover:border-blue-200 text-[11px] font-bold gap-2">
+                <Button variant="ghost" className="w-full h-10 cursor-pointer rounded-xl border border-dashed border-gray-200 text-gray-600 hover:text-[#005b82] hover:bg-blue-50 hover:border-blue-200 text-[11px] font-bold gap-2">
                   <Plus className="w-3 h-3" />
                   AJOUTER
                 </Button>
