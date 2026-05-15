@@ -1,17 +1,28 @@
 import React from "react";
 import { X, User, MapPin, Stethoscope, Wallet, Check } from "lucide-react";
-import { EnrichedNotification } from "@/stores/notification-store";
+import { EnrichedNotification, PatientInfo } from "@/stores/notification-store";
 
 interface PatientInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  notification: EnrichedNotification;
+  notification?: EnrichedNotification;
+  patientData?: PatientInfo;
+  onAction?: () => void;
+  actionLabel?: string;
 }
 
-export function PatientInfoModal({ isOpen, onClose, notification }: PatientInfoModalProps) {
+export function PatientInfoModal({ 
+  isOpen, 
+  onClose, 
+  notification, 
+  patientData,
+  onAction,
+  actionLabel 
+}: PatientInfoModalProps) {
   if (!isOpen) return null;
 
-  const patient = (notification.patient ?? {}) as Record<string, unknown>;
+  const patient = (patientData || notification?.patient || {}) as Record<string, unknown>;
+  const motif = notification?.motifHospitalisation || (patientData as any)?.motif || "";
   const pickString = (...values: unknown[]) => {
     for (const value of values) {
       if (typeof value === "string" && value.trim().length > 0) {
@@ -64,7 +75,7 @@ export function PatientInfoModal({ isOpen, onClose, notification }: PatientInfoM
 
   const nom = pickString(patient.nom, patient.lastName, patient.lastname);
   const prenom = pickString(patient.prenom, patient.firstName, patient.firstname);
-  const fullName = pickString(`${nom ?? ""} ${prenom ?? ""}`.trim(), notification.patientId) ??
+  const fullName = pickString(`${nom ?? ""} ${prenom ?? ""}`.trim(), notification?.patientId) ??
     "Patient inconnu";
   const birthDate = pickString(
     patient.dateNaissance,
@@ -259,7 +270,7 @@ export function PatientInfoModal({ isOpen, onClose, notification }: PatientInfoM
               </p>
               <div className="bg-[#F8FAFC] rounded-xl p-4">
                 <p className="text-[14px] font-medium text-gray-600 italic">
-                  {notification.motifHospitalisation || "-"}
+                  {motif || "-"}
                 </p>
               </div>
             </div>
@@ -301,6 +312,17 @@ export function PatientInfoModal({ isOpen, onClose, notification }: PatientInfoM
           >
             Fermer
           </button>
+          {onAction && actionLabel && (
+            <button
+              onClick={() => {
+                onAction();
+                onClose();
+              }}
+              className="px-6 py-2.5 bg-[#005b82] hover:bg-[#004a6b] text-white rounded-xl text-[14px] font-bold transition-all shadow-sm active:scale-95"
+            >
+              {actionLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -21,7 +21,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const speciality = config?.speciality;
   const avatarUrl = config?.avatarUrl;
   const notifications = (config?.notifications ?? 0) + unreadCount;
-  const isClinicalModule = pathname?.startsWith("/modules/clinical");
+  const isClinicalModule = pathname?.startsWith("/modules/clinical") || pathname?.startsWith("/modules/consultation-externe");
   const notificationHref = isClinicalModule
     ? "/modules/clinical/notification"
     : "/modules/accueil/notification";
