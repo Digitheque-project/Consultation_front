@@ -123,6 +123,30 @@ export function CrOperatoireTab({ patientId }: { patientId: string }) {
     }
   }
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 11,
+    fontWeight: 800,
+    color: ehr.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: 8,
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    border: `1px solid ${ehr.borderSoft}`,
+    borderRadius: 10,
+    padding: '12px 16px',
+    fontSize: 14,
+    color: ehr.text,
+    outline: 'none',
+    fontFamily: "'Manrope', sans-serif",
+    boxSizing: 'border-box',
+    backgroundColor: '#F8FAFC',
+    transition: 'all 0.2s ease',
+  };
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -198,137 +222,156 @@ export function CrOperatoireTab({ patientId }: { patientId: string }) {
     ) : null;
 
   return (
-    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '100%', margin: '0 auto', paddingBottom: '40px' }}>
+    <div style={{ display: 'flex', gap: '32px', fontFamily: "'Manrope', sans-serif", color: ehr.text }}>
 
-      {/* Barre liste + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {list.map((cr, i) => (
+      {/* Main Content Area */}
+      <div style={{ flex: 1 }}>
+
+        {/* Header Section */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Compte-rendu opératoire</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: ehr.textMuted }}>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>Gestion des interventions et traçabilité</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <button
-              key={cr.id}
-              onClick={() => { setSelected(cr); setForm(cr); setMode('view'); }}
+              onClick={() => { setForm(defaultCr()); setSelected(null); setMode('new'); }}
               style={{
-                padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
-                border: selected?.id === cr.id ? '2px solid #05668D' : '1px solid #e2e8f0',
-                backgroundColor: selected?.id === cr.id ? '#EBF5FB' : '#f8fafc',
-                color: selected?.id === cr.id ? '#05668D' : '#475569',
+                backgroundColor: ehr.primary,
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '10px 20px',
+                fontSize: 14,
+                fontWeight: 700,
                 cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(5, 102, 141, 0.15)',
               }}
             >
-              {cr.numeroOp || `OP #${i + 1}`}
+              + Nouveau CR
             </button>
-          ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {isView && selected && (
-            <button
-              onClick={() => setMode('edit')}
-              style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
-            >
-              ✏️ Modifier
-            </button>
-          )}
-          <button
-            onClick={() => { setForm(defaultCr()); setSelected(null); setMode('new'); }}
-            style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, backgroundColor: '#05668D', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
-          >
-            + Nouveau CR
-          </button>
-        </div>
-      </div>
 
-      <EhrFormSection
-        title="Compte-rendu opératoire"
-        subtitle="Intervention, date et repère opératoire"
-        sectionBadge="01"
-        complete={!!(form.nomIntervention?.trim() && form.dateIntervention)}
-        collapsible
-        defaultOpen
-        headerExtra={opHeaderExtra}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#475569', fontSize: 14 }}>
-          <span>📅</span>
-          {isView ? (
-            <span style={{ fontWeight: 500 }}>
-              {form.nomIntervention || '—'}
-              {form.dateIntervention ? ` – ${new Date(form.dateIntervention).toLocaleDateString('fr-FR')}` : ''}
-              {getJPostOp() ? ` (${getJPostOp()})` : ''}
-            </span>
-          ) : (
-            <div style={{ display: 'flex', gap: '10px', flex: 1, flexWrap: 'wrap' }}>
-              <input
-                placeholder="Nom de l'intervention *"
-                value={form.nomIntervention || ''}
-                onChange={e => setForm({ ...form, nomIntervention: e.target.value })}
-                style={{ ...inputStyle, flex: 2, minWidth: '200px' }}
-              />
-              <input
-                type="datetime-local"
-                value={form.dateIntervention || ''}
-                onChange={e => setForm({ ...form, dateIntervention: e.target.value })}
-                style={{ ...inputStyle, flex: 1, minWidth: '180px' }}
-              />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+          {/* Section 1: Informations Générales */}
+          <div style={{
+            backgroundColor: '#fff',
+            border: `1px solid ${ehr.borderSoft}`,
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: ehr.primary }}>Détails de l'intervention</h2>
+              {/* {isView && (
+              <button
+                onClick={() => setMode('edit')}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${ehr.borderSoft}`,
+                  borderRadius: 8,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: ehr.textMuted,
+                  cursor: 'pointer'
+                }}
+              >
+                ✏️ Modifier
+              </button>
+            )} */}
             </div>
-          )}
-        </div>
-      </EhrFormSection>
 
-      <EhrFormSection title="Bloc · équipe · checklist" sectionBadge="02" collapsible defaultOpen>
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px' }}>
-          <div>
-            <div style={{ marginBottom: '24px' }}>
-              <p style={sectionLabelStyle}>INFORMATIONS OPÉRATOIRES</p>
-              <InfoField label="CHIRURGIEN PRINCIPAL" value={form.chirurgienPrincipal} isView={isView} placeholder="Dr. ..." onChange={v => setForm({ ...form, chirurgienPrincipal: v })} required />
-              <InfoField label="AIDE-OPÉRATOIRE" value={form.aideOperatoire} isView={isView} placeholder="Dr. ..." onChange={v => setForm({ ...form, aideOperatoire: v })} />
-              <InfoField label="ANESTHÉSISTE" value={form.anesthesiste} isView={isView} placeholder="Dr. ..." onChange={v => setForm({ ...form, anesthesiste: v })} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <InfoField
-                  label="DATE/HEURE"
-                  value={
-                    isView && form.dateIntervention
-                      ? new Date(form.dateIntervention).toLocaleString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : form.dateIntervention
-                  }
-                  isView={isView}
-                  placeholder="JJ/MM/AAAA"
-                  onChange={v => setForm({ ...form, dateIntervention: v })}
-                  hideInput
-                />
-                <InfoField label="DURÉE" value={form.duree} isView={isView} placeholder="ex: 1h15" onChange={v => setForm({ ...form, duree: v })} />
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 20 }}>
+              <div>
+                <label style={labelStyle}>NOM DE L'INTERVENTION</label>
+                {isView ? (
+                  <div style={{ fontSize: 16, fontWeight: 700, color: ehr.text }}>{form.nomIntervention || '—'}</div>
+                ) : (
+                  <input
+                    placeholder="Ex: Cholécystectomie..."
+                    value={form.nomIntervention || ''}
+                    onChange={e => setForm({ ...form, nomIntervention: e.target.value })}
+                    style={{ ...inputStyle, border: `2px solid ${ehr.primary}`, backgroundColor: '#fff' }}
+                  />
+                )}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <InfoField label="ANESTHÉSIE" value={form.typeAnesthesie} isView={isView} placeholder="Générale / Loco..." onChange={v => setForm({ ...form, typeAnesthesie: v })} />
-                <div>
-                  <p style={{ ...fieldLabelStyle, marginTop: '10px' }}>CLASSE ASA</p>
-                  {isView ? (
-                    <span style={{ fontSize: '15px', fontWeight: 700, color: ASA_COLORS[form.classeAsa || ''] || '#1e293b' }}>{form.classeAsa || '—'}</span>
-                  ) : (
-                    <select value={form.classeAsa || ''} onChange={e => setForm({ ...form, classeAsa: e.target.value })} style={{ ...inputStyle, height: '36px' }}>
-                      <option value="">—</option>
-                      {['1', '2', '3', '4', '5', '6', 'ASAE'].map(v => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+              <div>
+                <label style={labelStyle}>DATE & HEURE</label>
+                {isView ? (
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{form.dateIntervention ? new Date(form.dateIntervention).toLocaleString('fr-FR') : '—'}</div>
+                ) : (
+                  <input
+                    type="datetime-local"
+                    value={form.dateIntervention || ''}
+                    onChange={e => setForm({ ...form, dateIntervention: e.target.value })}
+                    style={inputStyle}
+                  />
+                )}
+              </div>
+              <div>
+                <label style={labelStyle}>NUMÉRO OP</label>
+                {isView ? (
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>#{form.numeroOp || '—'}</div>
+                ) : (
+                  <input
+                    placeholder="OP-2026-..."
+                    value={form.numeroOp || ''}
+                    onChange={e => setForm({ ...form, numeroOp: e.target.value })}
+                    style={inputStyle}
+                  />
+                )}
               </div>
             </div>
-            <div>
-              <p style={sectionLabelStyle}>CHECKLIST SÉCURITÉ OMS</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginTop: 24 }}>
+              <InfoField label="CHIRURGIEN PRINCIPAL" value={form.chirurgienPrincipal} isView={isView} placeholder="Dr. ..." onChange={v => setForm({ ...form, chirurgienPrincipal: v })} labelStyle={labelStyle} inputStyle={inputStyle} />
+              <InfoField label="AIDE-OPÉRATOIRE" value={form.aideOperatoire} isView={isView} placeholder="Dr. ..." onChange={v => setForm({ ...form, aideOperatoire: v })} labelStyle={labelStyle} inputStyle={inputStyle} />
+              <InfoField label="ANESTHÉSISTE" value={form.anesthesiste} isView={isView} placeholder="Dr. ..." onChange={v => setForm({ ...form, anesthesiste: v })} labelStyle={labelStyle} inputStyle={inputStyle} />
+              <div>
+                <label style={labelStyle}>CLASSE ASA</label>
+                {isView ? (
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '4px 12px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    backgroundColor: (ASA_COLORS[form.classeAsa || ''] || '#F1F5F9') + '22',
+                    color: ASA_COLORS[form.classeAsa || ''] || ehr.textMuted,
+                    border: `1px solid ${ASA_COLORS[form.classeAsa || ''] || ehr.borderSoft}`
+                  }}>
+                    ASA {form.classeAsa || '—'}
+                  </span>
+                ) : (
+                  <select value={form.classeAsa || ''} onChange={e => setForm({ ...form, classeAsa: e.target.value })} style={inputStyle}>
+                    <option value="">—</option>
+                    {['1', '2', '3', '4', '5', '6', 'ASAE'].map(v => (
+                      <option key={v} value={v}>ASA {v}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Description Technique */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 24 }}>
+            {/* Checklists Left Side */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <h3 style={{ ...labelStyle, marginBottom: 4 }}>Checklists de Sécurité (OMS)</h3>
               <ChecklistBlock
                 label="Avant l'induction"
                 items={CHECKLIST_INDUCTION}
                 data={form.checklistAvantInduction || defaultChecklist()}
                 isView={isView}
                 onChange={(f, v) => setChecklist('checklistAvantInduction', f, v)}
+                inputStyle={inputStyle}
               />
               <ChecklistBlock
                 label="Avant l'incision"
@@ -336,6 +379,7 @@ export function CrOperatoireTab({ patientId }: { patientId: string }) {
                 data={form.checklistAvantIncision || defaultChecklist()}
                 isView={isView}
                 onChange={(f, v) => setChecklist('checklistAvantIncision', f, v)}
+                inputStyle={inputStyle}
               />
               <ChecklistBlock
                 label="Sortie du bloc"
@@ -343,122 +387,210 @@ export function CrOperatoireTab({ patientId }: { patientId: string }) {
                 data={form.checklistAvantSortie || defaultChecklist()}
                 isView={isView}
                 onChange={(f, v) => setChecklist('checklistAvantSortie', f, v)}
+                inputStyle={inputStyle}
               />
             </div>
-          </div>
-          <div>
-            <p style={sectionLabelStyle}>DESCRIPTION CHIRURGICALE / TECHNIQUE OPÉRATOIRE</p>
-            <div style={{ backgroundColor: '#f8fafc', border: `1px solid ${ehr.borderSoft}`, borderRadius: 12, padding: '18px' }}>
-              <TextBlock label="Installation :" value={form.installation} isView={isView} placeholder="Positionnement du patient, installation de l'équipe..." onChange={v => setForm({ ...form, installation: v })} />
-              <TextBlock label="Exploration :" value={form.exploration} isView={isView} placeholder="Findings per-opératoires, anatomie observée..." onChange={v => setForm({ ...form, exploration: v })} />
-              <TextBlock label="Geste :" value={form.geste} isView={isView} placeholder="Description détaillée du geste chirurgical..." onChange={v => setForm({ ...form, geste: v })} last />
+
+            {/* Description Textareas */}
+            <div style={{
+              backgroundColor: '#fff',
+              border: `1px solid ${ehr.borderSoft}`,
+              borderRadius: 16,
+              padding: 24
+            }}>
+              <h3 style={{ ...labelStyle, marginBottom: 20 }}>Technique Opératoire</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <TextBlock label="Installation" value={form.installation} isView={isView} placeholder="Positionnement, installation de l'équipe..." onChange={v => setForm({ ...form, installation: v })} labelStyle={labelStyle} inputStyle={inputStyle} />
+                <TextBlock label="Exploration" value={form.exploration} isView={isView} placeholder="Findings per-opératoires, anatomie..." onChange={v => setForm({ ...form, exploration: v })} labelStyle={labelStyle} inputStyle={inputStyle} />
+                <TextBlock label="Geste Chirurgical" value={form.geste} isView={isView} placeholder="Description détaillée du geste..." onChange={v => setForm({ ...form, geste: v })} labelStyle={labelStyle} inputStyle={inputStyle} last />
+              </div>
             </div>
           </div>
-        </div>
-      </EhrFormSection>
 
-      <EhrFormSection title="Prélèvements & évolution post-op" sectionBadge="03" collapsible defaultOpen>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div style={{ backgroundColor: ehr.highlightBlueTint, border: `1px solid ${ehr.highlightBorder}`, borderRadius: 12, padding: '16px' }}>
-            <p style={{ ...sectionLabelStyle, color: ehr.primary }}>PRÉLÈVEMENTS & HISTOLOGIE</p>
-            {isView ? (
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#1e293b' }}>
-                <span>🔬</span>
-                <span>{form.prelevements || 'Aucun prélèvement renseigné'}</span>
-              </div>
-            ) : (
-              <textarea
-                placeholder="Ex: Pièce de cholécystectomie envoyée en anapath..."
-                value={form.prelevements || ''}
-                onChange={e => setForm({ ...form, prelevements: e.target.value })}
-                style={{ ...inputStyle, height: '80px', resize: 'none', fontSize: '12px' }}
-              />
-            )}
-          </div>
-          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px' }}>
-            <p style={{ ...sectionLabelStyle, color: '#16a34a' }}>ÉVOLUTION POST-OP IMMÉDIATE</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SCORE SCCRE</span>
+          {/* Section 3: Prélèvements & Score */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div style={{ backgroundColor: ehr.highlightBlueTint, border: `1px solid ${ehr.highlightBorder}`, borderRadius: 16, padding: 24 }}>
+              <label style={{ ...labelStyle, color: ehr.primary }}>PRÉLÈVEMENTS & HISTOLOGIE</label>
               {isView ? (
-                <span style={{ fontSize: '16px', fontWeight: 700, color: Number(form.scoreSccre) >= 9 ? '#16a34a' : '#ef4444' }}>{form.scoreSccre || '—'}/10</span>
+                <p style={{ fontSize: 14, color: ehr.text, margin: '8px 0 0 0', lineHeight: 1.5 }}>{form.prelevements || 'Aucun prélèvement renseigné'}</p>
               ) : (
-                <select value={form.scoreSccre || ''} onChange={e => setForm({ ...form, scoreSccre: e.target.value })} style={{ ...inputStyle, width: '80px', height: '32px', textAlign: 'center' }}>
-                  <option value="">—</option>
-                  {Array.from({ length: 11 }, (_, i) => (
-                    <option key={i} value={String(i)}>
-                      {i}
-                    </option>
-                  ))}
-                </select>
+                <textarea
+                  placeholder="Ex: Pièce envoyée en anapath..."
+                  value={form.prelevements || ''}
+                  onChange={e => setForm({ ...form, prelevements: e.target.value })}
+                  style={{ ...inputStyle, height: 80, marginTop: 8, resize: 'none' }}
+                />
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>COMPLICATIONS</span>
-              {isView ? (
-                <span style={{ fontSize: '13px', fontWeight: 600, color: form.complications && form.complications !== 'Aucune' ? '#ef4444' : '#16a34a' }}>{form.complications || 'Aucune'}</span>
-              ) : (
-                <input value={form.complications || ''} onChange={e => setForm({ ...form, complications: e.target.value })} placeholder="Aucune" style={{ ...inputStyle, width: '130px', height: '32px', fontSize: '12px' }} />
-              )}
-            </div>
-            {Number(form.scoreSccre) >= 9 && (
-              <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>✅ Score SCCRE ≥ 9 — Sortie de salle de réveil autorisée</div>
-            )}
-            {form.scoreSccre && Number(form.scoreSccre) < 9 && (
-              <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 500 }}>
-                ⚠️ Score SCCRE {'<'} 9 — Maintien en salle de réveil requis
-              </div>
-            )}
-          </div>
-        </div>
-      </EhrFormSection>
 
-      {!isView && (
-        <EhrFormSection title="Enregistrement du compte-rendu" sectionBadge="04" collapsible defaultOpen>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
-            {list.length > 0 && (
+            <div style={{
+              backgroundColor: (Number(form.scoreSccre) >= 9 ? '#F0FDF4' : '#FFF7ED'),
+              border: `1px solid ${Number(form.scoreSccre) >= 9 ? '#BBF7D0' : '#FED7AA'}`,
+              borderRadius: 16,
+              padding: 24
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <label style={{ ...labelStyle, color: (Number(form.scoreSccre) >= 9 ? '#16A34A' : '#C2410C'), marginBottom: 0 }}>SCORE SCCRE & COMPLICATIONS</label>
+                <div style={{ fontSize: 24, fontWeight: 900, color: (Number(form.scoreSccre) >= 9 ? '#16A34A' : '#EF4444') }}>
+                  {form.scoreSccre || '—'}<span style={{ fontSize: 14, fontWeight: 700, opacity: 0.6 }}>/10</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {!isView && (
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: ehr.textMuted }}>MODIFIER SCORE</label>
+                    <select value={form.scoreSccre || ''} onChange={e => setForm({ ...form, scoreSccre: e.target.value })} style={{ ...inputStyle, marginTop: 4 }}>
+                      <option value="">—</option>
+                      {Array.from({ length: 11 }, (_, i) => <option key={i} value={String(i)}>{i}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div style={{ gridColumn: isView ? 'span 2' : 'span 1' }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: ehr.textMuted }}>COMPLICATIONS</label>
+                  {isView ? (
+                    <div style={{ fontSize: 14, fontWeight: 700, color: (form.complications && form.complications !== 'Aucune' ? '#EF4444' : '#16A34A'), marginTop: 4 }}>
+                      {form.complications || 'Aucune'}
+                    </div>
+                  ) : (
+                    <input value={form.complications || ''} onChange={e => setForm({ ...form, complications: e.target.value })} placeholder="Aucune" style={{ ...inputStyle, marginTop: 4 }} />
+                  )}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: (Number(form.scoreSccre) >= 9 ? '#16A34A' : '#EF4444') }}>
+                {Number(form.scoreSccre) >= 9
+                  ? '✅ Autorisation de sortie de salle de réveil accordée.'
+                  : '⚠️ Maintien en surveillance post-interventionnelle requis.'}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          {!isView && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 12,
+              padding: '24px 0',
+              borderTop: `1px solid ${ehr.borderSoft}`
+            }}>
               <button
                 type="button"
-                onClick={() => {
-                  setForm(selected || list[0]);
-                  setMode('view');
+                onClick={() => { setForm(selected || list[0] || defaultCr()); setMode('view'); }}
+                style={{
+                  backgroundColor: '#fff',
+                  color: ehr.textMuted,
+                  border: `1px solid ${ehr.borderSoft}`,
+                  borderRadius: 10,
+                  padding: '12px 24px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer'
                 }}
-                style={{ padding: '10px 20px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f8fafc', color: '#475569', border: `1px solid ${ehr.borderSoft}`, borderRadius: '8px', cursor: 'pointer' }}
               >
                 Annuler
               </button>
-            )}
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              style={{ padding: '10px 24px', fontSize: '13px', fontWeight: 600, backgroundColor: ehr.primary, color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}
-            >
-              {saving ? 'Sauvegarde...' : '💾 Valider le CR opératoire'}
-            </button>
-          </div>
-        </EhrFormSection>
-      )}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  backgroundColor: ehr.primary,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '12px 32px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(5, 102, 141, 0.2)'
+                }}
+              >
+                {saving ? 'Sauvegarde...' : 'Valider le CR opératoire'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
-      {isView && form.statut === 'TERMINE' && (
-        <EhrFormSection title="Traçabilité" subtitle="Compte-rendu validé" collapsible defaultOpen={false}>
-          <div style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>🔒 Compte-rendu opératoire validé – Traçabilité complète exigée par le SIH CHU</div>
-        </EhrFormSection>
-      )}
+      {/* Sidebar: Historique des interventions */}
+      <div style={{ width: 300, flexShrink: 0 }}>
+        <div style={{
+          border: `1px solid ${ehr.borderSoft}`,
+          borderRadius: 16,
+          backgroundColor: '#fff',
+          overflow: 'hidden',
+          boxShadow: ehr.shadowCard
+        }}>
+          <div style={{
+            padding: '20px',
+            borderBottom: `1px solid ${ehr.borderSoft}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: '#F8FAFC'
+          }}>
+            <h3 style={{ fontSize: 13, fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Interventions</h3>
+            <span style={{ fontSize: 11, fontWeight: 800, backgroundColor: ehr.primary, color: '#fff', padding: '2px 8px', borderRadius: 6 }}>{list.length}</span>
+          </div>
+
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {list.length === 0 ? (
+              <p style={{ fontSize: 13, color: ehr.textMuted, textAlign: 'center', margin: '20px 0' }}>Aucun CR opératoire</p>
+            ) : (
+              list.map((cr, i) => (
+                <button
+                  key={cr.id}
+                  onClick={() => { setSelected(cr); setForm(cr); setMode('view'); }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                    width: '100%',
+                    padding: '14px',
+                    backgroundColor: selected?.id === cr.id ? ehr.highlightBlueTint : '#fff',
+                    borderRadius: 12,
+                    border: `1px solid ${selected?.id === cr.id ? ehr.primary : ehr.borderSoft}`,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: selected?.id === cr.id ? '0 2px 8px rgba(5,102,141,0.08)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: ehr.textMuted, textTransform: 'uppercase' }}>
+                      {cr.dateIntervention ? new Date(cr.dateIntervention).toLocaleDateString('fr-FR') : `Opération #${i + 1}`}
+                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: ehr.primary }}>#{cr.numeroOp || '—'}</span>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: ehr.text, lineHeight: 1.4 }}>
+                    {cr.nomIntervention || 'Sans nom'}
+                  </span>
+                  <div style={{ marginTop: 4, display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: ehr.textMuted, fontWeight: 600 }}>{cr.chirurgienPrincipal || 'Chir. non renseigné'}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ─── Sous-composants ───────────────────────────────────────────────────────────
 
-function InfoField({ label, value, isView, placeholder, onChange, required, hideInput }: {
+function InfoField({ label, value, isView, placeholder, onChange, required, labelStyle, inputStyle }: {
   label: string; value?: string; isView: boolean; placeholder?: string;
-  onChange: (v: string) => void; required?: boolean; hideInput?: boolean;
+  onChange: (v: string) => void; required?: boolean; labelStyle: any; inputStyle: any;
 }) {
   return (
-    <div style={{ marginBottom: '10px' }}>
-      <p style={fieldLabelStyle}>{label}{required && <span style={{ color: '#ef4444' }}> *</span>}</p>
-      {isView || hideInput ? (
-        <p style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b', margin: 0 }}>{value || '—'}</p>
+    <div>
+      <label style={labelStyle}>{label}{required && <span style={{ color: '#ef4444' }}> *</span>}</label>
+      {isView ? (
+        <div style={{ fontSize: '14px', fontWeight: 600, color: ehr.text }}>{value || '—'}</div>
       ) : (
         <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={inputStyle} />
       )}
@@ -466,68 +598,89 @@ function InfoField({ label, value, isView, placeholder, onChange, required, hide
   );
 }
 
-function TextBlock({ label, value, isView, placeholder, onChange, last }: {
+function TextBlock({ label, value, isView, placeholder, onChange, last, labelStyle, inputStyle }: {
   label: string; value?: string; isView: boolean; placeholder?: string;
-  onChange: (v: string) => void; last?: boolean;
+  onChange: (v: string) => void; last?: boolean; labelStyle: any; inputStyle: any;
 }) {
   return (
-    <div style={{ marginBottom: last ? 0 : '16px' }}>
-      <p style={{ fontSize: '13px', fontWeight: 700, color: '#05668D', margin: '0 0 6px 0' }}>{label}</p>
+    <div style={{ marginBottom: last ? 0 : 4 }}>
+      <label style={labelStyle}>{label}</label>
       {isView ? (
-        <p style={{ fontSize: '13px', color: '#334155', margin: 0, lineHeight: 1.6 }}>{value || '—'}</p>
+        <div style={{ fontSize: '14px', color: ehr.text, lineHeight: 1.6, padding: '8px 0' }}>{value || '—'}</div>
       ) : (
-        <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...inputStyle, height: '80px', resize: 'vertical', fontSize: '13px' }} />
+        <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
       )}
     </div>
   );
 }
 
-function ChecklistBlock({ label, items, data, isView, onChange }: {
+function ChecklistBlock({ label, items, data, isView, onChange, inputStyle }: {
   label: string;
   items: string[];
   data: ChecklistMoment;
   isView: boolean;
   onChange: (field: string, value: boolean | string) => void;
+  inputStyle: any;
 }) {
   const allChecked = items.every(item => data.items?.[item]);
   const validated = !!data.valideA;
 
   return (
-    <div style={{ marginBottom: '12px', backgroundColor: validated ? '#f0fdf4' : '#f8fafc', border: `1px solid ${validated ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: '10px', padding: '12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: validated ? '#16a34a' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
+    <div style={{
+      backgroundColor: validated ? '#F0FDF4' : '#fff',
+      border: `1px solid ${validated ? '#BBF7D0' : ehr.borderSoft}`,
+      borderRadius: 12,
+      padding: 16,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: '50%',
+            backgroundColor: validated ? '#16A34A' : '#F1F5F9',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, color: 'white'
+          }}>
             {validated ? '✓' : ''}
           </div>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: ehr.text }}>{label}</span>
         </div>
-        {validated && <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 500 }}>Validé ({data.valideA})</span>}
+        {validated && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 800 }}>{data.valideA}</span>}
       </div>
 
-      {!isView && (
-        <>
-          {items.map(item => (
-            <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px', cursor: 'pointer', fontSize: '12px', color: '#475569' }}>
-              <input type="checkbox" checked={!!data.items?.[item]} onChange={e => onChange(item, e.target.checked)} />
-              {item}
-            </label>
-          ))}
-          {allChecked && (
-            <div style={{ marginTop: '8px' }}>
-              <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Heure de validation</label>
-              <input
-                type="time"
-                value={data.valideA || ''}
-                onChange={e => onChange('valideA', e.target.value)}
-                style={{ ...inputStyle, height: '30px', fontSize: '12px', width: '100px' }}
-              />
-            </div>
-          )}
-        </>
-      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {items.map(item => (
+          <label key={item} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: isView ? 'default' : 'pointer',
+            fontSize: 12,
+            color: data.items?.[item] ? ehr.text : ehr.textMuted,
+            fontWeight: data.items?.[item] ? 600 : 500
+          }}>
+            <input
+              type="checkbox"
+              checked={!!data.items?.[item]}
+              disabled={isView}
+              onChange={e => onChange(item, e.target.checked)}
+              style={{ accentColor: ehr.primary }}
+            />
+            {item}
+          </label>
+        ))}
+      </div>
 
-      {isView && !validated && (
-        <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>Non validé</p>
+      {!isView && allChecked && (
+        <div style={{ marginTop: 12, borderTop: `1px solid ${ehr.borderSoft}`, paddingTop: 12 }}>
+          <label style={{ fontSize: 10, fontWeight: 800, color: ehr.textMuted, display: 'block', marginBottom: 6 }}>HEURE DE VALIDATION</label>
+          <input
+            type="time"
+            value={data.valideA || ''}
+            onChange={e => onChange('valideA', e.target.value)}
+            style={{ ...inputStyle, height: 32, fontSize: 12, width: 100, padding: '4px 8px' }}
+          />
+        </div>
       )}
     </div>
   );
