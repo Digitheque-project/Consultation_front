@@ -196,7 +196,7 @@ export default function DossierPatientDetailPage() {
   }, [searchParams, prefill?.serviceId]);
 
   return (
-    <div className="min-h-full bg-[#F8F9FB] px-4 py-6 sm:px-6">
+    <div className="bg-[#F8F9FB] px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-4 flex items-center gap-3">
           <Link
