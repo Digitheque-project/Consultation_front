@@ -32,6 +32,38 @@ type Appointment = {
   patientId: number;
 };
 
+const ConsultationSkeleton = () => (
+  <Card className="relative overflow-hidden border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] rounded-3xl bg-white animate-pulse">
+    <CardContent className="p-4 sm:p-6">
+      <div className="flex flex-col md:flex-row items-center gap-6 justify-between">
+        {/* Time & Status Skeleton */}
+        <div className="flex flex-col items-center justify-center min-w-[70px] space-y-2">
+          <div className="h-5 w-12 bg-slate-200 rounded" />
+          <div className="h-3 w-16 bg-slate-100 rounded" />
+        </div>
+
+        {/* Vertical Divider */}
+        <div className="hidden md:block w-px h-10 bg-slate-100"></div>
+
+        {/* Patient Info Skeleton */}
+        <div className="flex-1 flex flex-col items-center md:items-start w-full space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-4 w-32 bg-slate-200 rounded" />
+            <div className="h-6 w-20 bg-slate-100 rounded-full" />
+          </div>
+          <div className="h-3 w-48 bg-slate-100 rounded" />
+        </div>
+
+        {/* Actions Skeleton */}
+        <div className="flex flex-col items-center gap-2 w-full md:w-auto">
+          <div className="h-10 w-48 bg-slate-200 rounded-xl" />
+          <div className="h-4 w-24 bg-slate-100 rounded mt-1" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
 export default function ConsultationExternePage() {
   const router = useRouter();
   const [patientInfo, setPatientInfo] = useState<Appointment | null>(null);
@@ -137,7 +169,11 @@ export default function ConsultationExternePage() {
 
             <div className="space-y-6">
               {loading ? (
-                <div className='p-6 text-slate-600'>Chargement des consultations...</div>
+                <>
+                  <ConsultationSkeleton />
+                  <ConsultationSkeleton />
+                  <ConsultationSkeleton />
+                </>
               ) : error ? (
                 <div className='p-6 bg-red-50 text-red-700 rounded-lg'>Erreur de chargement des données.</div>
               ) : patients.length === 0 ? (

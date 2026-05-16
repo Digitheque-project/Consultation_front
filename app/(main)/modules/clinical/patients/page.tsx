@@ -4,9 +4,14 @@ import {
   AlertTriangle,
   BedDouble,
   Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  Filter,
   Loader2,
   Plus,
+  Search,
   User,
   Wrench,
 } from "lucide-react";
@@ -146,6 +151,28 @@ function formatSexeFr(patient: Record<string, unknown> | null): string {
   return raw;
 }
 
+function formatDateSplit(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { dayMonth: "—", year: "" };
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = d.toLocaleDateString("fr-FR", { month: "long" });
+  const capitalizedMonth = month.charAt(0).toUpperCase() + month.slice(1);
+  return {
+    dayMonth: `${day} ${capitalizedMonth}`,
+    year: d.getFullYear().toString(),
+  };
+}
+
+function getPatientStatusInfo(id: string) {
+  const charCode = id.charCodeAt(id.length - 1) || 0;
+  if (charCode % 3 === 0) {
+    return { label: "Critique", dot: DOT_CRITIQUE, bg: "bg-rose-50", text: "text-rose-700" };
+  } else if (charCode % 3 === 1) {
+    return { label: "Surveillance", dot: DOT_SURVEILLANCE, bg: "bg-amber-50", text: "text-amber-700" };
+  }
+  return { label: "Stable", dot: DOT_STABLE, bg: "transparent", text: "text-slate-600" };
+}
+
 function formatDateFrLong(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
@@ -264,18 +291,18 @@ function BedCard({
       onKeyDown={
         onSelect
           ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelect();
-              }
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelect();
             }
+          }
           : undefined
       }
       className={cn(
         "relative bg-white rounded-[16px] border border-gray-200/70 shadow-sm p-4 overflow-hidden min-h-[140px] flex flex-col justify-between outline-none transition-[box-shadow,border-color]",
         onSelect && "cursor-pointer hover:shadow-md hover:border-gray-300/90",
         isSelected &&
-          "ring-2 ring-[#0EA5E9] ring-offset-2 border-sky-200/80 shadow-[0px_6px_20px_rgba(14,165,233,0.12)]",
+        "ring-2 ring-[#0EA5E9] ring-offset-2 border-sky-200/80 shadow-[0px_6px_20px_rgba(14,165,233,0.12)]",
       )}
     >
       <div
@@ -325,7 +352,7 @@ function BedCard({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 mb-3 mt-3 cursor-pointer">
+      <div className="flex items-center gap-1.5 mb-3 mt-3">
         <svg
           className="w-3 h-3 text-gray-400"
           fill="none"
@@ -564,13 +591,13 @@ function PatientQuickPreviewPanel({
       <div className="mt-auto grid grid-cols-2 gap-3">
         <button
           type="button"
-          className="rounded-[12px] bg-[#F1F5F9] py-3 text-center text-[11.5px] font-extrabold text-gray-700 transition-colors hover:bg-[#E2E8F0]"
+          className="rounded-[12px] bg-[#F1F5F9] cursor-pointer py-3 text-center text-[11.5px] font-extrabold text-gray-700 transition-colors hover:bg-[#E2E8F0]"
         >
           Traitement
         </button>
         <button
           type="button"
-          className="rounded-[12px] bg-[#F1F5F9] py-3 text-center text-[11.5px] font-extrabold text-gray-700 transition-colors hover:bg-[#E2E8F0]"
+          className="rounded-[12px] bg-[#F1F5F9] cursor-pointer py-3 text-center text-[11.5px] font-extrabold text-gray-700 transition-colors hover:bg-[#E2E8F0]"
           onClick={(e) => {
             e.stopPropagation();
             const { hosp, patient, chambreNumero, codeLit } = selection;
@@ -653,6 +680,13 @@ export default function GestionPatientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<LitSelection | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [itemsPerPage, setItemsPerPage] = useState(6);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateStart, setDateStart] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
+
   const serviceId = useMemo(() => {
     const fromQuery = trimServiceId(searchParams.get("serviceId"));
     if (fromQuery) return fromQuery;
@@ -714,6 +748,11 @@ export default function GestionPatientsPage() {
       motif: string;
       hosp: PlanLitHospitalisation;
       patientObj: Record<string, unknown> | null;
+      age: number | null;
+      sexe: string;
+      dateEntree: string;
+      statusInfo: ReturnType<typeof getPatientStatusInfo>;
+      dateSplit: ReturnType<typeof formatDateSplit>;
     }[] = [];
     for (const c of plan.chambres) {
       for (const l of c.lits) {
@@ -727,11 +766,57 @@ export default function GestionPatientsPage() {
           motif: h.motifHospitalisation,
           hosp: h,
           patientObj: h.patient ?? null,
+          age: computeAgeYears(undefined, h.patient ?? null),
+          sexe: formatSexeFr(h.patient ?? null),
+          dateEntree: h.dateEntrer,
+          statusInfo: getPatientStatusInfo(h.patientId),
+          dateSplit: formatDateSplit(h.dateEntrer),
         });
       }
     }
     return rows;
   }, [plan]);
+
+  const filteredRows = useMemo(() => {
+    return listeRows.filter((row) => {
+      const q = searchQuery.toLowerCase();
+      const matchSearch =
+        !q ||
+        row.patient.toLowerCase().includes(q) ||
+        row.lit.toLowerCase().includes(q) ||
+        String(row.chambreNumero).includes(q) ||
+        (row.motif && row.motif.toLowerCase().includes(q)) ||
+        row.statusInfo.label.toLowerCase().includes(q) ||
+        row.dateSplit.dayMonth.toLowerCase().includes(q) ||
+        row.dateSplit.year.includes(q);
+
+      let matchDate = true;
+      if (dateStart || dateEnd) {
+        const rowDate = new Date(row.dateEntree).getTime();
+        if (dateStart) {
+          const start = new Date(dateStart).getTime();
+          if (rowDate < start) matchDate = false;
+        }
+        if (dateEnd) {
+          const end = new Date(dateEnd);
+          end.setHours(23, 59, 59, 999);
+          if (rowDate > end.getTime()) matchDate = false;
+        }
+      }
+
+      return matchSearch && matchDate;
+    });
+  }, [listeRows, searchQuery, dateStart, dateEnd]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRows.slice(start, start + itemsPerPage);
+  }, [filteredRows, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, dateStart, dateEnd, itemsPerPage]);
 
   return (
     <main className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
@@ -758,14 +843,15 @@ export default function GestionPatientsPage() {
               <button
                 type="button"
                 onClick={() => setVue("plan")}
-                className={
+                className={cn(
+                  "flex cursor-pointer items-center justify-center gap-2 text-[12px] px-4 py-2 rounded-[10px] border transition-colors outline-none",
                   vue === "plan"
-                    ? "flex items-center gap-2 bg-white text-gray-900 font-extrabold text-[12px] px-4 py-2 rounded-[10px] shadow-sm border border-gray-100"
-                    : "text-gray-500 font-bold text-[12px] px-4 py-2 rounded-[10px] hover:bg-gray-50 transition-colors"
-                }
+                    ? "bg-white text-gray-900 font-extrabold shadow-sm border-gray-100"
+                    : "text-gray-500 font-bold hover:bg-gray-50 border-transparent"
+                )}
               >
                 <svg
-                  className="w-3.5 h-3.5 text-gray-600"
+                  className={cn("w-3.5 h-3.5", vue === "plan" ? "text-gray-800" : "text-gray-400")}
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={2}
@@ -781,11 +867,12 @@ export default function GestionPatientsPage() {
               <button
                 type="button"
                 onClick={() => setVue("liste")}
-                className={
+                className={cn(
+                  "flex cursor-pointer items-center justify-center gap-2 text-[12px] px-4 py-2 rounded-[10px] border transition-colors outline-none",
                   vue === "liste"
-                    ? "flex items-center gap-2 bg-white text-gray-900 font-extrabold text-[12px] px-4 py-2 rounded-[10px] shadow-sm border border-gray-100"
-                    : "text-gray-500 font-bold text-[12px] px-4 py-2 rounded-[10px] hover:bg-gray-50 transition-colors"
-                }
+                    ? "bg-white text-gray-900 font-extrabold shadow-sm border-gray-100"
+                    : "text-gray-500 font-bold hover:bg-gray-50 border-transparent"
+                )}
               >
                 Liste
               </button>
@@ -833,58 +920,257 @@ export default function GestionPatientsPage() {
               ))}
             </div>
           ) : vue === "liste" ? (
-            <div className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
-              {listeRows.length === 0 ? (
-                <p className="p-6 text-[13px] font-medium text-gray-500">
-                  Aucune hospitalisation avec lit occupé pour ce service.
-                </p>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {listeRows.map((row) => (
-                    <li
-                      key={row.litId}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() =>
-                        setSelection({
-                          litId: row.litId,
-                          chambreNumero: row.chambreNumero,
-                          codeLit: row.lit,
-                          hosp: row.hosp,
-                          patient: row.patientObj,
-                        })
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelection({
-                            litId: row.litId,
-                            chambreNumero: row.chambreNumero,
-                            codeLit: row.lit,
-                            hosp: row.hosp,
-                            patient: row.patientObj,
-                          });
-                        }
-                      }}
-                      className={cn(
-                        "px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 cursor-pointer outline-none transition-colors hover:bg-slate-50/90",
-                        selection?.litId === row.litId &&
-                          "bg-sky-50/80 ring-1 ring-inset ring-sky-200/80",
-                      )}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-[360px]">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Recherche (nom, chambre, diagnostic, statut...)"
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200/80 rounded-[12px] text-[13px] font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#006A8C]/20 focus:border-[#006A8C] transition-all shadow-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={cn(
+                      "flex items-center cursor-pointer gap-2 px-4 py-2.5 border rounded-[12px] text-[13px] font-bold transition-colors shadow-sm",
+                      showFilters ? "bg-sky-50 border-sky-200 text-sky-700" : "bg-white border-gray-200/80 text-gray-700 hover:bg-gray-50"
+                    )}
+                  >
+                    <Filter className="w-4 h-4" />
+                    <span className="hidden sm:inline">Filtres</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 text-[12px] font-bold text-gray-600">
+                  <span>Afficher :</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="bg-white cursor-pointer border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={30}>30</option>
+                  </select>
+                </div>
+              </div>
+
+              {showFilters && (
+                <div className="bg-white p-4 rounded-[16px] border border-gray-100 shadow-sm flex flex-col sm:flex-row gap-4 items-end animate-in fade-in slide-in-from-top-2">
+                  <div className="flex-1 w-full">
+                    <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-wider mb-1.5">Date d&apos;entrée (Depuis)</label>
+                    <input
+                      type="date"
+                      value={dateStart}
+                      onChange={(e) => setDateStart(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-[10px] text-[13px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#006A8C]/20 focus:border-[#006A8C]"
+                    />
+                  </div>
+                  <div className="flex-1 w-full">
+                    <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-wider mb-1.5">Date d&apos;entrée (Jusqu&apos;au)</label>
+                    <input
+                      type="date"
+                      value={dateEnd}
+                      onChange={(e) => setDateEnd(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-[10px] text-[13px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#006A8C]/20 focus:border-[#006A8C]"
+                    />
+                  </div>
+                  {(dateStart || dateEnd) && (
+                    <button
+                      onClick={() => { setDateStart(""); setDateEnd(""); }}
+                      className="px-4 py-2 text-[12px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-[10px] transition-colors h-[38px]"
                     >
-                      <span className="text-[12px] font-extrabold text-gray-900">
-                        {row.patient}
-                      </span>
-                      <span className="text-[11px] font-semibold text-gray-500">
-                        Ch. {row.chambreNumero} · {row.lit}
-                      </span>
-                      <span className="text-[11px] font-medium text-gray-600 sm:text-right sm:max-w-[45%]">
-                        {row.motif}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                      Effacer
+                    </button>
+                  )}
+                </div>
               )}
+
+              <div className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
+                {filteredRows.length === 0 ? (
+                  <p className="p-6 text-[13px] text-center font-medium text-gray-500">
+                    Aucune hospitalisation avec lit occupé pour ce service.
+                  </p>
+                ) : (
+                  <div>
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">
+                            Lits / Chambre
+                          </th>
+                          <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">
+                            Nom du patient
+                          </th>
+                          <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">
+                            Diagnostic
+                          </th>
+                          <th className="px-6 py-4">
+                            <div className="flex items-center gap-1.5 cursor-pointer group">
+                              <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider group-hover:text-gray-600 transition-colors">Date d&apos;entrée</span>
+                              <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                            </div>
+                          </th>
+                          <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">
+                            Statut
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {paginatedRows.map((row) => (
+                          <tr
+                            key={row.litId}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
+                              setSelection({
+                                litId: row.litId,
+                                chambreNumero: row.chambreNumero,
+                                codeLit: row.lit,
+                                hosp: row.hosp,
+                                patient: row.patientObj,
+                              })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSelection({
+                                  litId: row.litId,
+                                  chambreNumero: row.chambreNumero,
+                                  codeLit: row.lit,
+                                  hosp: row.hosp,
+                                  patient: row.patientObj,
+                                });
+                              }
+                            }}
+                            className={cn(
+                              "group outline-none transition-colors hover:bg-slate-50/60 cursor-pointer",
+                              selection?.litId === row.litId &&
+                              "bg-sky-50/40 relative after:absolute after:left-0 after:top-0 after:bottom-0 after:w-1 after:bg-[#0EA5E9]"
+                            )}
+                          >
+                            <td className="px-6 py-4 align-top">
+                              <div className="bg-[#F8FAFC] border border-gray-100 rounded-[10px] px-2 py-1.5 flex flex-col items-center justify-center w-[54px] shadow-sm group-hover:border-gray-200 transition-colors">
+                                <span className="text-[11px] font-black text-gray-800 leading-none mb-1">
+                                  {row.chambreNumero}-
+                                </span>
+                                <span className="text-[9px] font-extrabold text-gray-500 leading-none">
+                                  {row.lit.toLowerCase().startsWith('lit') ? row.lit : `Lit ${row.lit}`}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 align-top">
+                              <p className="text-[13px] font-black text-gray-900 leading-tight">
+                                {row.patient}
+                              </p>
+                              <p className="text-[10px] font-extrabold text-gray-400 uppercase mt-1 tracking-wider">
+                                {row.age != null ? `${row.age} ANS` : "—"} • {row.sexe}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4 align-top">
+                              <div className="max-w-[160px]">
+                                <p className="text-[12px] font-bold text-gray-600 leading-snug">
+                                  {row.motif || "—"}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 align-top">
+                              <p className="text-[12px] font-black text-gray-800 leading-tight">
+                                {row.dateSplit.dayMonth}
+                              </p>
+                              <p className="text-[11px] font-extrabold text-gray-500 mt-0.5">
+                                {row.dateSplit.year}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4 align-top">
+                              <div
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[8px]",
+                                  row.statusInfo.bg
+                                )}
+                              >
+                                <div
+                                  className="w-1.5 h-1.5 rounded-full"
+                                  style={{ backgroundColor: row.statusInfo.dot }}
+                                />
+                                <span
+                                  className={cn(
+                                    "text-[11px] font-extrabold",
+                                    row.statusInfo.text
+                                  )}
+                                >
+                                  {row.statusInfo.label}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div className="px-6 py-5 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
+                      <span className="text-[11px] font-bold text-gray-500">
+                        Affichage de <span className="text-gray-900 font-black">{filteredRows.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> à <span className="text-gray-900 font-black">{Math.min(filteredRows.length, currentPage * itemsPerPage)}</span> sur <span className="text-gray-900 font-black">{filteredRows.length}</span> résultats
+                      </span>
+                      {totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            className="w-7 h-7 flex items-center justify-center text-gray-400 hover:bg-gray-50 rounded-[8px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+
+                          {Array.from({ length: totalPages }).map((_, idx) => {
+                            const pageNumber = idx + 1;
+                            if (
+                              pageNumber === 1 ||
+                              pageNumber === totalPages ||
+                              (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                            ) {
+                              return (
+                                <button
+                                  key={pageNumber}
+                                  onClick={() => setCurrentPage(pageNumber)}
+                                  className={cn(
+                                    "w-7 h-7 flex items-center justify-center text-[11px] font-black rounded-[8px] transition-colors",
+                                    currentPage === pageNumber
+                                      ? "bg-[#0B7DB3] text-white shadow-sm"
+                                      : "text-gray-600 hover:bg-gray-50"
+                                  )}
+                                >
+                                  {pageNumber}
+                                </button>
+                              );
+                            } else if (
+                              pageNumber === currentPage - 2 ||
+                              pageNumber === currentPage + 2
+                            ) {
+                              return <span key={pageNumber} className="text-gray-400 text-xs px-1">...</span>;
+                            }
+                            return null;
+                          })}
+
+                          <button
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            className="w-7 h-7 flex items-center justify-center text-gray-400 hover:bg-gray-50 rounded-[8px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : !plan || plan.chambres.length === 0 ? (
             <div className="rounded-[22px] border border-dashed border-gray-200 bg-white p-8 text-center text-[13px] font-medium text-gray-500">
