@@ -50,6 +50,8 @@ export function SuiviTab({ patientId }: { patientId: string }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({ ...emptyForm });
   const [showForm, setShowForm] = useState(false);
+  const [filterDate, setFilterDate] = useState<string>('');
+  const [pageSize, setPageSize] = useState<number>(5);
 
   useEffect(() => { load(); }, [patientId]);
 
@@ -146,27 +148,92 @@ export function SuiviTab({ patientId }: { patientId: string }) {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowForm(!showForm)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              backgroundColor: ehr.primary,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 10,
-              padding: '12px 24px',
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(5, 102, 141, 0.15)',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <Plus size={18} /> Ajouter une observation
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            {/* Page Size Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: ehr.textMuted, letterSpacing: '0.05em' }}>AFFICHER</span>
+              <select
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value))}
+                style={{
+                  ...inputStyle,
+                  width: 80,
+                  height: 38,
+                  padding: '0 12px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  backgroundColor: '#fff'
+                }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={20}>20</option>
+                <option value={1000}>Tous</option>
+              </select>
+            </div>
+
+            {/* Search by Date */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              <div style={{ position: 'relative' }}>
+                <Calendar size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: ehr.textMuted, pointerEvents: 'none' }} />
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={e => setFilterDate(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    width: 180,
+                    paddingLeft: 40,
+                    fontSize: 13,
+                    backgroundColor: filterDate ? ehr.highlightBlueTint : '#F8FAFC',
+                    border: `1px solid ${filterDate ? ehr.primary : ehr.borderSoft}`
+                  }}
+                />
+              </div>
+              {filterDate && (
+                <button
+                  onClick={() => setFilterDate('')}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: ehr.danger,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.02em'
+                  }}
+                >
+                  Effacer le filtre
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowForm(!showForm)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: ehr.primary,
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '12px 24px',
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(5, 102, 141, 0.15)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Plus size={18} /> Ajouter une observation
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -191,166 +258,169 @@ export function SuiviTab({ patientId }: { patientId: string }) {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingLeft: 12 }}>
-          {suivis.map((s, index) => {
-            const es = etatColors[s.etatGeneral || 'Stable'] || etatColors['Stable'];
-            return (
-              <div key={s.id} style={{ display: 'flex', gap: '24px', position: 'relative', paddingBottom: 40 }}>
-                {/* Ligne verticale timeline */}
-                {index < suivis.length - 1 && (
-                  <div style={{
-                    position: 'absolute',
-                    left: '9px',
-                    top: '24px',
-                    bottom: 0,
-                    width: '2px',
-                    backgroundColor: ehr.borderSoft,
-                    zIndex: 0
-                  }} />
-                )}
-
-                {/* Point Timeline */}
-                <div style={{ flexShrink: 0, zIndex: 1, marginTop: 6 }}>
-                  <div style={{
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: index === 0 ? ehr.primary : '#fff',
-                    border: `4px solid ${index === 0 ? ehr.highlightBlueTint : ehr.borderSoft}`,
-                    boxShadow: index === 0 ? '0 0 0 2px rgba(5, 102, 141, 0.1)' : 'none',
-                  }} />
-                </div>
-
-                {/* Card Contenu */}
-                <div style={{
-                  flex: 1,
-                  backgroundColor: '#fff',
-                  borderRadius: 16,
-                  border: `1px solid ${ehr.borderSoft}`,
-                  padding: '20px',
-                  boxShadow: index === 0 ? '0 4px 20px rgba(0,0,0,0.03)' : 'none',
-                }}>
-                  {/* Card Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-                        <span style={{ fontSize: 16, fontWeight: 800 }}>{formatDate(s.createdAt)}</span>
-                        <span style={{
-                          fontSize: 11,
-                          fontWeight: 800,
-                          color: ehr.primary,
-                          backgroundColor: ehr.highlightBlueTint,
-                          padding: '2px 8px',
-                          borderRadius: 6
-                        }}>
-                          {s.jourHospitalisation || `J${suivis.length - index}`}
-                        </span>
-                        {s.signesAlerte && (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 800, color: ehr.danger, backgroundColor: '#fee2e2', padding: '2px 8px', borderRadius: 6 }}>
-                            <AlertCircle size={12} /> ALERTE
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: ehr.textMuted }}>
-                        <User size={12} />
-                        <span style={{ fontSize: 12, fontWeight: 600 }}>{s.auteur || 'Dr. Jean Pierre'} • {formatTime(s.createdAt)}</span>
-                      </div>
-                    </div>
-
+          {suivis
+            .filter(s => !filterDate || s.createdAt.startsWith(filterDate))
+            .slice(0, pageSize)
+            .map((s, index, array) => {
+              const es = etatColors[s.etatGeneral || 'Stable'] || etatColors['Stable'];
+              return (
+                <div key={s.id} style={{ display: 'flex', gap: '24px', position: 'relative', paddingBottom: 40 }}>
+                  {/* Ligne verticale timeline */}
+                  {index < array.length - 1 && (
                     <div style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      color: es.color,
-                      backgroundColor: es.bg,
-                      padding: '4px 12px',
-                      borderRadius: 8,
-                      letterSpacing: '0.05em'
+                      position: 'absolute',
+                      left: '9px',
+                      top: '24px',
+                      bottom: 0,
+                      width: '2px',
+                      backgroundColor: ehr.borderSoft,
+                      zIndex: 0
+                    }} />
+                  )}
+
+                  {/* Point Timeline */}
+                  <div style={{ flexShrink: 0, zIndex: 1, marginTop: 6 }}>
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      backgroundColor: index === 0 ? ehr.primary : '#fff',
+                      border: `4px solid ${index === 0 ? ehr.highlightBlueTint : ehr.borderSoft}`,
+                      boxShadow: index === 0 ? '0 0 0 2px rgba(5, 102, 141, 0.1)' : 'none',
+                    }} />
+                  </div>
+
+                  {/* Card Contenu */}
+                  <div style={{
+                    flex: 1,
+                    backgroundColor: '#fff',
+                    borderRadius: 16,
+                    border: `1px solid ${ehr.borderSoft}`,
+                    padding: '20px',
+                    boxShadow: index === 0 ? '0 4px 20px rgba(0,0,0,0.03)' : 'none',
+                  }}>
+                    {/* Card Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                          <span style={{ fontSize: 16, fontWeight: 800 }}>{formatDate(s.createdAt)}</span>
+                          <span style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: ehr.primary,
+                            backgroundColor: ehr.highlightBlueTint,
+                            padding: '2px 8px',
+                            borderRadius: 6
+                          }}>
+                            {s.jourHospitalisation || `J${suivis.length - index}`}
+                          </span>
+                          {s.signesAlerte && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 800, color: ehr.danger, backgroundColor: '#fee2e2', padding: '2px 8px', borderRadius: 6 }}>
+                              <AlertCircle size={12} /> ALERTE
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: ehr.textMuted }}>
+                          <User size={12} />
+                          <span style={{ fontSize: 12, fontWeight: 600 }}>{s.auteur || 'Dr. Jean Pierre'} • {formatTime(s.createdAt)}</span>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: es.color,
+                        backgroundColor: es.bg,
+                        padding: '4px 12px',
+                        borderRadius: 8,
+                        letterSpacing: '0.05em'
+                      }}>
+                        {es.label}
+                      </div>
+                    </div>
+
+                    {/* Constantes Grid */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                      gap: 20,
+                      backgroundColor: '#F8FAFC',
+                      padding: '16px',
+                      borderRadius: 12,
+                      marginBottom: 20
                     }}>
-                      {es.label}
+                      {s.temperature && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ color: getTempColor(s.temperature) }}><Thermometer size={18} /></div>
+                          <div>
+                            <p style={labelStyle}>TEMP</p>
+                            <p style={{ fontSize: 15, fontWeight: 800, margin: 0, color: getTempColor(s.temperature) }}>{s.temperature}°C</p>
+                          </div>
+                        </div>
+                      )}
+                      {(s.taSystolique || s.taDiastolique) && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ color: ehr.primary }}><Activity size={18} /></div>
+                          <div>
+                            <p style={labelStyle}>TA</p>
+                            <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{s.taSystolique}/{s.taDiastolique}</p>
+                          </div>
+                        </div>
+                      )}
+                      {s.frequenceCardiaque && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ color: '#ef4444' }}><Heart size={18} /></div>
+                          <div>
+                            <p style={labelStyle}>FC</p>
+                            <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{s.frequenceCardiaque} <span style={{ fontSize: 10, fontWeight: 600, color: ehr.textMuted }}>bpm</span></p>
+                          </div>
+                        </div>
+                      )}
+                      {s.frequenceRespiratoire && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ color: '#3b82f6' }}><Wind size={18} /></div>
+                          <div>
+                            <p style={labelStyle}>FR</p>
+                            <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{s.frequenceRespiratoire} <span style={{ fontSize: 10, fontWeight: 600, color: ehr.textMuted }}>m/m</span></p>
+                          </div>
+                        </div>
+                      )}
+                      {s.evaDouleur !== undefined && s.evaDouleur !== null && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ color: getEvaColor(s.evaDouleur) }}><Stethoscope size={18} /></div>
+                          <div>
+                            <p style={labelStyle}>EVA</p>
+                            <p style={{ fontSize: 15, fontWeight: 800, margin: 0, color: getEvaColor(s.evaDouleur) }}>{s.evaDouleur}/10</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notes & Commentaires */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {s.evolution && (
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <div style={{ color: ehr.primary, marginTop: 2 }}><ChevronRight size={14} strokeWidth={3} /></div>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Évolution / Note</span>
+                            <p style={{ fontSize: 14, fontWeight: 600, margin: '2px 0 0 0', lineHeight: 1.5 }}>{s.evolution}</p>
+                          </div>
+                        </div>
+                      )}
+                      {s.examenClinique && (
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <div style={{ color: ehr.primary, marginTop: 2 }}><ChevronRight size={14} strokeWidth={3} /></div>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Examen Clinique</span>
+                            <p style={{ fontSize: 14, fontWeight: 600, margin: '2px 0 0 0', lineHeight: 1.5 }}>{s.examenClinique}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  {/* Constantes Grid */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                    gap: 20,
-                    backgroundColor: '#F8FAFC',
-                    padding: '16px',
-                    borderRadius: 12,
-                    marginBottom: 20
-                  }}>
-                    {s.temperature && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ color: getTempColor(s.temperature) }}><Thermometer size={18} /></div>
-                        <div>
-                          <p style={labelStyle}>TEMP</p>
-                          <p style={{ fontSize: 15, fontWeight: 800, margin: 0, color: getTempColor(s.temperature) }}>{s.temperature}°C</p>
-                        </div>
-                      </div>
-                    )}
-                    {(s.taSystolique || s.taDiastolique) && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ color: ehr.primary }}><Activity size={18} /></div>
-                        <div>
-                          <p style={labelStyle}>TA</p>
-                          <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{s.taSystolique}/{s.taDiastolique}</p>
-                        </div>
-                      </div>
-                    )}
-                    {s.frequenceCardiaque && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ color: '#ef4444' }}><Heart size={18} /></div>
-                        <div>
-                          <p style={labelStyle}>FC</p>
-                          <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{s.frequenceCardiaque} <span style={{ fontSize: 10, fontWeight: 600, color: ehr.textMuted }}>bpm</span></p>
-                        </div>
-                      </div>
-                    )}
-                    {s.frequenceRespiratoire && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ color: '#3b82f6' }}><Wind size={18} /></div>
-                        <div>
-                          <p style={labelStyle}>FR</p>
-                          <p style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{s.frequenceRespiratoire} <span style={{ fontSize: 10, fontWeight: 600, color: ehr.textMuted }}>m/m</span></p>
-                        </div>
-                      </div>
-                    )}
-                    {s.evaDouleur !== undefined && s.evaDouleur !== null && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ color: getEvaColor(s.evaDouleur) }}><Stethoscope size={18} /></div>
-                        <div>
-                          <p style={labelStyle}>EVA</p>
-                          <p style={{ fontSize: 15, fontWeight: 800, margin: 0, color: getEvaColor(s.evaDouleur) }}>{s.evaDouleur}/10</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Notes & Commentaires */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {s.evolution && (
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <div style={{ color: ehr.primary, marginTop: 2 }}><ChevronRight size={14} strokeWidth={3} /></div>
-                        <div>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Évolution / Note</span>
-                          <p style={{ fontSize: 14, fontWeight: 600, margin: '2px 0 0 0', lineHeight: 1.5 }}>{s.evolution}</p>
-                        </div>
-                      </div>
-                    )}
-                    {s.examenClinique && (
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <div style={{ color: ehr.primary, marginTop: 2 }}><ChevronRight size={14} strokeWidth={3} /></div>
-                        <div>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Examen Clinique</span>
-                          <p style={{ fontSize: 14, fontWeight: 600, margin: '2px 0 0 0', lineHeight: 1.5 }}>{s.examenClinique}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </div>
 

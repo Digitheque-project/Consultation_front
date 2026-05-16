@@ -196,8 +196,8 @@ export default function DossierPatientDetailPage() {
   }, [searchParams, prefill?.serviceId]);
 
   return (
-    <div className="bg-[#F8F9FB] px-4 py-6 sm:px-6">
-      <div className="mx-auto max-w-[1400px]">
+    <div className="flex h-full flex-col overflow-hidden bg-[#F8F9FB] px-4 py-6 sm:px-6">
+      <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col min-h-0">
         <div className="mb-4 flex items-center gap-3">
           <Link
             href={backHref}
@@ -296,10 +296,10 @@ export default function DossierPatientDetailPage() {
         </p>
 
         <div
-          className="overflow-hidden rounded-[14px] border border-slate-200/80 bg-white shadow-[0_2px_8px_rgba(5,102,141,0.06)]"
+          className="flex flex-1 flex-col min-h-0 overflow-hidden rounded-[14px] border border-slate-200/80 bg-white shadow-[0_2px_8px_rgba(5,102,141,0.06)]"
           style={{ boxShadow: ehr.shadowCard }}
         >
-          <div className="flex flex-wrap border-b border-slate-200 bg-[#F8FAFC]">
+          <div className="flex shrink-0 flex-wrap border-b border-slate-200 bg-[#F8FAFC]">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.key;
               return (
@@ -324,31 +324,51 @@ export default function DossierPatientDetailPage() {
             })}
           </div>
 
-          <div className="p-5 sm:p-6">
-            {activeTab === "observation" && patientId ? (
-              <ObservationForm
-                patientId={patientId}
-                hydratedPatientInfo={hydratedPatientInfo}
+          <div className="relative flex-1 min-h-0">
+            <div className={cn("h-full overflow-y-auto p-5 sm:p-6", activeTab === "suivi" && "pb-12")}>
+              {activeTab === "observation" && patientId ? (
+                <ObservationForm
+                  patientId={patientId}
+                  hydratedPatientInfo={hydratedPatientInfo}
+                />
+              ) : activeTab === "diagnostic" && patientId ? (
+                <DiagnosticTab patientId={patientId} />
+              ) : activeTab === "prescription" && patientId ? (
+                <PrescriptionsTab patientId={patientId} />
+              ) : activeTab === "suivi" && patientId ? (
+                <SuiviTab patientId={patientId} />
+              ) : activeTab === "cr_operatoire" && patientId ? (
+                <CrOperatoireTab patientId={patientId} />
+              ) : activeTab === "sortie" && patientId ? (
+                <SortieTab patientId={patientId} />
+              ) : activeTab === "historique" && patientId ? (
+                <HistoriqueTab patientId={patientId} />
+              ) : activeTab === "resultats" && patientId ? (
+                <ResultatsParacliniquesTab patientId={patientId} />
+              ) : activeTab !== "observation" && activeTab !== "diagnostic" && activeTab !== "prescription" && activeTab !== "suivi" && activeTab !== "cr_operatoire" && activeTab !== "sortie" && activeTab !== "historique" && activeTab !== "resultats" ? (
+                <p className="text-center text-[14px] font-medium text-slate-500">
+                  Cet onglet sera branché prochainement.
+                </p>
+              ) : null}
+            </div>
+            
+            {/* Cloud/Fade effect at the bottom - ONLY for Suivi tab */}
+            {activeTab === "suivi" && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: '60px',
+                  background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,1) 100%)',
+                  pointerEvents: 'none',
+                  zIndex: 20,
+                  borderBottomLeftRadius: 14,
+                  borderBottomRightRadius: 14
+                }}
               />
-            ) : activeTab === "diagnostic" && patientId ? (
-              <DiagnosticTab patientId={patientId} />
-            ) : activeTab === "prescription" && patientId ? (
-              <PrescriptionsTab patientId={patientId} />
-            ) : activeTab === "suivi" && patientId ? (
-              <SuiviTab patientId={patientId} />
-            ) : activeTab === "cr_operatoire" && patientId ? (
-              <CrOperatoireTab patientId={patientId} />
-            ) : activeTab === "sortie" && patientId ? (
-              <SortieTab patientId={patientId} />
-            ) : activeTab === "historique" && patientId ? (
-              <HistoriqueTab patientId={patientId} />
-            ) : activeTab === "resultats" && patientId ? (
-              <ResultatsParacliniquesTab patientId={patientId} />
-            ) : activeTab !== "observation" && activeTab !== "diagnostic" && activeTab !== "prescription" && activeTab !== "suivi" && activeTab !== "cr_operatoire" && activeTab !== "sortie" && activeTab !== "historique" && activeTab !== "resultats" ? (
-              <p className="text-center text-[14px] font-medium text-slate-500">
-                Cet onglet sera branché prochainement.
-              </p>
-            ) : null}
+            )}
           </div>
         </div>
       </div>
