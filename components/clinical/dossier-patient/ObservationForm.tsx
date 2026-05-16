@@ -318,7 +318,12 @@ export function ObservationForm({
 
   const toggleSection = (id: string) => {
     setSections(prev =>
-      prev.map(section => (section.id === id ? { ...section, isOpen: !section.isOpen } : section))
+      prev.map(section => {
+        if (section.id === id) {
+          return { ...section, isOpen: !section.isOpen };
+        }
+        return { ...section, isOpen: false };
+      })
     );
   };
 

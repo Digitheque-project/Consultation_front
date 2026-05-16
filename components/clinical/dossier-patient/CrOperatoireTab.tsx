@@ -198,7 +198,7 @@ export function CrOperatoireTab({ patientId }: { patientId: string }) {
     ) : null;
 
   return (
-    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '960px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '100%', margin: '0 auto', paddingBottom: '40px' }}>
 
       {/* Barre liste + actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>

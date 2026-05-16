@@ -139,7 +139,7 @@ export function SortieTab({ patientId }: { patientId: string }) {
   );
 
   return (
-    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '960px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '100%', margin: '0 auto', paddingBottom: '40px' }}>
 
       <EhrFormSection
         title="Sortie du patient"

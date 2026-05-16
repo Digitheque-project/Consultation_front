@@ -165,8 +165,8 @@ export default function DossierPatientDetailPage() {
     sexeRaw === "M" || sexeRaw?.toLowerCase() === "masculin"
       ? "Masculin"
       : sexeRaw === "F" ||
-          sexeRaw?.toLowerCase() === "féminin" ||
-          sexeRaw?.toLowerCase() === "feminin"
+        sexeRaw?.toLowerCase() === "féminin" ||
+        sexeRaw?.toLowerCase() === "feminin"
         ? "Féminin"
         : sexeRaw ?? "—";
   const allergies = pickAllergiesText(patient);
@@ -189,7 +189,7 @@ export default function DossierPatientDetailPage() {
   const backHref = useMemo(() => {
     const returnUrl = searchParams.get("returnUrl");
     if (returnUrl) return returnUrl;
-    
+
     const sid = searchParams.get("serviceId") ?? prefill?.serviceId;
     if (sid) return `/modules/clinical/patients?serviceId=${encodeURIComponent(sid)}`;
     return "/modules/clinical/patients";
@@ -197,7 +197,7 @@ export default function DossierPatientDetailPage() {
 
   return (
     <div className="min-h-full bg-[#F8F9FB] px-4 py-6 sm:px-6">
-      <div className="mx-auto max-w-[1100px]">
+      <div className="mx-auto max-w-[1400px]">
         <div className="mb-4 flex items-center gap-3">
           <Link
             href={backHref}
@@ -276,11 +276,7 @@ export default function DossierPatientDetailPage() {
                   <span aria-hidden>⚠</span>
                   <span className="truncate">ALLERGIES : {allergies}</span>
                 </div>
-              ) : (
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-medium text-slate-500">
-                  Allergies non renseignées
-                </div>
-              )}
+              ) : null}
               <button
                 type="button"
                 className="rounded-lg px-5 py-2 text-[13px] font-bold text-white shadow-sm"
@@ -303,7 +299,7 @@ export default function DossierPatientDetailPage() {
           className="overflow-hidden rounded-[14px] border border-slate-200/80 bg-white shadow-[0_2px_8px_rgba(5,102,141,0.06)]"
           style={{ boxShadow: ehr.shadowCard }}
         >
-          <div className="flex overflow-x-auto border-b border-slate-200 bg-[#F8FAFC]">
+          <div className="flex flex-wrap border-b border-slate-200 bg-[#F8FAFC]">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.key;
               return (
@@ -312,7 +308,7 @@ export default function DossierPatientDetailPage() {
                   type="button"
                   onClick={() => selectTab(tab.key)}
                   className={cn(
-                    "relative shrink-0 px-4 py-3.5 text-[13px] font-semibold transition-colors sm:px-5",
+                    "relative cursor-pointer px-4 py-3.5 text-[15px] font-semibold transition-colors sm:px-5",
                     isActive ? "text-[#05668D]" : "text-slate-500 hover:text-slate-700",
                   )}
                 >
