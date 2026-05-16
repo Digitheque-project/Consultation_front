@@ -20,7 +20,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 	};
 
 	return (
-		<div className="flex h-screen flex-col bg-[#F8F9FB] overflow-hidden">
+		<div className="flex h-full flex-col bg-[#F8F9FB] overflow-hidden">
 			{/* Header */}
 			<Header onMenuClick={handleToggleSidebar} />
 

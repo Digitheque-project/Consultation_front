@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ClipboardList, Calendar, User, Check, LayoutPanelTop } from 'lucide-react';
 import { dossierPatientApi as api } from '@/lib/clinical/dossier-patient-api';
-import { EhrFormSection, ehrSectionFieldLabel } from '@/components/clinical/dossier-patient/EhrFormSection';
 import { ehr } from '@/lib/clinical/ehr-theme';
 
 interface Diagnostic {
@@ -88,59 +88,77 @@ export function DiagnosticTab({ patientId, medecinNom = 'Dr. Jean Pierre' }: Pro
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | undefined | null) => {
+    if (!dateStr) return null;
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      + ' – ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      + ' - ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const principalComplet = !!form.diagnosticPrincipal.trim();
-  const precisionsComplet =
-    !!form.diagnosticsSecondaires?.trim() ||
-    !!form.justificationClinique?.trim() ||
-    !!form.diagnosticsDifferentiels?.trim() ||
-    !!form.graviteStade?.trim();
-
-  const inputBase: React.CSSProperties = {
+  const inputStyle: React.CSSProperties = {
     width: '100%',
-    border: `1px solid ${ehr.border}`,
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 13,
+    border: `1px solid ${ehr.borderSoft}`,
+    borderRadius: 10,
+    padding: '12px 16px',
+    fontSize: 14,
     color: ehr.text,
     outline: 'none',
     fontFamily: "'Manrope', sans-serif",
     boxSizing: 'border-box',
+    backgroundColor: '#F8FAFC',
+    transition: 'all 0.2s ease',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 11,
+    fontWeight: 800,
+    color: ehr.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: 8,
   };
 
   return (
-    <div style={{ display: 'flex', gap: '24px', fontFamily: "'Manrope', sans-serif" }}>
+    <div style={{ display: 'flex', gap: '32px', fontFamily: "'Manrope', sans-serif", color: ehr.text }}>
 
+      {/* Main Content */}
       <div style={{ flex: 1 }}>
-        <EhrFormSection
-          title="Diagnostic principal"
-          subtitle="Diagnostic de l'épisode actuel"
-          sectionBadge="01"
-          complete={principalComplet}
-          collapsible
-          defaultOpen
-          headerExtra={
-            current && !isEditing ? (
-              <div style={{ textAlign: 'right', maxWidth: 200 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>
+
+        {/* Header Section */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+          <div>
+            <div>
+              <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Diagnostic</h1>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: ehr.textMuted }}>
+              <Calendar size={14} />
+              <span style={{ fontSize: 13, fontWeight: 500 }}>Diagnostic de l'épisode actuel</span>
+            </div>
+          </div>
+
+          {(() => {
+            const formattedDate = formatDate(current?.updatedAt);
+            if (!current || isEditing || !formattedDate) return null;
+            return (
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 10, fontWeight: 800, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px 0' }}>
                   Dernière mise à jour
                 </p>
-                <p style={{ fontSize: 12, color: ehr.text, margin: '2px 0 0 0' }}>{formatDate(current.updatedAt)}</p>
-                <p style={{ fontSize: 12, color: ehr.primary, margin: '2px 0 0 0' }}>{current.medecinResponsable}</p>
+                <p style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{formattedDate}</p>
+                <p style={{ fontSize: 12, color: ehr.primary, fontWeight: 600, marginTop: 2 }}>{current.medecinResponsable}</p>
               </div>
-            ) : null
-          }
-        >
-          <p style={{ fontSize: 12, color: ehr.textMuted, marginBottom: 16 }}>
-            Champ obligatoire <span style={{ color: ehr.danger }}>*</span>
-          </p>
-          <div style={{ marginBottom: 4 }}>
-            <label style={ehrSectionFieldLabel}>
+            );
+          })()}
+        </div>
+
+        {/* Form Fields */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+          {/* Section 1: Diagnostic Principal */}
+          <div>
+            <label style={labelStyle}>
               DIAGNOSTIC PRINCIPAL <span style={{ color: ehr.danger }}>*</span>
             </label>
             {isEditing ? (
@@ -149,274 +167,221 @@ export function DiagnosticTab({ patientId, medecinNom = 'Dr. Jean Pierre' }: Pro
                 placeholder="Ex : Cholécystectomie par laparoscopie"
                 value={form.diagnosticPrincipal}
                 onChange={e => setForm({ ...form, diagnosticPrincipal: e.target.value })}
-                style={{
-                  ...inputBase,
-                  border: '2px solid #3b82f6',
-                  fontSize: 14,
-                  backgroundColor: ehr.white,
-                }}
+                style={{ ...inputStyle, border: `2px solid ${ehr.primary}`, backgroundColor: '#fff', fontSize: 16, fontWeight: 600 }}
               />
             ) : (
-              <div
-                style={{
-                  ...inputBase,
-                  border: `1px solid ${ehr.highlightBorder}`,
-                  backgroundColor: ehr.highlightBlueTint,
-                  minHeight: 42,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                {current?.diagnosticPrincipal}
+              <div style={{ ...inputStyle, backgroundColor: ehr.highlightBlueTint, border: `1px solid ${ehr.highlightBorder}`, fontSize: 16, fontWeight: 700, minHeight: 48, display: 'flex', alignItems: 'center' }}>
+                {current?.diagnosticPrincipal || 'Non renseigné'}
               </div>
             )}
           </div>
-        </EhrFormSection>
 
-        <EhrFormSection
-          title="Précisions diagnostiques"
-          subtitle="Secondaires, justification et différentiels"
-          sectionBadge="02"
-          complete={precisionsComplet}
-          collapsible
-          defaultOpen
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          {/* Section 2: Secondaires & Justification */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <div>
-              <label style={ehrSectionFieldLabel}>DIAGNOSTICS SECONDAIRES / ASSOCIÉS</label>
+              <label style={labelStyle}>DIAGNOSTICS SECONDAIRES / ASSOCIÉS</label>
               <textarea
                 placeholder="Détails additionnels..."
                 disabled={!isEditing}
                 value={form.diagnosticsSecondaires}
                 onChange={e => setForm({ ...form, diagnosticsSecondaires: e.target.value })}
-                style={{
-                  ...inputBase,
-                  resize: 'none',
-                  height: 110,
-                  color: '#475569',
-                  backgroundColor: isEditing ? ehr.white : ehr.pageBg,
-                }}
+                style={{ ...inputStyle, height: 120, resize: 'none', backgroundColor: isEditing ? '#fff' : '#F8FAFC' }}
               />
             </div>
             <div>
-              <label style={ehrSectionFieldLabel}>JUSTIFICATION CLINIQUE ET PARACLINIQUE</label>
+              <label style={labelStyle}>JUSTIFICATION CLINIQUE ET PARACLINIQUE</label>
               <textarea
                 placeholder="Arguments cliniques, résultats biologiques, imagerie..."
                 disabled={!isEditing}
                 value={form.justificationClinique}
                 onChange={e => setForm({ ...form, justificationClinique: e.target.value })}
-                style={{
-                  ...inputBase,
-                  resize: 'none',
-                  height: 110,
-                  color: '#475569',
-                  backgroundColor: isEditing ? ehr.white : ehr.pageBg,
-                }}
+                style={{ ...inputStyle, height: 120, resize: 'none', backgroundColor: isEditing ? '#fff' : '#F8FAFC' }}
               />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+          {/* Section 3: Différentiels & Gravité */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <div>
-              <label style={ehrSectionFieldLabel}>DIAGNOSTICS DIFFÉRENTIELS</label>
+              <label style={labelStyle}>DIAGNOSTICS DIFFÉRENTIELS</label>
               <textarea
                 placeholder="Autres hypothèses envisagées..."
                 disabled={!isEditing}
                 value={form.diagnosticsDifferentiels}
                 onChange={e => setForm({ ...form, diagnosticsDifferentiels: e.target.value })}
-                style={{
-                  ...inputBase,
-                  resize: 'none',
-                  height: 110,
-                  color: '#475569',
-                  backgroundColor: isEditing ? ehr.white : ehr.pageBg,
-                }}
+                style={{ ...inputStyle, height: 120, resize: 'none', backgroundColor: isEditing ? '#fff' : '#F8FAFC' }}
               />
             </div>
             <div>
-              <label style={ehrSectionFieldLabel}>GRAVITÉ / STADE / COMPLICATIONS</label>
+              <label style={labelStyle}>GRAVITÉ / STADE / COMPLICATIONS</label>
               <textarea
                 placeholder="Ex: Stade III, Grade B, avec sepsis..."
                 disabled={!isEditing}
                 value={form.graviteStade}
                 onChange={e => setForm({ ...form, graviteStade: e.target.value })}
-                style={{
-                  ...inputBase,
-                  resize: 'none',
-                  height: 110,
-                  color: '#475569',
-                  backgroundColor: isEditing ? ehr.white : ehr.pageBg,
-                }}
+                style={{ ...inputStyle, height: 120, resize: 'none', backgroundColor: isEditing ? '#fff' : '#F8FAFC' }}
               />
             </div>
           </div>
-        </EhrFormSection>
 
-        <EhrFormSection title="Traçabilité & validation" sectionBadge="03" collapsible defaultOpen>
-          {!isEditing && current && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: `1px solid ${ehr.borderSoft}`,
-                paddingBottom: 16,
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={ehr.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span style={{ fontSize: 10, fontWeight: 700, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Médecin responsable</span>
-                <span style={{ fontSize: 13, color: ehr.text }}>{current.medecinResponsable}</span>
+          {/* Footer Info & Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12 }}>
+
+            {/* Médecin Responsable Box */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '12px 20px',
+              border: `1px solid ${ehr.borderSoft}`,
+              borderRadius: 12,
+              backgroundColor: '#fff',
+              minWidth: 260
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: ehr.highlightBlueTint, display: 'flex', alignItems: 'center', justifyContent: 'center', color: ehr.primary }}>
+                <User size={20} />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={ehr.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <span style={{ fontSize: 10, fontWeight: 700, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Date de saisie</span>
-                <span style={{ fontSize: 13, color: ehr.text }}>{formatDate(current.createdAt)}</span>
+              <div>
+                <p style={{ fontSize: 9, fontWeight: 800, color: ehr.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+                  Médecin Responsable
+                </p>
+                <p style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{isEditing ? medecinNom : (current?.medecinResponsable || medecinNom)}</p>
               </div>
             </div>
-          )}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {!isEditing && current && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    backgroundColor: ehr.pageBg,
-                    color: '#475569',
-                    border: `1px solid ${ehr.borderSoft}`,
-                    borderRadius: 8,
-                    padding: '10px 20px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: "'Manrope', sans-serif",
-                  }}
-                >
-                  ✏️ Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm({ ...emptyForm, medecinResponsable: medecinNom });
-                    setIsEditing(true);
-                    setCurrent(null);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    backgroundColor: ehr.primary,
-                    color: ehr.white,
-                    border: 'none',
-                    borderRadius: 8,
-                    padding: '10px 20px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: "'Manrope', sans-serif",
-                  }}
-                >
-                  + Ajouter nouveau diagnostic
-                </button>
-              </>
-            )}
-            {isEditing && (
-              <>
-                {current && (
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              {!isEditing ? (
+                <>
                   <button
                     type="button"
                     onClick={() => {
-                      setIsEditing(false);
-                      load();
+                      setForm({ ...emptyForm, medecinResponsable: medecinNom });
+                      setIsEditing(true);
+                      setCurrent(null);
                     }}
                     style={{
-                      backgroundColor: ehr.pageBg,
-                      color: '#475569',
-                      border: `1px solid ${ehr.borderSoft}`,
-                      borderRadius: 8,
-                      padding: '10px 20px',
-                      fontSize: 13,
-                      fontWeight: 600,
+                      backgroundColor: ehr.primary,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '12px 24px',
+                      fontSize: 14,
+                      fontWeight: 700,
                       cursor: 'pointer',
-                      fontFamily: "'Manrope', sans-serif",
+                    }}
+                  >
+                    + Nouveau diagnostic
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditing(false); load(); }}
+                    style={{
+                      backgroundColor: '#fff',
+                      color: ehr.textMuted,
+                      border: `1px solid ${ehr.borderSoft}`,
+                      borderRadius: 10,
+                      padding: '12px 24px',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: 'pointer',
                     }}
                   >
                     Annuler
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isSaving || !form.diagnosticPrincipal.trim()}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    backgroundColor: form.diagnosticPrincipal.trim() ? ehr.primary : ehr.primaryDisabled,
-                    color: ehr.white,
-                    border: 'none',
-                    borderRadius: 8,
-                    padding: '10px 24px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: form.diagnosticPrincipal.trim() ? 'pointer' : 'not-allowed',
-                    fontFamily: "'Manrope', sans-serif",
-                  }}
-                >
-                  {isSaving ? '⏳ Enregistrement...' : '✓ Valider le diagnostic'}
-                </button>
-              </>
-            )}
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={isSaving || !form.diagnosticPrincipal.trim()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      backgroundColor: form.diagnosticPrincipal.trim() ? ehr.primary : ehr.primaryDisabled,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '12px 32px',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: form.diagnosticPrincipal.trim() ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {isSaving ? 'Enregistrement...' : <><Check size={18} /> Valider le diagnostic</>}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </EhrFormSection>
+        </div>
       </div>
 
-      <div style={{ width: 280, flexShrink: 0 }}>
-        <EhrFormSection
-          title="Diagnostics antérieurs"
-          collapsible
-          defaultOpen
-          headerExtra={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={ehr.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-          }
-        >
-          {anterieurs.length === 0 ? (
-            <p style={{ fontSize: 12, color: ehr.textMuted, textAlign: 'center', padding: '20px 0', margin: 0 }}>
-              Aucun diagnostic antérieur
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {anterieurs.slice(0, 6).map(d => (
-                <div key={d.id} style={{ borderLeft: `2px solid ${ehr.borderSoft}`, paddingLeft: 10 }}>
-                  <p style={{ fontSize: 11, color: ehr.textMuted, margin: '0 0 2px 0' }}>
+      {/* Sidebar: Diagnostics Antérieurs */}
+      <div style={{ width: 300, flexShrink: 0 }}>
+        <div style={{
+          border: `1px solid ${ehr.borderSoft}`,
+          borderRadius: 16,
+          backgroundColor: '#fff',
+          overflow: 'hidden',
+          boxShadow: ehr.shadowCard
+        }}>
+          <div style={{
+            padding: '20px',
+            borderBottom: `1px solid ${ehr.borderSoft}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Diagnostics antérieurs</h3>
+            <LayoutPanelTop size={18} color={ehr.textMuted} />
+          </div>
+
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {anterieurs.length === 0 ? (
+              <p style={{ fontSize: 13, color: ehr.textMuted, textAlign: 'center', margin: 0 }}>Aucun diagnostic antérieur</p>
+            ) : (
+              anterieurs.slice(0, 6).map(d => (
+                <div key={d.id} style={{
+                  padding: '12px',
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: 10,
+                  border: '1px solid transparent',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer'
+                }}>
+                  <p style={{ fontSize: 11, fontWeight: 800, color: ehr.textMuted, margin: '0 0 6px 0' }}>
                     {new Date(d.createdAt).toLocaleDateString('fr-FR')}
                   </p>
-                  <p style={{ fontSize: 13, color: ehr.text, margin: 0, fontWeight: 500, lineHeight: 1.3 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0, lineHeight: 1.4 }}>
                     {d.diagnosticPrincipal}
                   </p>
                 </div>
-              ))}
-              {anterieurs.length > 6 && (
-                <p style={{ fontSize: 12, color: ehr.primary, textAlign: 'center', cursor: 'pointer', margin: 0 }}>
-                  Voir tous les diagnostics →
-                </p>
-              )}
-            </div>
-          )}
-        </EhrFormSection>
+              ))
+            )}
+
+            {anterieurs.length > 0 && (
+              <button style={{
+                marginTop: 8,
+                padding: '10px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: ehr.primary,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}>
+                Derniers diagnostics du patient ›
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

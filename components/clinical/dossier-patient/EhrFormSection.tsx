@@ -15,6 +15,10 @@ export type EhrFormSectionProps = {
   /** Comportement accordéon comme l’observation médicale */
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /** État d'ouverture contrôlé depuis le parent (pour accordéon) */
+  isOpen?: boolean;
+  /** Callback lors du clic sur l'en-tête */
+  onToggle?: () => void;
   /** Contenu aligné à droite dans l’en-tête (ex. badge # OP) */
   headerExtra?: React.ReactNode;
   children: React.ReactNode;
@@ -33,11 +37,21 @@ export function EhrFormSection({
   complete = false,
   collapsible = false,
   defaultOpen = true,
+  isOpen: controlledOpen,
+  onToggle,
   headerExtra,
   children,
 }: EhrFormSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
-  const isOpen = collapsible ? open : true;
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const isOpen = collapsible ? (controlledOpen !== undefined ? controlledOpen : localOpen) : true;
+
+  const handleToggle = () => {
+    if (onToggle) {
+      onToggle();
+    } else {
+      setLocalOpen(!localOpen);
+    }
+  };
 
   const showDisk = complete || (sectionBadge !== undefined && sectionBadge !== '');
 
@@ -139,7 +153,7 @@ export function EhrFormSection({
       }}
     >
       {collapsible ? (
-        <button type="button" onClick={() => setOpen(!open)} style={headerStyle}>
+        <button type="button" onClick={handleToggle} style={headerStyle}>
           {headerInner}
         </button>
       ) : (
