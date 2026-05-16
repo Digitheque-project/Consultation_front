@@ -27,8 +27,7 @@ interface Sortie {
 const TYPES_SORTIE = [
   { key: 'NORMALE', label: 'Sortie normale /\nRetour à domicile', icon: <Home size={22} /> },
   { key: 'TRANSFERT', label: 'Transfert vers service\n/ hôpital', icon: <ArrowRightLeft size={22} /> },
-  { key: 'CONTRE_AVIS', label: 'Sortie contre avis /\nÉvadé', icon: <AlertTriangle size={22} /> },
-  { key: 'DECHARGE', label: 'Décharge\nadministrative', icon: <FileCheck size={22} /> },
+  { key: 'CONTRE_AVIS', label: 'Sortie contre avis /\nDécharge administrative', icon: <AlertTriangle size={22} /> },
   { key: 'DECES', label: 'Décès', icon: <UserMinus size={22} /> },
 ];
 
@@ -130,322 +129,375 @@ export function SortieTab({ patientId }: { patientId: string }) {
     setSigned(false);
   }
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 11,
+    fontWeight: 800,
+    color: ehr.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: 8,
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    border: `1px solid ${ehr.borderSoft}`,
+    borderRadius: 10,
+    padding: '12px 16px',
+    fontSize: 14,
+    color: ehr.text,
+    outline: 'none',
+    fontFamily: "'Manrope', sans-serif",
+    boxSizing: 'border-box',
+    backgroundColor: '#F8FAFC',
+    transition: 'all 0.2s ease',
+  };
+
   const isCloture = form.statut === 'CLOTURE';
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#64748b', fontFamily: "'Manrope', sans-serif" }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: ehr.textMuted, fontFamily: "'Manrope', sans-serif" }}>
       Chargement...
     </div>
   );
 
   return (
-    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '100%', margin: '0 auto', paddingBottom: '40px' }}>
+    <div style={{ fontFamily: "'Manrope', sans-serif", color: ehr.text, maxWidth: '100%', margin: '0 auto' }}>
 
-      <EhrFormSection
-        title="Sortie du patient"
-        subtitle="Décision de sortie – Épisode actuel"
-        sectionBadge="01"
-        complete={!!form.typeSortie && !!form.dateSortieprevue}
-        collapsible
-        defaultOpen
-      >
-        <p style={sectionLabelStyle}>TYPE DE SORTIE</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
-          {TYPES_SORTIE.map(t => (
-            <button
-              key={t.key}
-              type="button"
-              disabled={isCloture}
-              onClick={() => setForm({ ...form, typeSortie: t.key })}
-              style={{
-                padding: '16px 8px',
-                borderRadius: 12,
-                border: form.typeSortie === t.key ? `2px solid ${ehr.primary}` : `1px solid ${ehr.borderSoft}`,
-                backgroundColor: form.typeSortie === t.key ? ehr.highlightBlueTint : ehr.pageBg,
-                color: form.typeSortie === t.key ? ehr.primary : '#475569',
-                cursor: isCloture ? 'default' : 'pointer',
-                textAlign: 'center',
-                fontFamily: "'Manrope', sans-serif",
-                transition: 'all 0.15s',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>{t.icon}</div>
-              <div style={{ fontSize: '11px', fontWeight: 600, lineHeight: 1.4, whiteSpace: 'pre-line' }}>{t.label}</div>
-            </button>
-          ))}
+      {/* Header Section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+        <div>
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Sortie du patient</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: ehr.textMuted }}>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>Clôture de l'épisode de soins et formalités</span>
+            </div>
+          </div>
         </div>
-      </EhrFormSection>
 
-      {form.typeSortie === 'TRANSFERT' && (
-        <EhrFormSection title="Informations de transfert" sectionBadge="02" collapsible defaultOpen>
-          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: 16 }}>
-            <p style={{ ...sectionLabelStyle, color: '#b45309' }}>TRANSFERT</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 16px', borderRadius: 10,
+            backgroundColor: isCloture ? '#F0FDF4' : '#F1F5F9',
+            border: `1px solid ${isCloture ? '#BBF7D0' : ehr.borderSoft}`,
+            color: isCloture ? '#16A34A' : ehr.textMuted,
+            fontSize: 13, fontWeight: 700
+          }}>
+            {isCloture ? '✓ ÉPISODE CLÔTURÉ' : 'PATIENT HOSPITALISÉ'}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+        {/* Section 1: Type de Sortie */}
+        <div style={{
+          backgroundColor: '#fff',
+          border: `1px solid ${ehr.borderSoft}`,
+          borderRadius: 16,
+          padding: 24,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+        }}>
+          <label style={labelStyle}>MODE DE SORTIE</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+            {TYPES_SORTIE.map(t => (
+              <button
+                key={t.key}
+                disabled={isCloture}
+                onClick={() => setForm({ ...form, typeSortie: t.key })}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+                  padding: '20px 12px', borderRadius: 14,
+                  border: `2px solid ${form.typeSortie === t.key ? ehr.primary : 'transparent'}`,
+                  backgroundColor: form.typeSortie === t.key ? ehr.highlightBlueTint : '#F8FAFC',
+                  color: form.typeSortie === t.key ? ehr.primary : ehr.textMuted,
+                  cursor: isCloture ? 'default' : 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{ opacity: form.typeSortie === t.key ? 1 : 0.6 }}>{t.icon}</div>
+                <span style={{ fontSize: 11, fontWeight: 800, textAlign: 'center', lineHeight: 1.4, whiteSpace: 'pre-line' }}>{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {form.typeSortie === 'TRANSFERT' && (
+          <div style={{
+            backgroundColor: '#FFF7ED',
+            border: '1px solid #FED7AA',
+            borderRadius: 16,
+            padding: 24
+          }}>
+            <label style={{ ...labelStyle, color: '#C2410C' }}>INFORMATIONS DE TRANSFERT</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, marginBottom: 20 }}>
               <div>
-                <label style={fieldLabelStyle}>Établissement receveur *</label>
+                <label style={{ ...labelStyle, fontSize: 10, marginBottom: 4 }}>Établissement receveur *</label>
                 <input
                   disabled={isCloture}
                   value={form.etablissementTransfert || ''}
                   onChange={e => setForm({ ...form, etablissementTransfert: e.target.value })}
-                  placeholder="Nom de l'hôpital / service"
-                  style={inputStyle}
+                  placeholder="Hôpital, service, clinique..."
+                  style={{ ...inputStyle, backgroundColor: '#fff' }}
                 />
               </div>
               <div>
-                <label style={fieldLabelStyle}>Statut transfert *</label>
+                <label style={{ ...labelStyle, fontSize: 10, marginBottom: 4 }}>Statut du transfert *</label>
                 <select
                   disabled={isCloture}
                   value={form.statutTransfert || ''}
                   onChange={e => setForm({ ...form, statutTransfert: e.target.value })}
-                  style={{ ...inputStyle, cursor: 'pointer' }}
+                  style={{ ...inputStyle, backgroundColor: '#fff' }}
                 >
                   <option value="">— Sélectionner —</option>
-                  <option value="ACCEPTE">Accepté</option>
-                  <option value="A_VOIR">À voir</option>
-                  <option value="REFUSE">Refusé</option>
+                  <option value="ACCEPTE">✅ Accepté</option>
+                  <option value="A_VOIR">⏳ En attente</option>
+                  <option value="REFUSE">❌ Refusé</option>
                 </select>
               </div>
             </div>
             <div>
-              <label style={fieldLabelStyle}>Motif du transfert</label>
+              <label style={{ ...labelStyle, fontSize: 10, marginBottom: 4 }}>Motif clinique & Justification</label>
               <textarea
                 disabled={isCloture}
                 value={form.motifTransfert || ''}
                 onChange={e => setForm({ ...form, motifTransfert: e.target.value })}
-                placeholder="Motif clinique du transfert..."
-                style={{ ...inputStyle, height: '60px', resize: 'none' }}
+                placeholder="Raison détaillée du transfert..."
+                style={{ ...inputStyle, height: 80, backgroundColor: '#fff', resize: 'none' }}
               />
             </div>
-            {form.statutTransfert === 'REFUSE' && (
-              <div style={{ marginTop: '10px' }}>
-                <label style={fieldLabelStyle}>Justification du refus *</label>
-                <textarea
+          </div>
+        )}
+
+        {/* Section 2: Détails Médicaux & Planification */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
+
+          <div style={{
+            backgroundColor: '#fff',
+            border: `1px solid ${ehr.borderSoft}`,
+            borderRadius: 16,
+            padding: 24
+          }}>
+            <h3 style={{ ...labelStyle, marginBottom: 20 }}>Détails de la Sortie</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+              <div>
+                <label style={labelStyle}>DATE & HEURE PRÉVUE *</label>
+                <input
+                  type="datetime-local"
                   disabled={isCloture}
-                  value={form.justificationTransfert || ''}
-                  onChange={e => setForm({ ...form, justificationTransfert: e.target.value })}
-                  placeholder="Raison du refus..."
-                  style={{ ...inputStyle, height: '60px', resize: 'none' }}
+                  value={form.dateSortieprevue || ''}
+                  onChange={e => setForm({ ...form, dateSortieprevue: e.target.value })}
+                  style={inputStyle}
                 />
               </div>
-            )}
-          </div>
-        </EhrFormSection>
-      )}
-
-      <EhrFormSection
-        title="Planification, compte-rendu et suivi"
-        subtitle="Date de sortie, médecin, documents et suivi post-sortie"
-        sectionBadge="03"
-        complete={!!form.dateSortieprevue && !!(form.compteRenduSortie || '').trim()}
-        collapsible
-        defaultOpen
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-
-          {/* Colonne gauche */}
-          <div>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={fieldLabelStyle}>Date et heure de sortie prévue <span style={{ color: '#ef4444' }}>*</span></label>
-              <input
-                type="datetime-local"
-                disabled={isCloture}
-                value={form.dateSortieprevue || ''}
-                onChange={e => setForm({ ...form, dateSortieprevue: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={fieldLabelStyle}>Médecin validant la sortie</label>
-              <input
-                disabled={isCloture}
-                value={form.medecinValidant || ''}
-                onChange={e => setForm({ ...form, medecinValidant: e.target.value })}
-                placeholder="Dr. ..."
-                style={inputStyle}
-              />
+              <div>
+                <label style={labelStyle}>MÉDECIN VALIDANT</label>
+                <input
+                  disabled={isCloture}
+                  value={form.medecinValidant || ''}
+                  onChange={e => setForm({ ...form, medecinValidant: e.target.value })}
+                  placeholder="Dr. ..."
+                  style={inputStyle}
+                />
+              </div>
             </div>
             <div>
-              <label style={fieldLabelStyle}>Compte-rendu de sortie</label>
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                {!isCloture && (
-                  <div style={{ display: 'flex', gap: '4px', padding: '6px 8px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                    {['B', 'I', '≡'].map(btn => (
-                      <button key={btn} style={{ width: '28px', height: '24px', fontSize: '12px', fontWeight: 700, border: '1px solid #e2e8f0', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer', color: '#475569' }}>
-                        {btn}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <textarea
-                  disabled={isCloture}
-                  value={form.compteRenduSortie || ''}
-                  onChange={e => setForm({ ...form, compteRenduSortie: e.target.value })}
-                  placeholder="Saisir le compte-rendu médical final..."
-                  style={{ ...inputStyle, height: '160px', resize: 'none', border: 'none', borderRadius: 0, backgroundColor: isCloture ? '#f8fafc' : 'white' }}
-                />
-              </div>
+              <label style={labelStyle}>COMPTE-RENDU DE SORTIE</label>
+              <textarea
+                disabled={isCloture}
+                value={form.compteRenduSortie || ''}
+                onChange={e => setForm({ ...form, compteRenduSortie: e.target.value })}
+                placeholder="Résumé médical, conclusion de l'hospitalisation..."
+                style={{ ...inputStyle, height: 180, resize: 'none' }}
+              />
             </div>
           </div>
 
-          {/* Colonne droite */}
-          <div>
-            {/* Documents & Suivi */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={fieldLabelStyle}>Documents et Suivi</label>
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                <div
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #e2e8f0', cursor: 'pointer', backgroundColor: form.ordonnanceSortieGeneree ? '#f0fdf4' : 'white' }}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{
+              backgroundColor: '#fff',
+              border: `1px solid ${ehr.borderSoft}`,
+              borderRadius: 16,
+              padding: 24
+            }}>
+              <h3 style={{ ...labelStyle, marginBottom: 20 }}>Documents & Ordonnances</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <DocumentToggle
+                  icon={<FileText size={18} />}
+                  label="Ordonnance de sortie"
+                  active={!!form.ordonnanceSortieGeneree}
                   onClick={() => !isCloture && setForm({ ...form, ordonnanceSortieGeneree: !form.ordonnanceSortieGeneree })}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FileText size={16} />
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: form.ordonnanceSortieGeneree ? '#16a34a' : '#05668D' }}>Ordonnance de sortie</span>
-                  </div>
-                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{form.ordonnanceSortieGeneree ? <CheckCircle2 size={16} color="#16a34a" /> : '›'}</span>
-                </div>
-                <div
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer', backgroundColor: form.instructionsPostOpGenerees ? '#f0fdf4' : 'white' }}
+                />
+                <DocumentToggle
+                  icon={<ClipboardList size={18} />}
+                  label="Instructions post-opératoires"
+                  active={!!form.instructionsPostOpGenerees}
                   onClick={() => !isCloture && setForm({ ...form, instructionsPostOpGenerees: !form.instructionsPostOpGenerees })}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <ClipboardList size={16} />
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: form.instructionsPostOpGenerees ? '#16a34a' : '#475569' }}>Instructions de sortie post-op</span>
-                  </div>
-                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{form.instructionsPostOpGenerees ? <CheckCircle2 size={16} color="#16a34a" /> : '›'}</span>
-                </div>
+                />
               </div>
             </div>
 
-            {/* Suivi post-sortie */}
-            <div>
-              <label style={fieldLabelStyle}>Suivi post-sortie recommandé</label>
+            <div style={{
+              backgroundColor: ehr.highlightBlueTint,
+              border: `1px solid ${ehr.highlightBorder}`,
+              borderRadius: 16,
+              padding: 24
+            }}>
+              <label style={{ ...labelStyle, color: ehr.primary }}>SUIVI RECOMMANDÉ</label>
               <textarea
                 disabled={isCloture}
                 value={form.suiviPostSortie || ''}
                 onChange={e => setForm({ ...form, suiviPostSortie: e.target.value })}
-                placeholder="Détails du suivi (ex: Infirmière à domicile, rdv dans 15 jours...)"
-                style={{ ...inputStyle, height: '120px', resize: 'none' }}
+                placeholder="Soins à domicile, rendez-vous de contrôle..."
+                style={{ ...inputStyle, height: 100, backgroundColor: '#fff', resize: 'none' }}
               />
             </div>
           </div>
         </div>
-      </EhrFormSection>
 
-      <EhrFormSection
-        title="Signature et validation"
-        subtitle="Signature obligatoire avant clôture du dossier"
-        sectionBadge="04"
-        complete={signed || (!!(isCloture && form.signatureHorodatage))}
-        collapsible
-        defaultOpen
-      >
-        <p style={sectionLabelStyle}>SIGNATURE NUMÉRIQUE DU MÉDECIN</p>
-        {isCloture && form.signatureHorodatage ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', width: 'fit-content' }}>
-            <CheckCircle2 size={18} color="#16a34a" />
-            <div>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#16a34a', margin: 0 }}>Signature validée</p>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
-                {new Date(form.signatureHorodatage).toLocaleString('fr-FR')}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div style={{ width: '300px' }}>
-            <div style={{ border: `1px solid ${ehr.borderSoft}`, borderRadius: '10px', overflow: 'hidden', backgroundColor: '#fafafa' }}>
-              <canvas
-                ref={canvasRef}
-                width={298}
-                height={120}
-                onMouseDown={startDraw}
-                onMouseMove={draw}
-                onMouseUp={stopDraw}
-                onMouseLeave={stopDraw}
-                onTouchStart={startDraw}
-                onTouchMove={draw}
-                onTouchEnd={stopDraw}
-                style={{ display: 'block', cursor: 'crosshair', touchAction: 'none' }}
-              />
-              {!signed && (
-                <div style={{ position: 'absolute', pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '298px', marginTop: '-120px', height: '120px' }}>
-                  <PenTool size={20} color="#cbd5e1" />
-                  <span style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>Cliquer pour signer</span>
+        {/* Section 3: Signature & Validation */}
+        <div style={{
+          backgroundColor: '#fff',
+          border: `1px solid ${ehr.borderSoft}`,
+          borderRadius: 16,
+          padding: 24
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>SIGNATURE NUMÉRIQUE DU MÉDECIN</label>
+              {isCloture && form.signatureHorodatage ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 16,
+                  padding: 20, backgroundColor: '#F0FDF4',
+                  border: '1px solid #BBF7D0', borderRadius: 12
+                }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%',
+                    backgroundColor: '#16A34A', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#16A34A' }}>Validation effectuée</div>
+                    <div style={{ fontSize: 13, color: '#16A34A', opacity: 0.8 }}>Le {new Date(form.signatureHorodatage).toLocaleString('fr-FR')}</div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ width: 340 }}>
+                  <div style={{
+                    border: `2px solid ${ehr.borderSoft}`,
+                    borderRadius: 12,
+                    backgroundColor: '#FAFAFA',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <canvas
+                      ref={canvasRef}
+                      width={336}
+                      height={140}
+                      onMouseDown={startDraw}
+                      onMouseMove={draw}
+                      onMouseUp={stopDraw}
+                      onMouseLeave={stopDraw}
+                      onTouchStart={startDraw}
+                      onTouchMove={draw}
+                      onTouchEnd={stopDraw}
+                      style={{ display: 'block', cursor: 'crosshair', touchAction: 'none' }}
+                    />
+                    {!signed && (
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        pointerEvents: 'none', opacity: 0.4
+                      }}>
+                        <PenTool size={24} color={ehr.textMuted} />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: ehr.textMuted, marginTop: 8 }}>Veuillez signer ici</span>
+                      </div>
+                    )}
+                  </div>
+                  {signed && (
+                    <button
+                      onClick={clearSignature}
+                      style={{
+                        marginTop: 10, display: 'flex', alignItems: 'center', gap: 6,
+                        background: 'none', border: 'none', color: '#EF4444',
+                        fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      <Trash2 size={14} /> Effacer la signature
+                    </button>
+                  )}
                 </div>
               )}
             </div>
-            {signed && (
-              <button
-                type="button"
-                onClick={clearSignature}
-                style={{ marginTop: '6px', fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <Trash2 size={12} /> Effacer la signature
-              </button>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 16 }}>
+              {!isCloture && (
+                <>
+                  <button
+                    onClick={handleValider}
+                    disabled={saving || !signed}
+                    style={{
+                      backgroundColor: signed ? '#0F766E' : ehr.textMuted,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '14px 40px',
+                      fontSize: 15,
+                      fontWeight: 800,
+                      cursor: signed ? 'pointer' : 'not-allowed',
+                      boxShadow: signed ? '0 4px 12px rgba(15, 118, 110, 0.25)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Valider la sortie & Clôturer
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{
+            marginTop: 32, paddingTop: 24,
+            borderTop: `1px solid ${ehr.borderSoft}`,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: isCloture ? '#16A34A' : ehr.primary }}></div>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>Statut : {isCloture ? 'Dossier clôturé' : 'Patient hospitalisé'}</span>
+            </div>
+            {lastUpdate && (
+              <span style={{ fontSize: 12, color: ehr.textMuted, fontWeight: 600 }}>Dernière mise à jour : {new Date(lastUpdate).toLocaleString('fr-FR')}</span>
             )}
           </div>
-        )}
-
-        {!isCloture && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', marginTop: '8px', borderTop: `1px solid ${ehr.borderSoft}` }}>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              style={{ padding: '10px 20px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#475569', border: `1px solid ${ehr.borderSoft}`, borderRadius: '8px', cursor: 'pointer' }}
-            >
-              {saving ? 'Sauvegarde...' : '💾 Sauvegarder le brouillon'}
-            </button>
-            <button
-              type="button"
-              onClick={handleValider}
-              disabled={saving || !signed}
-              style={{
-                padding: '12px 28px', fontSize: '14px', fontWeight: 700,
-                backgroundColor: signed ? '#0f766e' : '#94a3b8',
-                color: 'white', border: 'none', borderRadius: '10px',
-                cursor: signed ? 'pointer' : 'not-allowed',
-                boxShadow: signed ? '0 2px 8px rgba(15,118,110,0.3)' : 'none',
-              }}
-            >
-              Valider la sortie et clôturer le dossier
-            </button>
-          </div>
-        )}
-      </EhrFormSection>
-
-      <EhrFormSection title="Statut du dossier" sectionBadge="05" collapsible defaultOpen>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isCloture ? '#16a34a' : '#3b82f6' }} />
-          <span style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
-            {isCloture ? 'Dossier clôturé' : 'Statut actuel : Patient hospitalisé'}
-          </span>
         </div>
-        {lastUpdate && (
-          <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0 16px' }}>
-            Dernière mise à jour : {new Date(lastUpdate).toLocaleString('fr-FR')}
-          </p>
-        )}
-        {isCloture && (
-          <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
-            La validation de la sortie clôture définitivement l'épisode d'hospitalisation et génère le compte-rendu de sortie.
-          </div>
-        )}
-      </EhrFormSection>
+      </div>
     </div>
   );
 }
 
-const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px', fontWeight: 700, color: '#94a3b8',
-  textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px 0',
-};
-const fieldLabelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '11px', fontWeight: 600, color: '#64748b',
-  marginBottom: '5px',
-};
-const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid #e2e8f0', borderRadius: '8px',
-  padding: '9px 12px', fontSize: '13px', color: '#1e293b',
-  outline: 'none', fontFamily: "'Manrope', sans-serif",
-  boxSizing: 'border-box', backgroundColor: '#ffffff',
-};
+function DocumentToggle({ icon, label, active, onClick }: {
+  icon: React.ReactNode; label: string; active: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 18px', borderRadius: 12,
+        backgroundColor: active ? '#F0FDF4' : '#fff',
+        border: `1px solid ${active ? '#BBF7D0' : ehr.borderSoft}`,
+        cursor: 'pointer', textAlign: 'left',
+        transition: 'all 0.2s ease'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ color: active ? '#16A34A' : ehr.textMuted }}>{icon}</div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: active ? '#16A34A' : ehr.text }}>{label}</span>
+      </div>
+      {active && <CheckCircle2 size={16} color="#16A34A" />}
+    </button>
+  );
+}

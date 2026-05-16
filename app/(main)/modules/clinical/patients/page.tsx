@@ -352,7 +352,7 @@ function BedCard({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 mb-3 mt-3 cursor-pointer">
+      <div className="flex items-center gap-1.5 mb-3 mt-3">
         <svg
           className="w-3 h-3 text-gray-400"
           fill="none"
