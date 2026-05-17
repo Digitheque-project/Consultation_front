@@ -179,12 +179,19 @@ export function ObservationForm({
   hydratedPatientInfo?: ObservationPatientInfo | null;
 }) {
   const [sections, setSections] = useState<Section[]>(() => initialSections());
-  const [patientInfo, setPatientInfo] = useState<ObservationPatientInfo | null>(null);
+  const [patientInfo, setPatientInfo] = useState<ObservationPatientInfo | null>(
+    hydratedPatientInfo || null,
+  );
+  const [loadingPatient, setLoadingPatient] = useState(false);
+  const [errorPatient, setErrorPatient] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   useEffect(() => {
     setSections(initialSections());
+    setPatientInfo(null);
+    setErrorPatient(null);
+    setLoadingPatient(false);
     setLastSaved(null);
   }, [patientId]);
 
@@ -195,32 +202,49 @@ export function ObservationForm({
   }, [hydratedPatientInfo]);
 
   useEffect(() => {
-    if (!patientId || !isDossierPatientApiConfigured()) return;
+    if (!patientId || !isDossierPatientApiConfigured() || patientInfo) return;
     const fetchPatient = async () => {
+      setLoadingPatient(true);
+      setErrorPatient(null);
       try {
         const res = await api.get(`/patients/${patientId}`);
         const data = res.data;
+
+        const pick = (keys: string[]) => {
+          for (const k of keys) {
+            if (data[k] && typeof data[k] === "string" && data[k].trim()) {
+              return data[k].trim();
+            }
+          }
+          return "";
+        };
+
         setPatientInfo({
-          nom: data.nom || "",
-          prenom: data.prenom || "",
-          dateNaissance: data.dateNaissance || "",
-          adresse: data.adresse || "",
+          nom: pick(["nom", "lastName", "familyName", "name"]),
+          prenom: pick(["prenom", "firstName", "givenName"]),
+          dateNaissance: pick(["dateNaissance", "birthDate", "date_naissance"]),
+          adresse: pick(["adresse", "address"]),
           sexe:
-            data.sexe === "M"
+            data.sexe === "M" || data.sexe?.toLowerCase() === "masculin"
               ? "Masculin"
-              : data.sexe === "F"
+              : data.sexe === "F" ||
+                  data.sexe?.toLowerCase() === "féminin" ||
+                  data.sexe?.toLowerCase() === "feminin"
                 ? "Féminin"
                 : data.sexe || "",
-          profession: data.profession || "",
-          contact: data.contact || "",
-          contactUrgence: data.contactUrgence || "",
+          profession: pick(["profession", "job"]),
+          contact: pick(["contact", "phone", "telephone", "tel"]),
+          contactUrgence: pick(["contactUrgence", "contact_urgence", "urgence"]),
         });
       } catch (error) {
         console.error("Erreur chargement patient:", error);
+        setErrorPatient("Impossible de charger les données d'identification du patient.");
+      } finally {
+        setLoadingPatient(false);
       }
     };
     void fetchPatient();
-  }, [patientId]);
+  }, [patientId, patientInfo]);
 
   useEffect(() => {
     if (!patientId || !isDossierPatientApiConfigured()) return;
@@ -391,7 +415,69 @@ export function ObservationForm({
             </button>
             {section.isOpen && (
               <div style={{ padding: '16px 20px 20px', borderTop: `1px solid ${ehr.borderSoft}` }}>
-                {section.id === '01' && patientInfo && (
+                {section.id === '01' && loadingPatient && (
+                  <div className="animate-pulse space-y-4 py-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-3/4 rounded bg-slate-100"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-3/4 rounded bg-slate-100"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-1/2 rounded bg-slate-100"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-5/6 rounded bg-slate-100"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-1/3 rounded bg-slate-100"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-2/3 rounded bg-slate-100"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-1/2 rounded bg-slate-100"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/4 rounded bg-slate-200"></div>
+                        <div className="h-4.5 w-1/2 rounded bg-slate-100"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {section.id === '01' && errorPatient && (
+                  <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-[14px] text-red-700">
+                    <span className="text-base" aria-hidden>⚠️</span>
+                    <div className="flex-1 font-semibold">{errorPatient}</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPatientInfo(null);
+                        setErrorPatient(null);
+                      }}
+                      className="cursor-pointer rounded bg-red-100 px-3 py-1.5 text-[12px] font-bold text-red-800 transition hover:bg-red-200"
+                    >
+                      Réessayer
+                    </button>
+                  </div>
+                )}
+
+                {section.id === '01' && !loadingPatient && !errorPatient && !patientInfo && (
+                  <div className="text-center py-6 text-slate-500 text-[14px] font-medium">
+                    Aucune donnée d'identification disponible pour ce patient.
+                  </div>
+                )}
+
+                {section.id === '01' && !loadingPatient && !errorPatient && patientInfo && (
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                       <tr>
