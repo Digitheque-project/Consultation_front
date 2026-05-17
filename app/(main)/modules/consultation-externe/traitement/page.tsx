@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 type Appointment = {
   id: number;
@@ -65,6 +66,89 @@ const mapConsultation = (consultation: ConsultationApi): Appointment => ({
   u: consultation.urgence ? 1 : undefined,
   motif: consultation.observation?.diagnostic ?? '',
 });
+
+const TreatmentSkeleton = () => (
+  <div className="bg-[#F5F8FA] min-h-screen py-8 px-6 animate-pulse">
+    <div className="max-w-7xl mx-auto">
+      {/* Header Skeleton */}
+      <div className="mb-10 flex items-start gap-5">
+        <div className="w-12 h-12 bg-slate-200 rounded-2xl" />
+        <div className="flex flex-col gap-2">
+          <div className="h-8 w-64 bg-slate-200 rounded-lg" />
+          <div className="h-4 w-48 bg-slate-100 rounded-md" />
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Main Card Skeleton */}
+        <div className="rounded-[32px] bg-white border border-gray-100 p-7 space-y-8 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-slate-100 rounded-2xl" />
+              <div className="space-y-2">
+                <div className="h-5 w-40 bg-slate-200 rounded" />
+                <div className="h-3 w-24 bg-slate-100 rounded" />
+              </div>
+            </div>
+            <div className="h-7 w-24 bg-slate-100 rounded-full" />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="h-20 bg-slate-50 rounded-[20px] border border-gray-100" />
+            <div className="h-20 bg-slate-50 rounded-[20px] border border-gray-100" />
+          </div>
+
+          <div className="h-24 bg-slate-50 rounded-3xl border border-gray-100" />
+
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="h-3 w-32 bg-slate-100 rounded" />
+              <div className="h-32 bg-white border border-gray-100 rounded-[24px]" />
+            </div>
+            <div className="space-y-3">
+              <div className="h-3 w-32 bg-slate-100 rounded" />
+              <div className="h-14 bg-white border border-gray-100 rounded-2xl" />
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Skeleton */}
+        <div className="space-y-6">
+          <div className="rounded-[28px] bg-white border border-gray-100 p-7 space-y-6 shadow-sm">
+            <div className="h-3 w-24 bg-slate-200 rounded" />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="h-3 w-16 bg-slate-100 rounded" />
+                <div className="h-4 w-32 bg-slate-200 rounded" />
+              </div>
+              <div className="h-px bg-slate-50" />
+              <div className="h-10 w-full bg-slate-100 rounded-lg" />
+            </div>
+          </div>
+          <div className="h-40 bg-[#EAF3FA] rounded-[28px] border border-[#D1E5F5]" />
+        </div>
+      </div>
+
+      {/* Tabs Card Skeleton */}
+      <div className="mt-10 rounded-[32px] bg-white border border-gray-100 overflow-hidden shadow-sm">
+        <div className="flex gap-10 border-b border-gray-100 px-8 py-6">
+          <div className="h-4 w-40 bg-slate-200 rounded" />
+          <div className="h-4 w-40 bg-slate-100 rounded" />
+        </div>
+        <div className="p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-6 w-48 bg-slate-200 rounded" />
+              <div className="h-3 w-64 bg-slate-100 rounded" />
+            </div>
+            <div className="h-8 w-32 bg-slate-100 rounded-full" />
+          </div>
+          <div className="h-64 bg-slate-50 border border-gray-100 rounded-[20px]" />
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export default function TraitementPage() {
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
@@ -200,13 +284,7 @@ export default function TraitementPage() {
   }, [consultationData]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 px-6 py-10">
-        <div className="max-w-5xl mx-auto rounded-3xl bg-white p-10 shadow-sm border border-slate-200">
-          <p className="text-slate-600">Chargement de l'interface de traitement...</p>
-        </div>
-      </div>
-    );
+    return <TreatmentSkeleton />;
   }
 
   if (queryError || (!loading && !appointment && appointmentId)) {
@@ -226,7 +304,7 @@ export default function TraitementPage() {
   if (!appointment) return null;
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F5F8FA] px-6 py-10"><div className="max-w-5xl mx-auto rounded-3xl bg-white p-10 shadow-sm border border-slate-200"><p className="text-slate-600">Chargement de l'interface de traitement...</p></div></div>}>
+    <Suspense fallback={<TreatmentSkeleton />}>
       <div className="bg-[#F5F8FA] min-h-screen py-8 px-6">
         <div className="max-w-7xl mx-auto">
           {/* Header Section */}
