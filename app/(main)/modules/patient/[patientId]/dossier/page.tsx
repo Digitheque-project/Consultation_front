@@ -351,10 +351,10 @@ export default function DossierPatientDetailPage() {
                 </p>
               ) : null}
             </div>
-            
+
             {/* Cloud/Fade effect at the bottom - ONLY for Suivi tab */}
             {activeTab === "suivi" && (
-              <div 
+              <div
                 style={{
                   position: 'absolute',
                   bottom: 0,
