@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
 import {
@@ -248,9 +249,12 @@ export default function DashboardPage() {
                 <TableProperties className="w-[20px] h-[20px]" strokeWidth={2.5} />
                 <h2 className="text-[15px] sm:text-[16px] font-extrabold tracking-tight">Liste patient(s) hospitalise(s)</h2>
               </div>
-              <button className="text-[11px] sm:text-[12px] font-bold text-[#006A8C] hover:underline self-start sm:self-auto">
+              <Link
+                href="/modules/clinical/patients"
+                className="text-[11px] sm:text-[12px] font-bold text-[#006A8C] hover:underline self-start sm:self-auto"
+              >
                 Voir tous les patients
-              </button>
+              </Link>
             </div>
 
             <div className="w-full">
@@ -373,10 +377,13 @@ export default function DashboardPage() {
           <div className="bg-[#F5F8FA] rounded-[28px] sm:rounded-[32px] p-5 sm:p-7 border border-[#EAF3FA]">
             <h3 className="text-[10px] sm:text-[11px] font-extrabold text-[#006A8C] uppercase tracking-[0.1em] mb-5 sm:mb-6">ACCES RAPIDES</h3>
             <div className="space-y-4">
-              <button className="w-full cursor-pointer bg-white hover:bg-gray-50 transition-colors text-left px-4 sm:px-5 py-3.5 sm:py-4.5 rounded-2xl flex items-center gap-3 sm:gap-4 shadow-sm border border-transparent">
+              <Link
+                href="/modules/consultation-externe/planning-complet"
+                className="w-full cursor-pointer bg-white hover:bg-gray-50 transition-colors text-left px-4 sm:px-5 py-3.5 sm:py-4.5 rounded-2xl flex items-center gap-3 sm:gap-4 shadow-sm border border-transparent"
+              >
                 <Calendar className="w-5 h-5 text-[#006A8C]" strokeWidth={2.5} />
                 <span className="text-[12px] sm:text-[13px] font-bold text-gray-900 leading-snug">Mon planning consultation externe complet</span>
-              </button>
+              </Link>
             </div>
           </div>
 
