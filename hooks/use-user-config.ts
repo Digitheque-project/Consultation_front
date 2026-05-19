@@ -8,6 +8,9 @@ export interface UserConfig {
   speciality: string;
   avatarUrl: string;
   notifications: number;
+  id?: string;
+  nom?: string;
+  prenoms?: string;
 }
 
 const USER_CONFIG_URL = "/user-config.json";
@@ -24,7 +27,8 @@ const isUserConfig = (value: unknown): value is UserConfig => {
     typeof config.doctorName === "string" &&
     typeof config.speciality === "string" &&
     typeof config.avatarUrl === "string" &&
-    typeof config.notifications === "number"
+    typeof config.notifications === "number" &&
+    (config.id === undefined || typeof config.id === "string")
   );
 };
 

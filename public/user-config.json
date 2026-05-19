@@ -3,5 +3,8 @@
   "doctorName": "Mme. Rasoa",
   "speciality": "ACCUEIL",
   "avatarUrl": "https://i.pravatar.cc/150?img=11",
-  "notifications": 0
+  "notifications": 0,
+  "id": "user-rasoa-001",
+  "nom": "Rasoa",
+  "prenoms": "Mme."
 }
