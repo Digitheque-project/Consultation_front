@@ -23,6 +23,8 @@ import {
   type PlanLitsResponse,
   type PlanLitRoom,
 } from "@/lib/api/instances/hospitalisation";
+import { getHospitalizedPatients } from "../services/dashboard";
+import type { HospitalizedPatient } from "../types";
 import { DEFAULT_CLINICAL_SERVICE_ID } from "@/lib/auth/constants";
 import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,7 @@ import { writeDossierPatientPrefill } from "@/lib/clinical/dossier-patient-prefi
 const DOT_STABLE = "#006A8C";
 const DOT_SURVEILLANCE = "#F59E0B";
 const DOT_CRITIQUE = "#E11D48";
+const DEFAULT_LIST_LIMIT = 200;
 
 function trimServiceId(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -91,8 +94,8 @@ function pickAllergiesText(
 
 type LitSelection = {
   litId: string;
-  chambreNumero: number;
-  codeLit: string;
+  chambreNumero: number | null;
+  codeLit: string | null;
   hosp: PlanLitHospitalisation;
   patient: Record<string, unknown> | null;
 };
@@ -436,6 +439,13 @@ function PatientQuickPreviewPanel({
   }
 
   const { chambreNumero, codeLit, hosp, patient } = selection;
+  const bedLabel = chambreNumero != null && codeLit
+    ? `Chambre ${chambreNumero} · ${codeLit}`
+    : chambreNumero != null
+      ? `Chambre ${chambreNumero}`
+      : codeLit
+        ? `Lit ${codeLit}`
+        : "Non attribue";
   const patientName = formatPatientPanelName(patient, hosp.patientId);
   const diagnostic = hosp.diagnostic ?? hosp.motifHospitalisation;
   const allergies = pickAllergiesText(patient);
@@ -465,7 +475,7 @@ function PatientQuickPreviewPanel({
               {patientName}
             </h2>
             <p className="mt-1 text-[12px] font-semibold text-gray-500">
-              Chambre {chambreNumero} · {codeLit}
+              {bedLabel}
             </p>
           </div>
         </div>
@@ -600,8 +610,8 @@ function PatientQuickPreviewPanel({
             writeDossierPatientPrefill(hosp.patientId, {
               hospitalisationId: hosp.id,
               serviceId: serviceId ?? undefined,
-              chambreNumero,
-              codeLit,
+              chambreNumero: chambreNumero ?? undefined,
+              codeLit: codeLit ?? undefined,
               patient,
             });
             const qs = new URLSearchParams();
@@ -675,6 +685,9 @@ export default function GestionPatientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<LitSelection | null>(null);
+  const [hospitalisations, setHospitalisations] = useState<HospitalizedPatient[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(6);
@@ -682,6 +695,7 @@ export default function GestionPatientsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
+  const [bedFilter, setBedFilter] = useState<"all" | "assigned" | "unassigned">("all");
 
   const serviceId = useMemo(() => {
     const fromQuery = trimServiceId(searchParams.get("serviceId"));
@@ -725,9 +739,27 @@ export default function GestionPatientsPage() {
     }
   }, [serviceId]);
 
+  const loadHospitalisations = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const data = await getHospitalizedPatients(DEFAULT_LIST_LIMIT);
+      setHospitalisations(Array.isArray(data) ? data : []);
+    } catch {
+      setHospitalisations([]);
+      setListError("Impossible de charger la liste des patients.");
+    } finally {
+      setListLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadPlan();
   }, [loadPlan]);
+
+  useEffect(() => {
+    void loadHospitalisations();
+  }, [loadHospitalisations]);
 
   const capacitePct = useMemo(() => {
     if (!plan || plan.stats.totalLits <= 0) return 0;
@@ -735,43 +767,51 @@ export default function GestionPatientsPage() {
   }, [plan]);
 
   const listeRows = useMemo(() => {
-    if (!plan) return [];
-    const rows: {
-      litId: string;
-      chambreNumero: number;
-      lit: string;
-      patient: string;
-      motif: string;
-      hosp: PlanLitHospitalisation;
-      patientObj: Record<string, unknown> | null;
-      age: number | null;
-      sexe: string;
-      dateEntree: string;
-      statusInfo: ReturnType<typeof getPatientStatusInfo>;
-      dateSplit: ReturnType<typeof formatDateSplit>;
-    }[] = [];
-    for (const c of plan.chambres) {
-      for (const l of c.lits) {
-        const h = l.hospitalisation;
-        if (!h || l.statut !== "OCCUPE") continue;
-        rows.push({
-          litId: l.litId,
-          chambreNumero: c.numeroChambre,
-          lit: l.codeLit,
-          patient: formatPlanPatientDisplay(h.patient ?? null, h.patientId),
-          motif: h.motifHospitalisation,
-          hosp: h,
-          patientObj: h.patient ?? null,
-          age: computeAgeYears(undefined, h.patient ?? null),
-          sexe: formatSexeFr(h.patient ?? null),
-          dateEntree: h.dateEntrer,
-          statusInfo: getPatientStatusInfo(h.patientId),
-          dateSplit: formatDateSplit(h.dateEntrer),
-        });
-      }
-    }
-    return rows;
-  }, [plan]);
+    const targetServiceId = serviceId?.trim();
+    if (!hospitalisations.length) return [];
+    return hospitalisations
+      .filter((item) => !targetServiceId || item.serviceId === targetServiceId)
+      .map((item) => {
+        const patientObj = (item.patient ?? null) as Record<string, unknown> | null;
+        const isAssigned = item.chambreNumero != null || Boolean(item.litCode);
+        const bedLabel = item.chambreNumero != null && item.litCode
+          ? `Chambre ${item.chambreNumero} · Lit ${item.litCode}`
+          : item.chambreNumero != null
+            ? `Chambre ${item.chambreNumero}`
+            : item.litCode
+              ? `Lit ${item.litCode}`
+              : "Non attribue";
+        const bedStatusLabel = isAssigned ? "Attribue" : "Non attribue";
+        const hosp: PlanLitHospitalisation = {
+          id: item.id,
+          patientId: item.patientId,
+          dateEntrer: item.dateEntrer,
+          motifHospitalisation: item.motifHospitalisation,
+          statutHospitalisation: item.statutHospitalisation,
+          diagnostic: null,
+          soinsCount: 0,
+          patient: patientObj,
+        };
+
+        return {
+          rowId: item.id,
+          chambreNumero: item.chambreNumero ?? null,
+          lit: item.litCode ?? null,
+          bedLabel,
+          bedStatusLabel,
+          isAssigned,
+          patient: formatPlanPatientDisplay(patientObj, item.patientId),
+          motif: item.motifHospitalisation,
+          hosp,
+          patientObj,
+          age: computeAgeYears(undefined, patientObj),
+          sexe: formatSexeFr(patientObj),
+          dateEntree: item.dateEntrer,
+          statusInfo: getPatientStatusInfo(item.patientId),
+          dateSplit: formatDateSplit(item.dateEntrer),
+        };
+      });
+  }, [hospitalisations, serviceId]);
 
   const filteredRows = useMemo(() => {
     return listeRows.filter((row) => {
@@ -779,12 +819,17 @@ export default function GestionPatientsPage() {
       const matchSearch =
         !q ||
         row.patient.toLowerCase().includes(q) ||
-        row.lit.toLowerCase().includes(q) ||
-        String(row.chambreNumero).includes(q) ||
+        (row.lit ?? "").toLowerCase().includes(q) ||
+        (row.chambreNumero != null ? String(row.chambreNumero) : "").includes(q) ||
         (row.motif && row.motif.toLowerCase().includes(q)) ||
         row.statusInfo.label.toLowerCase().includes(q) ||
+        row.bedStatusLabel.toLowerCase().includes(q) ||
         row.dateSplit.dayMonth.toLowerCase().includes(q) ||
         row.dateSplit.year.includes(q);
+
+      const matchBed =
+        bedFilter === "all" ||
+        (bedFilter === "assigned" ? row.isAssigned : !row.isAssigned);
 
       let matchDate = true;
       if (dateStart || dateEnd) {
@@ -800,9 +845,9 @@ export default function GestionPatientsPage() {
         }
       }
 
-      return matchSearch && matchDate;
+      return matchSearch && matchDate && matchBed;
     });
-  }, [listeRows, searchQuery, dateStart, dateEnd]);
+  }, [listeRows, searchQuery, dateStart, dateEnd, bedFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
   const paginatedRows = useMemo(() => {
@@ -812,7 +857,7 @@ export default function GestionPatientsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, dateStart, dateEnd, itemsPerPage]);
+  }, [searchQuery, dateStart, dateEnd, itemsPerPage, bedFilter]);
 
   return (
     <main className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
@@ -821,12 +866,12 @@ export default function GestionPatientsPage() {
           Gestion des Patients
         </h1>
         <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1 font-medium">
-          Plan des lits · service{" "}
+          {vue === "liste" ? "Liste des patients" : "Plan des lits"} · service{" "}
           <span className="font-mono text-gray-700">{serviceId}</span>
         </p>
       </div>
 
-      {error && (
+      {error && vue === "plan" && (
         <div className="mb-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-800">
           {error}
         </div>
@@ -881,43 +926,25 @@ export default function GestionPatientsPage() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="space-y-6">
-              {[1, 2].map((roomIndex) => (
-                <div
-                  key={roomIndex}
-                  className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] p-5 sm:p-6"
-                >
-                  <div className="flex items-center gap-2 mb-5 animate-pulse">
-                    <div className="w-3.5 h-3.5 bg-gray-200 rounded" />
-                    <div className="h-3 w-24 bg-gray-200 rounded" />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {[1, 2, 3].map((bedIndex) => (
-                      <div
-                        key={bedIndex}
-                        className="relative bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 min-h-[140px] flex flex-col justify-between animate-pulse"
-                      >
-                        <div className="mb-2">
-                          <div className="h-5 w-12 bg-gray-200 rounded-[6px]" />
-                        </div>
-                        <div className="space-y-3">
-                          <div className="h-3.5 w-3/4 bg-gray-200 rounded" />
-                          <div className="h-2.5 w-1/2 bg-gray-100 rounded" />
-                        </div>
-                        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-50">
-                          <div className="h-3 w-3 bg-gray-200 rounded-full" />
-                          <div className="h-2.5 w-20 bg-gray-100 rounded" />
-                        </div>
-                      </div>
+          {vue === "liste" ? (
+            <>
+              {listLoading ? (
+                <div className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] p-6 animate-pulse">
+                  <div className="h-4 w-40 bg-gray-200 rounded mb-4" />
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((row) => (
+                      <div key={row} className="h-12 bg-gray-100 rounded" />
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : vue === "liste" ? (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              ) : (
+                <div className="space-y-4">
+                  {listError && (
+                    <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-800">
+                      {listError}
+                    </div>
+                  )}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                   <div className="relative flex-1 sm:w-[360px]">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -977,9 +1004,21 @@ export default function GestionPatientsPage() {
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-[10px] text-[13px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#006A8C]/20 focus:border-[#006A8C]"
                     />
                   </div>
-                  {(dateStart || dateEnd) && (
+                  <div className="flex-1 w-full">
+                    <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-wider mb-1.5">Attribution lit</label>
+                    <select
+                      value={bedFilter}
+                      onChange={(e) => setBedFilter(e.target.value as "all" | "assigned" | "unassigned")}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-[10px] text-[13px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#006A8C]/20 focus:border-[#006A8C]"
+                    >
+                      <option value="all">Tous</option>
+                      <option value="assigned">Attribues</option>
+                      <option value="unassigned">Non attribues</option>
+                    </select>
+                  </div>
+                  {(dateStart || dateEnd || bedFilter !== "all") && (
                     <button
-                      onClick={() => { setDateStart(""); setDateEnd(""); }}
+                      onClick={() => { setDateStart(""); setDateEnd(""); setBedFilter("all"); }}
                       className="px-4 py-2 text-[12px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-[10px] transition-colors h-[38px]"
                     >
                       Effacer
@@ -991,7 +1030,7 @@ export default function GestionPatientsPage() {
               <div className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
                 {filteredRows.length === 0 ? (
                   <p className="p-6 text-[13px] text-center font-medium text-gray-500">
-                    Aucune hospitalisation avec lit occupé pour ce service.
+                    Aucun patient correspondant pour ce service.
                   </p>
                 ) : (
                   <div>
@@ -1021,12 +1060,12 @@ export default function GestionPatientsPage() {
                       <tbody className="divide-y divide-gray-100">
                         {paginatedRows.map((row) => (
                           <tr
-                            key={row.litId}
+                            key={row.rowId}
                             role="button"
                             tabIndex={0}
                             onClick={() =>
                               setSelection({
-                                litId: row.litId,
+                                litId: row.rowId,
                                 chambreNumero: row.chambreNumero,
                                 codeLit: row.lit,
                                 hosp: row.hosp,
@@ -1037,7 +1076,7 @@ export default function GestionPatientsPage() {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
                                 setSelection({
-                                  litId: row.litId,
+                                  litId: row.rowId,
                                   chambreNumero: row.chambreNumero,
                                   codeLit: row.lit,
                                   hosp: row.hosp,
@@ -1047,17 +1086,24 @@ export default function GestionPatientsPage() {
                             }}
                             className={cn(
                               "group outline-none transition-colors hover:bg-slate-50/60 cursor-pointer",
-                              selection?.litId === row.litId &&
+                              selection?.litId === row.rowId &&
                               "bg-sky-50/40 relative after:absolute after:left-0 after:top-0 after:bottom-0 after:w-1 after:bg-[#0EA5E9]"
                             )}
                           >
                             <td className="px-6 py-4 align-top">
-                              <div className="bg-[#F8FAFC] border border-gray-100 rounded-[10px] px-2 py-1.5 flex flex-col items-center justify-center w-[54px] shadow-sm group-hover:border-gray-200 transition-colors">
-                                <span className="text-[11px] font-black text-gray-800 leading-none mb-1">
-                                  {row.chambreNumero}-
+                              <div className="bg-[#F8FAFC] border border-gray-100 rounded-[10px] px-3 py-2.5 flex flex-col items-start justify-center w-[120px] shadow-sm group-hover:border-gray-200 transition-colors">
+                                <span className="text-[10px] font-black text-gray-800 leading-none">
+                                  {row.bedLabel}
                                 </span>
-                                <span className="text-[9px] font-extrabold text-gray-500 leading-none">
-                                  {row.lit.toLowerCase().startsWith('lit') ? row.lit : `Lit ${row.lit}`}
+                                <span
+                                  className={cn(
+                                    "mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide",
+                                    row.isAssigned
+                                      ? "bg-emerald-50 text-emerald-700"
+                                      : "bg-amber-50 text-amber-700"
+                                  )}
+                                >
+                                  {row.bedStatusLabel}
                                 </span>
                               </div>
                             </td>
@@ -1167,6 +1213,42 @@ export default function GestionPatientsPage() {
                   </div>
                 )}
               </div>
+                </div>
+              )}
+            </>
+          ) : loading ? (
+            <div className="space-y-6">
+              {[1, 2].map((roomIndex) => (
+                <div
+                  key={roomIndex}
+                  className="bg-white rounded-[22px] border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] p-5 sm:p-6"
+                >
+                  <div className="flex items-center gap-2 mb-5 animate-pulse">
+                    <div className="w-3.5 h-3.5 bg-gray-200 rounded" />
+                    <div className="h-3 w-24 bg-gray-200 rounded" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((bedIndex) => (
+                      <div
+                        key={bedIndex}
+                        className="relative bg-white rounded-[16px] border border-gray-100 shadow-sm p-4 min-h-[140px] flex flex-col justify-between animate-pulse"
+                      >
+                        <div className="mb-2">
+                          <div className="h-5 w-12 bg-gray-200 rounded-[6px]" />
+                        </div>
+                        <div className="space-y-3">
+                          <div className="h-3.5 w-3/4 bg-gray-200 rounded" />
+                          <div className="h-2.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-50">
+                          <div className="h-3 w-3 bg-gray-200 rounded-full" />
+                          <div className="h-2.5 w-20 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : !plan || plan.chambres.length === 0 ? (
             <div className="rounded-[22px] border border-dashed border-gray-200 bg-white p-8 text-center text-[13px] font-medium text-gray-500">
