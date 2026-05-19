@@ -16,6 +16,13 @@ export interface HospitalizedPatient {
   statutHospitalisation: "EN_COURS" | "CLOTUREE";
   litCode?: string | null;
   chambreNumero?: number | null;
+  patient?: {
+    id: string;
+    nom?: string;
+    prenom?: string;
+    dateNaissance?: string;
+    sexe?: string;
+  } | null;
 }
 
 export interface ExternalConsultation {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BedSingle, Loader2, X } from "lucide-react";
+import { BedSingle, X } from "lucide-react";
 import {
   EnrichedNotification,
   useNotificationStore,
@@ -9,7 +9,6 @@ import {
 import { cn } from "@/lib/utils";
 import {
   hospitalisationApi,
-  type PlanLitRoom,
 } from "@/lib/api/instances/hospitalisation";
 import { DEFAULT_CLINICAL_SERVICE_ID } from "@/lib/auth/constants";
 import { getClinicalServiceIdFromBrowser } from "@/lib/auth/mock-auth-browser";
@@ -83,36 +82,22 @@ function resolveServiceIdFromAuth(): string | null {
   return getClinicalServiceIdFromBrowser();
 }
 
-function mapRooms(chambres: PlanLitRoom[]): RoomOption[] {
-  return chambres.map((chambre) => {
-    const beds: BedOption[] = chambre.lits.map((lit) => ({
-      id: lit.litId,
-      label: `Lit ${lit.codeLit}`,
-      status: lit.statut === "DISPONIBLE" ? "available" : "occupied",
-    }));
-    const availableCount = beds.filter(
-      (bed) => bed.status === "available",
-    ).length;
-    const totalCount = beds.length;
-    const roomStatus: RoomStatus =
-      availableCount > 0 ? "available" : "occupied";
-
-    return {
-      id: chambre.chambreId,
-      label: `Ch. ${chambre.numeroChambre}`,
-      type: chambre.type,
-      availability:
-        availableCount > 0
-          ? `${availableCount}/${totalCount} dispo`
-          : "Occupee",
-      status: roomStatus,
-      beds,
-    };
-  });
+interface AvailableLit {
+  id?: string;
+  idLit?: string;
+  codeLit: string;
+  statut: string;
+  idChambre?: string;
+  numeroChambre?: number;
+  chambre?: {
+    id: string;
+    numeroChambre: number;
+    type: string;
+    serviceId: string;
+  } | null;
 }
 
-// Nouvelle fonction à ajouter juste après mapRooms()
-function mapAvailableLitsToRooms(lits: any[]): RoomOption[] {
+function mapAvailableLitsToRooms(lits: AvailableLit[]): RoomOption[] {
   const roomsMap = new Map<string, RoomOption>();
 
   lits.forEach((lit) => {
@@ -122,8 +107,8 @@ function mapAvailableLitsToRooms(lits: any[]): RoomOption[] {
     if (!roomsMap.has(roomKey)) {
       roomsMap.set(roomKey, {
         id: chambreId,
-        label: `Ch. ${lit.numeroChambre || "?"}`,
-        type: "Standard", // Tu peux améliorer ça plus tard
+        label: `Ch. ${lit.chambre?.numeroChambre || lit.numeroChambre || "?"}`,
+        type: lit.chambre?.type || "Standard",
         availability: "",
         status: "available",
         beds: [],
@@ -133,7 +118,7 @@ function mapAvailableLitsToRooms(lits: any[]): RoomOption[] {
     const room = roomsMap.get(roomKey)!;
 
     room.beds.push({
-      id: lit.id ?? lit.idLit,
+      id: lit.id ?? lit.idLit ?? "",
       label: `Lit ${lit.codeLit}`,
       status: lit.statut === "DISPONIBLE" ? "available" : "occupied",
     });
@@ -189,7 +174,7 @@ export function AttributionModal({
    */
   const selectedRoomStatus = useMemo(
     () => rooms.find((room) => room.id === selectedRoom)?.status,
-    [selectedRoom],
+    [rooms, selectedRoom],
   );
   const beds = useMemo(
     () => rooms.find((room) => room.id === selectedRoom)?.beds ?? [],
@@ -305,10 +290,11 @@ export function AttributionModal({
 
       removeNotification(notification.id);
       onClose();
-    } catch (error: any) {
-      const msg = error.response?.data?.message;
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string; error?: string } } };
+      const msg = err.response?.data?.message;
       setErrorMessage(
-        msg || error.response?.data?.error || "Échec de l'attribution du lit.",
+        msg || err.response?.data?.error || "Échec de l'attribution du lit.",
       );
     } finally {
       setIsSubmitting(false);
@@ -359,9 +345,20 @@ export function AttributionModal({
             </div>
 
             {isLoading ? (
-              <div className="flex items-center gap-2 rounded-[12px] border border-gray-200 bg-[#F8FAFC] px-4 py-3 text-[12px] font-semibold text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Chargement des chambres...
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col items-start gap-2 rounded-[12px] border border-gray-100 bg-gray-50/50 px-4 py-3.5"
+                  >
+                    <div className="h-4 w-20 rounded bg-gray-200"></div>
+                    <div className="h-3 w-14 rounded bg-gray-100"></div>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-gray-200"></span>
+                      <div className="h-3 w-16 rounded bg-gray-100"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -439,9 +436,19 @@ export function AttributionModal({
               Selection du lit (Chambre {selectedRoom || "—"})
             </p>
             {isLoading ? (
-              <div className="flex items-center gap-2 rounded-[12px] border border-gray-200 bg-[#F8FAFC] px-4 py-3 text-[12px] font-semibold text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Chargement des lits...
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-[12px] border border-gray-100 bg-gray-50/50 px-4 py-3"
+                  >
+                    <div className="h-8 w-8 rounded-[8px] bg-gray-200"></div>
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3.5 w-16 rounded bg-gray-200"></div>
+                      <div className="h-3 w-12 rounded bg-gray-100"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : rooms.length === 0 ? (
               <div className="rounded-[12px] border border-gray-200 bg-gray-50 px-4 py-3 text-[11.5px] font-semibold text-gray-400">
@@ -518,7 +525,7 @@ export function AttributionModal({
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <p className="mb-2 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-gray-400">
-                Date d'admission prevue
+                Date d&apos;admission prevue
               </p>
               <input
                 type="text"
@@ -528,7 +535,7 @@ export function AttributionModal({
             </div>
             <div>
               <p className="mb-2 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-gray-400">
-                Notes d'admission
+                Notes d&apos;admission
               </p>
               <textarea
                 rows={2}

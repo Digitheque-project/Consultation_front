@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Clock,
   Filter,
-  Loader2,
   Plus,
   Search,
   User,
@@ -218,21 +217,18 @@ function dayCountSinceAdmission(isoDate: string): number {
   return Math.max(0, Math.round((nowUtc - startUtc) / 86400000));
 }
 
-function ribbonFromMotif(motif: string): string {
-  const t = motif.trim();
-  if (!t) return "";
-  return t.length <= 12 ? t.toUpperCase() : `${t.slice(0, 12).toUpperCase()}…`;
-}
-
-/** Ruban affiché seulement si le patient a une prise en charge (id non null). */
+/** Ruban affiché seulement si le patient a une prise en charge. */
 function resolveRibbonText(
   patient: Record<string, unknown> | null,
-  motif: string,
 ): string {
   if (!patient) return "";
-  const pec = patient["priseEnChargeId"];
-  if (pec === null || pec === undefined) return "";
-  return ribbonFromMotif(motif);
+  const label = pickPriseEnChargeLabel(patient);
+  if (!label || label === "—") return "";
+  
+  const cleanLabel = label.trim();
+  return cleanLabel.length <= 10
+    ? cleanLabel.toUpperCase()
+    : `${cleanLabel.slice(0, 8).toUpperCase()}…`;
 }
 
 function accentForBed(lit: PlanLitBed): string {
@@ -657,7 +653,7 @@ function renderLitCell(
       traitements={soins}
       joursEntree={`J+${days}`}
       colorAccent={accentForBed(lit)}
-      ribbonText={resolveRibbonText(patient, hosp.motifHospitalisation)}
+      ribbonText={resolveRibbonText(patient)}
       isSelected={selection?.litId === lit.litId}
       onSelect={() =>
         onSelectOccupied({

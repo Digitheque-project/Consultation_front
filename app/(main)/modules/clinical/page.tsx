@@ -151,7 +151,7 @@ export default function DashboardPage() {
             Bonjour, Dr. Jean Pierre
           </h1>
           <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1.5 font-medium">
-            Voici l'etat actuel de votre service
+            Voici l&apos;etat actuel de votre service
           </p>
         </div>
         <div className="flex items-center justify-center sm:justify-start gap-2 bg-[#F1F5F9] px-3 sm:px-4 py-2 sm:py-2.5 rounded-[12px] text-gray-700 shadow-sm border border-[#E2E8F0] w-full sm:w-auto">
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="lg:col-span-4 lg:pl-4 min-w-0">
                           <p className="font-extrabold text-[12px] sm:text-[13px] text-gray-900 uppercase tracking-tight break-words">
-                            PATIENT <span className="font-semibold text-gray-600">{formatShortId(item.patientId)}</span>
+                            {item.patient?.prenom || "PATIENT"}
                           </p>
                           <p className="text-gray-400 text-[11px] font-medium mt-0.5 break-words">
                             {item.motifHospitalisation}
