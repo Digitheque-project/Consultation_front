@@ -22,13 +22,22 @@ export type Patient = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export async function fetchPatients(): Promise<Patient[]> {
-  const response = await axios.get<Patient[]>(`${API_URL}/patients`);
-  return response.data;
+  try {
+    const response = await axios.get<Patient[]>(`${API_URL}/patients`, {
+      timeout: 8000,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des patients:', error);
+    return [];
+  }
 }
 
 export async function fetchPatientById(id: string): Promise<Patient | null> {
   try {
-    const response = await axios.get<Patient>(`${API_URL}/patients/${encodeURIComponent(id)}`);
+    const response = await axios.get<Patient>(`${API_URL}/patients/${encodeURIComponent(id)}`, {
+      timeout: 8000,
+    });
     return response.data;
   } catch (error) {
     console.error(`Erreur lors de la récupération du patient ${id}:`, error);

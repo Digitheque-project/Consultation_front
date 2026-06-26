@@ -29,10 +29,12 @@ Copy-Item .env.example .env.local
 
 ## Variables d'environnement
 
-Variables utilisees par la couche API:
+Variables utilisées par la couche API:
 
-- `NEXT_PUBLIC_API_URL`: URL de base du backend.
-- `SERVICE_API_TOKEN` (optionnel): token service utilise cote serveur.
+- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: URL du backend du module consultation externe.
+- `NEXT_PUBLIC_BACKEND_URL` (fallback): URL alternative du backend.
+- `NEXT_PUBLIC_API_URL` (fallback générique): URL de base du backend.
+- `SERVICE_API_TOKEN` (optionnel): token service utilisé côté serveur.
 
 ## Scripts
 

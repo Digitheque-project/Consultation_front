@@ -1,5 +1,5 @@
 import React from "react";
-import { X, User, MapPin, Stethoscope, Wallet, Check } from "lucide-react";
+import { X, User, MapPin, Stethoscope, Wallet, Check, ClipboardList, Pill } from "lucide-react";
 import { EnrichedNotification, PatientInfo } from "@/stores/notification-store";
 
 interface PatientInfoModalProps {
@@ -94,6 +94,8 @@ export function PatientInfoModal({
     patient.personneAContacter,
   );
   const email = pickString(patient.email, patient.mail);
+
+  const consultationHistory = (patient.consultationHistory ?? []) as Array<Record<string, unknown>>;
 
   const knownKeys = new Set([
     "id",
@@ -276,7 +278,79 @@ export function PatientInfoModal({
             </div>
           </div>
 
-          {/* Section 4: Prise en charge */}
+          {/* Section 4: Historique clinique */}
+          <div className="flex gap-4">
+            <div className="mt-1">
+              <ClipboardList className="w-5 h-5 text-[#008ba3]" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-3">
+                Historique des consultations
+              </p>
+              {consultationHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {consultationHistory.map((entry, index) => {
+                    const entryDate = formatDate(String(entry.date ?? ""));
+                    const entryType = String(entry.typeVisite ?? "Consultation");
+                    const entryDiagnostic = String(entry.diagnostic ?? "Aucun diagnostic enregistré");
+                    const entryObservations = String(entry.observations ?? "Aucune observation détaillée");
+                    const medications = Array.isArray(entry.medicaments) ? entry.medicaments.filter(Boolean) : [];
+                    const nonMed = Array.isArray(entry.nonMedicamentPrescriptions) ? entry.nonMedicamentPrescriptions.filter((item) => item && (item.rdvMotif || item.examenService || item.hospitalisationService)) : [];
+
+                    return (
+                      <div key={`${entry.id ?? index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">{entryType}</p>
+                          <p className="text-[11px] text-slate-500">{entryDate}</p>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Diagnostic</p>
+                            <p className="text-[13px] font-semibold text-slate-700">{entryDiagnostic}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Observation</p>
+                            <p className="text-[13px] text-slate-600">{entryObservations}</p>
+                          </div>
+                          {medications.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 text-[#008ba3]">
+                                <Pill className="w-3.5 h-3.5" />
+                                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Médicaments prescrits</p>
+                              </div>
+                              <ul className="mt-1 list-disc pl-5 text-[13px] text-slate-600">
+                                {medications.map((medication, medicationIndex) => (
+                                  <li key={`${medication}-${medicationIndex}`}>{medication}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {nonMed.length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Actions non médicamenteuses</p>
+                              <ul className="mt-1 list-disc pl-5 text-[13px] text-slate-600">
+                                {nonMed.map((item, itemIndex) => (
+                                  <li key={`${item.rdvMotif ?? item.examenService ?? item.hospitalisationService ?? itemIndex}`}>
+                                    {item.rdvMotif || item.examenService || item.hospitalisationService || 'Action renseignée'}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-[13px] text-slate-500">
+                  Aucun historique antérieur n’est encore disponible pour ce patient.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 5: Prise en charge */}
           <div className="flex gap-4">
             <div className="mt-1">
               <Wallet className="w-5 h-5 text-[#008ba3]" />

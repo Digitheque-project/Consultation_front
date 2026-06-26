@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { MOCK_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
+import { AUTH_COOKIE_NAME, MOCK_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
 import {
   decodeMockSession,
   getModuleHomePath,
@@ -10,16 +10,23 @@ import { isProtectedPathname } from "@/lib/auth/route-guards";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionRaw = request.cookies.get(MOCK_AUTH_COOKIE_NAME)?.value;
+  const authToken =
+    request.cookies.get(AUTH_COOKIE_NAME)?.value ||
+    request.cookies.get("auth_token")?.value ||
+    request.cookies.get("access_token")?.value;
   const session = decodeMockSession(sessionRaw);
+  const hasActiveSession = Boolean(authToken || sessionRaw);
 
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/login", request.url));
+    if (hasActiveSession) {
+      return NextResponse.redirect(new URL("/modules/consultation-externe", request.url));
+    }
+    return NextResponse.redirect(new URL("/select-profile", request.url));
   }
 
-  if (pathname.startsWith("/login")) {
-    if (session) {
-      const target = new URL(getModuleHomePath(session.module), request.url);
-      return NextResponse.redirect(target);
+  if (pathname.startsWith("/login") || pathname.startsWith("/select-profile")) {
+    if (hasActiveSession) {
+      return NextResponse.redirect(new URL("/modules/consultation-externe", request.url));
     }
     return NextResponse.next();
   }
@@ -28,8 +35,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!session) {
-    const login = new URL("/login", request.url);
+  if (!hasActiveSession) {
+    const login = new URL("/select-profile", request.url);
     login.searchParams.set("from", pathname);
     return NextResponse.redirect(login);
   }

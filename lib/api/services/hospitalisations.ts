@@ -15,6 +15,7 @@ export const fetchActiveHospitalisations = async (): Promise<any[]> => {
   const url = `${CLINICAL_API_URL}/hospitalisations/actives`;
   try {
     const response = await axios.get(url, {
+      timeout: 8000,
       headers: {
         Authorization: `Bearer ${process.env.SERVICE_API_TOKEN}`,
         'Content-Type': 'application/json',

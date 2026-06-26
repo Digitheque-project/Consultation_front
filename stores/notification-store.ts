@@ -16,6 +16,23 @@ export interface PatientInfo {
   cin?: string;
   nationalite?: string;
   situationMatrimoniale?: string;
+  consultationHistory?: Array<{
+    id?: number;
+    date?: string;
+    heure?: string;
+    statut?: string;
+    typeVisite?: string;
+    ordreControle?: number | null;
+    diagnostic?: string;
+    observations?: string;
+    medicaments?: string[];
+    nonMedicamentPrescriptions?: Array<{
+      rdvMotif?: string | null;
+      rdvDate?: string | null;
+      examenService?: string | null;
+      hospitalisationService?: string | null;
+    }>;
+  }>;
   [key: string]: unknown;
 }
 

@@ -1,6 +1,11 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { getConsultationExterneApiUrl } from '@/lib/api/consultation-config';
+import { AppRole, buildUserProfile, UserProfile } from '@/lib/auth/roles';
+import { encodeMockSession, type MockAuthModule } from '@/lib/auth/mock-session';
+import { AUTH_COOKIE_NAME, MOCK_AUTH_COOKIE_NAME } from '@/lib/auth/constants';
 
 interface Medecin {
   id: number;
@@ -13,6 +18,8 @@ interface Medecin {
 interface AuthContextType {
   medecin: Medecin | null;
   token: string | null;
+  userProfile: UserProfile | null;
+  role: AppRole;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -22,8 +29,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [medecin, setMedecin] = useState<Medecin | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -33,11 +42,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (storedToken) {
       setToken(storedToken);
+      document.cookie = `${AUTH_COOKIE_NAME}=${storedToken}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      document.cookie = `auth_token=${storedToken}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      document.cookie = `access_token=${storedToken}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+
+      const storedMockSession = localStorage.getItem(MOCK_AUTH_COOKIE_NAME);
+      if (storedMockSession) {
+        document.cookie = `${MOCK_AUTH_COOKIE_NAME}=${storedMockSession}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      }
+
       if (storedMedecin) {
         try {
-          setMedecin(JSON.parse(storedMedecin));
+          const parsedMedecin = JSON.parse(storedMedecin);
+          setMedecin(parsedMedecin);
+          setUserProfile(buildUserProfile(parsedMedecin));
         } catch {
           setMedecin(null);
+          setUserProfile(null);
         }
       }
     }
@@ -45,9 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const backendUrl = process.env.NEXT_PUBLIC_CONSULTATION_EXTERNE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3333';
-
-    const response = await fetch(`${backendUrl}/auth/login`, {
+    const response = await fetch(getConsultationExterneApiUrl('/auth/login'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,20 +87,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem('access_token', tokenValue);
     localStorage.setItem('auth_token', tokenValue);
+
+    const authCookieValue = tokenValue;
+    document.cookie = `${AUTH_COOKIE_NAME}=${authCookieValue}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    document.cookie = `auth_token=${authCookieValue}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    document.cookie = `access_token=${authCookieValue}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+
+    const module: MockAuthModule = (data.role === 'ADMIN' ? 'admin' : 'clinical');
+    const mockSessionPayload = {
+      v: 1,
+      sub: data.medecin?.email ?? email,
+      module,
+      iat: Date.now(),
+    };
+    const encodedMockSession = encodeMockSession(mockSessionPayload as any);
+    document.cookie = `${MOCK_AUTH_COOKIE_NAME}=${encodedMockSession}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    localStorage.setItem(MOCK_AUTH_COOKIE_NAME, encodedMockSession);
+
     if (data.medecin) {
-      localStorage.setItem('medecin', JSON.stringify(data.medecin));
-      setMedecin(data.medecin);
+      const profileData = {
+        ...data.medecin,
+        role: data.role ?? data.medecin.role,
+      };
+      localStorage.setItem('medecin', JSON.stringify(profileData));
+      setMedecin(profileData);
+      setUserProfile(buildUserProfile(profileData));
     }
 
     setToken(tokenValue);
+    queryClient.invalidateQueries({ queryKey: ['consultations'] });
   };
 
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('medecin');
+    localStorage.removeItem(MOCK_AUTH_COOKIE_NAME);
+    document.cookie = `${AUTH_COOKIE_NAME}=; Path=/; Max-Age=0`;
+    document.cookie = `auth_token=; Path=/; Max-Age=0`;
+    document.cookie = `access_token=; Path=/; Max-Age=0`;
+    document.cookie = `${MOCK_AUTH_COOKIE_NAME}=; Path=/; Max-Age=0`;
     setToken(null);
     setMedecin(null);
+    setUserProfile(null);
   };
 
   return (
@@ -89,6 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         medecin,
         token,
+        userProfile,
+        role: userProfile?.role || 'autre',
         isLoading,
         login,
         logout,

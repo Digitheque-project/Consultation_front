@@ -1,6 +1,6 @@
 "use client";
 
-import { MOCK_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
+import { AUTH_COOKIE_NAME, MOCK_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
 import {
   createMockSessionPayload,
   decodeMockSession,
@@ -25,6 +25,15 @@ function persistMockSessionStorage(encoded: string) {
   }
 }
 
+function persistClientAuthTokens(encoded: string) {
+  try {
+    localStorage.setItem("access_token", encoded);
+    localStorage.setItem("auth_token", encoded);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 /**
  * Mock login: accepts any non-empty identifier (trimmed).
  * Persists a session cookie (middleware) + localStorage mirror for client reads.
@@ -34,12 +43,20 @@ export function mockLogin(identifier: string, module: MockAuthModule): void {
   const encoded = encodeMockSession(payload);
   persistMockSessionCookie(encoded);
   persistMockSessionStorage(encoded);
+  persistClientAuthTokens(encoded);
 }
 
 export function mockLogout(): void {
   document.cookie = `${MOCK_AUTH_COOKIE_NAME}=; Path=/; Max-Age=0`;
+  document.cookie = `${AUTH_COOKIE_NAME}=; Path=/; Max-Age=0`;
+  document.cookie = `auth_token=; Path=/; Max-Age=0`;
+  document.cookie = `access_token=; Path=/; Max-Age=0`;
   try {
     localStorage.removeItem(MOCK_AUTH_COOKIE_NAME);
+    localStorage.removeItem(AUTH_COOKIE_NAME);
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("medecin");
   } catch {
     /* ignore */
   }

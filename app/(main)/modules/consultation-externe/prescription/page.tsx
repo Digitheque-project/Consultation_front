@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWaitingConsultations } from '@/hooks/use-consultations';
-import { consultationApi } from '@/lib/api/consultation';
+import { consultationApi, type ConsultationApi } from '@/lib/api/consultation';
+import { useAuth } from '@/context/AuthContext';
 
 type Appointment = {
   id: number;
@@ -23,24 +24,10 @@ type Appointment = {
   emergencyContact?: string;
 };
 
-type ConsultationApi = {
-  id: number;
-  date: string;
-  heure: string;
-  patientId: number;
-  medecinId: number;
-  statut: string;
-  urgence: boolean;
-  termine: boolean;
-  observation?: {
-    diagnostic: string;
-    notes: string;
-  } | null;
-};
-
 export default function PrescriptionPage() {
   const router = useRouter();
   const [patientInfo, setPatientInfo] = useState<Appointment | null>(null);
+  const { medecin } = useAuth();
 
   const { data: consultations = [], isLoading: loading, error } = useWaitingConsultations();
 
@@ -48,7 +35,7 @@ export default function PrescriptionPage() {
     return consultations.map((consultation) => ({
       id: consultation.id,
       t: consultation.heure,
-      n: `Patient #${consultation.patientId}`,
+      n: consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
       a: new Date(consultation.date).toLocaleDateString('fr-FR'),
       g: consultation.urgence ? 'Urgence' : 'Normal',
       s: consultation.statut?.toUpperCase().replace(/_/g, ' ') || 'EN ATTENTE',
@@ -98,13 +85,21 @@ export default function PrescriptionPage() {
     setPatientInfo(null);
   };
 
+  const doctorName = medecin ? `Dr. ${medecin.prenom} ${medecin.nom}` : 'Dr. connecté';
+  const specialtyName = medecin?.specialite ? `(${medecin.specialite})` : '';
+
   return (
     <div className='flex flex-1 overflow-hidden gap-4 p-4'>
+      <div className='fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-md md:w-full pointer-events-none'>
+        <div className='pointer-events-auto ml-auto'>
+        </div>
+      </div>
+
       <main className='flex-1 overflow-y-auto p-8 bg-white rounded-2xl shadow-sm'>
         <div className='flex items-center justify-between mb-8'>
           <div>
             <h2 className='text-4xl font-bold text-slate-800 mb-2'>Mes consultations du jour</h2>
-            <p className='text-slate-400 font-medium'>Dr. Jean Pierre (Chirurgie Viscérale)</p>
+            <p className='text-slate-400 font-medium'>{doctorName} {specialtyName}</p>
           </div>
           <Link href='/modules/consultation-externe/planning-complet' className='rounded-full bg-blue-700 text-white px-4 py-3 text-sm font-semibold hover:bg-blue-800'>
             Planning complet

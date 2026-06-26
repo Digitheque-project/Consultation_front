@@ -17,7 +17,7 @@
     },
     {
       "label": "Contrôle",
-      "href": "/control",
+      "href": "/modules/consultation-externe/controle",
       "icon": "check-square"
     },
     {

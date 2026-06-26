@@ -14,7 +14,7 @@ import {
   User,
   Wrench,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   hospitalisationApi,
@@ -678,7 +678,7 @@ function renderLitCell(
   );
 }
 
-export default function GestionPatientsPage() {
+function GestionPatientsPageContent() {
   const searchParams = useSearchParams();
   const [vue, setVue] = useState<"plan" | "liste">("plan");
   const [plan, setPlan] = useState<PlanLitsResponse | null>(null);
@@ -1355,5 +1355,21 @@ export default function GestionPatientsPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function GestionPatientsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+          <div className="animate-pulse rounded-[22px] border border-gray-100 bg-white p-6">
+            Chargement de la page des patients...
+          </div>
+        </main>
+      }
+    >
+      <GestionPatientsPageContent />
+    </Suspense>
   );
 }

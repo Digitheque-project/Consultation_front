@@ -11,7 +11,9 @@ function resolveAuthHeader() {
     return null;
   }
 
-  const token = globalThis.localStorage?.getItem("auth_token");
+  const token =
+    globalThis.localStorage?.getItem("access_token") ||
+    globalThis.localStorage?.getItem("auth_token");
   if (!token) {
     return null;
   }

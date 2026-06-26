@@ -10,7 +10,7 @@ export function useAuthGuard() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login');
+      router.replace('/login');
     }
   }, [isAuthenticated, isLoading, router]);
 

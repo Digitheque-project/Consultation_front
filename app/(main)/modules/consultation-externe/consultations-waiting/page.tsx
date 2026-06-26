@@ -9,6 +9,11 @@ export default function ConsultationsPage() {
 
   return (
     <div className="p-8">
+      <div className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-md md:w-full pointer-events-none">
+        <div className="pointer-events-auto ml-auto">
+        </div>
+      </div>
+
       <h1 className="text-3xl font-bold mb-6">Consultations en attente de prescription</h1>
 
       {error && <div className="bg-red-100 text-red-700 p-4 rounded mb-4">Erreur de chargement des données.</div>}
@@ -29,8 +34,8 @@ export default function ConsultationsPage() {
                   <p className="font-semibold">{consultation.heure}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Patient ID</p>
-                  <p className="font-semibold">{consultation.patientId}</p>
+                  <p className="text-xs text-gray-500">Patient</p>
+                  <p className="font-semibold">{consultation.patient?.displayName ?? `Patient #${consultation.patientId}`}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Statut</p>

@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
-import { useConsultation, useFinalizeConsultation } from '@/hooks/use-consultations';
-import { ConsultationApi } from '@/lib/api/consultation';
+import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useConsultation, useFinalizeConsultation, usePatientConsultationHistory } from '@/hooks/use-consultations';
+import { ConsultationApi, consultationApi } from '@/lib/api/consultation';
 import {
   ArrowLeft,
   User,
@@ -25,6 +26,7 @@ import { cn } from '@/lib/utils';
 
 type Appointment = {
   id: number;
+  patientId: string;
   t: string;
   n: string;
   a: string;
@@ -33,6 +35,8 @@ type Appointment = {
   u?: number;
   d?: number;
   motif?: string;
+  diagnostic?: string;
+  notes?: string;
 };
 
 
@@ -56,15 +60,27 @@ const hospitalisationServices = [
   'Urgences',
 ];
 
+const defaultClinicalParameters = [
+  { id: 1, nom: 'Tension', valeur: '', unite: 'mmHg' },
+  { id: 2, nom: 'Température', valeur: '', unite: '°C' },
+  { id: 3, nom: 'Poids', valeur: '', unite: 'kg' },
+  { id: 4, nom: 'Taille', valeur: '', unite: 'cm' },
+  { id: 5, nom: 'Fréquence cardiaque', valeur: '', unite: 'bpm' },
+  { id: 6, nom: 'Saturation O2', valeur: '', unite: '%' },
+];
+
 const mapConsultation = (consultation: ConsultationApi): Appointment => ({
   id: consultation.id,
+  patientId: consultation.patientId,
   t: consultation.heure,
-  n: `Patient #${consultation.patientId}`,
+  n: consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
   a: new Date(consultation.date).toLocaleDateString('fr-FR'),
   g: consultation.urgence ? 'Urgence' : 'Normal',
   s: consultation.statut?.toUpperCase().replace(/_/g, ' ') || 'EN ATTENTE',
   u: consultation.urgence ? 1 : undefined,
-  motif: consultation.observation?.diagnostic ?? '',
+  motif: consultation.motif ?? '',
+  diagnostic: consultation.observation?.diagnosticRetenu ?? consultation.observation?.diagnostic ?? '',
+  notes: consultation.observation?.notes ?? '',
 });
 
 const TreatmentSkeleton = () => (
@@ -151,15 +167,24 @@ const TreatmentSkeleton = () => (
 );
 
 export default function TraitementPage() {
+  const router = useRouter();
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [activeSection, setActiveSection] = useState<'medicament' | 'non-medicamentaux'>('medicament');
+  const [isControlMode, setIsControlMode] = useState(false);
+  const [followUpSummary, setFollowUpSummary] = useState<{ id: number; date: string; motif: string } | null>(null);
 
   const { data: consultationData, isLoading: loading, error: queryError } = useConsultation(appointmentId);
   const { mutateAsync: finalizeMutation, isPending: saving } = useFinalizeConsultation();
+  const { data: historyData = [] } = usePatientConsultationHistory(appointment?.patientId ?? null);
+
+  const hasExistingClinicalSummary = Boolean(appointment?.diagnostic?.trim() || appointment?.notes?.trim());
+  const hasMotif = Boolean(appointment?.motif?.trim());
+  const hasHistory = historyData.length > 0;
 
   // États pour les données dynamiques
-  const [observation, setObservation] = useState({ diagnostic: '', notes: '' });
+  const [observation, setObservation] = useState({ diagnosticSuspicion: '', diagnosticRetenu: '', notes: '' });
+  const [parametres, setParametres] = useState<Array<{ id: number; nom: string; valeur: string; unite: string }>>(defaultClinicalParameters);
   const [medicaments, setMedicaments] = useState<Array<{
     id: number;
     medicament: string;
@@ -207,14 +232,27 @@ export default function TraitementPage() {
     setMedicaments(medicaments.filter(med => med.id !== id));
   };
 
+  const addParametre = () => {
+    setParametres([...parametres, { id: Date.now(), nom: '', valeur: '', unite: '' }]);
+  };
+
+  const updateParametre = (id: number, field: 'nom' | 'valeur' | 'unite', value: string) => {
+    setParametres(parametres.map((param) => (param.id === id ? { ...param, [field]: value } : param)));
+  };
+
+  const removeParametre = (id: number) => {
+    setParametres(parametres.filter((param) => param.id !== id));
+  };
+
   // Fonction pour finaliser la consultation
   const finalizeConsultation = async () => {
     if (!appointmentId) return;
 
     try {
       const payload = {
-        observation: (observation.diagnostic.trim() || observation.notes.trim()) ? {
-          diagnostic: observation.diagnostic,
+        observation: (observation.diagnosticSuspicion.trim() || observation.diagnosticRetenu.trim() || observation.notes.trim()) ? {
+          diagnosticSuspicion: observation.diagnosticSuspicion,
+          diagnosticRetenu: observation.diagnosticRetenu,
           notes: observation.notes,
         } : null,
         medicaments: medicaments.filter(med => med.medicament.trim() !== ''),
@@ -226,16 +264,46 @@ export default function TraitementPage() {
           nonMedicaments.hospitalisationMotif.trim() ||
           nonMedicaments.hospitalisationService.trim()
         ) ? nonMedicaments : null,
+        parametres: parametres
+          .filter((param) => param.nom.trim() || param.valeur.trim())
+          .map((param) => ({
+            nom: param.nom.trim(),
+            valeur: param.valeur.trim(),
+            unite: param.unite.trim(),
+          })),
       };
 
-      await finalizeMutation({ id: appointmentId, payload });
+      const result = await finalizeMutation({ id: appointmentId, payload });
+      const followUp = result?.followUp;
 
-      alert('Consultation finalisée avec succès!');
-      // Rediriger vers la page de prescription
-      window.location.href = '/modules/consultation-externe';
+      if (followUp?.id) {
+        setFollowUpSummary({
+          id: followUp.id,
+          date: followUp.date ? new Date(followUp.date).toLocaleDateString('fr-FR') : 'à définir',
+          motif: followUp.motif || 'Contrôle de suivi',
+        });
+        router.push(`/modules/consultation-externe/traitement?id=${followUp.id}&mode=controle`);
+        return;
+      }
+
+      router.push('/modules/consultation-externe');
     } catch (err) {
       alert('Erreur lors de la sauvegarde: ' + (err instanceof Error ? err.message : 'Erreur inconnue'));
     }
+  };
+
+  const handleCancelAndGoBack = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+
+    if (appointmentId) {
+      try {
+        await consultationApi.traiterConsultation(appointmentId, 'annuler');
+      } catch (error) {
+        console.error('Impossible de remettre la consultation en attente:', error);
+      }
+    }
+
+    router.push('/modules/consultation-externe');
   };
 
   useEffect(() => {
@@ -244,6 +312,7 @@ export default function TraitementPage() {
     const params = new URLSearchParams(window.location.search);
     const consultationId = params.get('consultationId') ?? params.get('id');
     const patientId = params.get('patientId');
+    const mode = params.get('mode');
 
     console.log('URL params:', window.location.search);
     console.log('consultationId from URL:', consultationId);
@@ -252,6 +321,8 @@ export default function TraitementPage() {
     if (consultationId) {
       setAppointmentId(consultationId);
     }
+
+    setIsControlMode(mode === 'controle');
   }, []);
 
   useEffect(() => {
@@ -260,9 +331,23 @@ export default function TraitementPage() {
 
       if (consultationData.observation) {
         setObservation({
-          diagnostic: consultationData.observation.diagnostic,
-          notes: consultationData.observation.notes,
+          diagnosticSuspicion: consultationData.observation.diagnosticSuspicion ?? '',
+          diagnosticRetenu: consultationData.observation.diagnosticRetenu ?? consultationData.observation.diagnostic ?? '',
+          notes: consultationData.observation.notes ?? '',
         });
+      }
+
+      if (consultationData.parametresCliniques && consultationData.parametresCliniques.length > 0) {
+        setParametres(
+          consultationData.parametresCliniques.map((param, index) => ({
+            id: param.id ?? index + 1,
+            nom: param.nom,
+            valeur: param.valeur,
+            unite: param.unite ?? '',
+          })),
+        );
+      } else {
+        setParametres(defaultClinicalParameters);
       }
 
       const existingNonMed = consultationData.nonMedicamentPrescriptions?.[0];
@@ -303,14 +388,25 @@ export default function TraitementPage() {
 
   if (!appointment) return null;
 
+  const pageTitle = isControlMode ? 'Gestion du contrôle' : 'Traitement de consultation';
+  const pageSubtitle = isControlMode
+    ? 'Le contrôle est désormais géré dans l’interface de consultation.'
+    : 'Interface de prescription et de suivi du patient.';
+
   return (
     <Suspense fallback={<TreatmentSkeleton />}>
       <div className="bg-[#F5F8FA] min-h-screen py-8 px-6">
         <div className="max-w-7xl mx-auto">
+          <div className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-md md:w-full pointer-events-none">
+            <div className="pointer-events-auto ml-auto">
+            </div>
+          </div>
+
           {/* Header Section */}
           <div className="mb-10 flex items-start gap-5">
             <Link
               href="/modules/consultation-externe"
+              onClick={handleCancelAndGoBack}
               className="group inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-sm border border-gray-100 hover:bg-[#EAF3FA] transition-all text-[#006A8C] hover:scale-105 active:scale-95 mt-1"
               title="Retour"
             >
@@ -318,11 +414,16 @@ export default function TraitementPage() {
             </Link>
 
             <div className="flex flex-col gap-1.5">
-              <h1 className="text-[28px] font-extrabold text-gray-900 leading-tight tracking-tight">
-                Traitement de consultation
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-[28px] font-extrabold text-gray-900 leading-tight tracking-tight">
+                  {pageTitle}
+                </h1>
+                {isControlMode && (
+                  <Badge className="bg-[#EAF3FA] text-[#006A8C]">Contrôle</Badge>
+                )}
+              </div>
               <p className="text-[14px] text-gray-500 font-medium">
-                Interface de prescription et de suivi du patient.
+                {pageSubtitle}
               </p>
             </div>
           </div>
@@ -353,6 +454,15 @@ export default function TraitementPage() {
               </CardHeader>
 
               <CardContent className="p-7 space-y-8">
+                {followUpSummary && (
+                  <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-700">Contrôle de suivi programmé</p>
+                    <p className="mt-2 text-[13px] font-semibold text-emerald-800">
+                      {followUpSummary.motif} — {followUpSummary.date}
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-[20px] bg-[#F8FAFC] border border-gray-100 p-4">
                     <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-[0.15em]">Horaire Rendez-vous</p>
@@ -370,15 +480,54 @@ export default function TraitementPage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-gray-100 bg-[#F5F8FA]/50 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Stethoscope className="h-4 w-4 text-[#006A8C]" strokeWidth={2.5} />
-                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#64748B]">Motif de consultation</p>
+                {hasMotif && (
+                  <div className="rounded-3xl border border-gray-100 bg-[#F5F8FA]/50 p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Stethoscope className="h-4 w-4 text-[#006A8C]" strokeWidth={2.5} />
+                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#64748B]">Motif de consultation</p>
+                    </div>
+                    <p className="text-[13px] font-medium text-gray-600 leading-relaxed">{appointment.motif}</p>
                   </div>
-                  <p className="text-[13px] font-medium text-gray-600 leading-relaxed">{appointment.motif || 'Aucun motif renseigné.'}</p>
-                </div>
+                )}
+
+                {hasExistingClinicalSummary && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {appointment.diagnostic?.trim() && (
+                      <div className="rounded-[20px] bg-[#F8FAFC] border border-gray-100 p-4">
+                        <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-[0.15em]">Diagnostic retenu</p>
+                        <p className="mt-2 text-[13px] font-semibold text-gray-900 leading-relaxed">{appointment.diagnostic}</p>
+                      </div>
+                    )}
+                    {appointment.notes?.trim() && (
+                      <div className="rounded-[20px] bg-[#F8FAFC] border border-gray-100 p-4">
+                        <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-[0.15em]">Notes existantes</p>
+                        <p className="mt-2 text-[13px] font-semibold text-gray-900 leading-relaxed">{appointment.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-6 pt-2">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Suspicion diagnostique</label>
+                      <textarea
+                        value={observation.diagnosticSuspicion}
+                        onChange={(e) => setObservation({ ...observation, diagnosticSuspicion: e.target.value })}
+                        className="w-full min-h-[112px] rounded-[24px] border border-gray-100 bg-white p-5 text-[14px] text-gray-700 shadow-sm focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] outline-none transition-all placeholder:text-gray-400"
+                        placeholder="Écrire la suspicion clinique..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Diagnostic retenu</label>
+                      <textarea
+                        value={observation.diagnosticRetenu}
+                        onChange={(e) => setObservation({ ...observation, diagnosticRetenu: e.target.value })}
+                        className="w-full min-h-[112px] rounded-[24px] border border-gray-100 bg-white p-5 text-[14px] text-gray-700 shadow-sm focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] outline-none transition-all placeholder:text-gray-400"
+                        placeholder="Écrire le diagnostic retenu..."
+                      />
+                    </div>
+                  </div>
                   <div>
                     <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Observations médicales</label>
                     <textarea
@@ -388,19 +537,43 @@ export default function TraitementPage() {
                       placeholder="Saisir les notes d'observation clinique..."
                     />
                   </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Diagnostic final</label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                        <ClipboardList className="h-4 w-4 text-gray-400" />
+                  <div className="rounded-[24px] border border-gray-100 bg-[#F8FAFC] p-5">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#64748B]">Paramètres cliniques</p>
+                        <p className="text-[12px] text-gray-500">Tension, température, poids, saturation, etc.</p>
                       </div>
-                      <input
-                        type="text"
-                        value={observation.diagnostic}
-                        onChange={(e) => setObservation({ ...observation, diagnostic: e.target.value })}
-                        className="w-full rounded-2xl border border-gray-100 bg-white pl-11 pr-5 py-4 text-[14px] text-gray-700 shadow-sm focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] outline-none transition-all placeholder:text-gray-400"
-                        placeholder="Préciser le diagnostic..."
-                      />
+                      <Button type="button" variant="outline" className="rounded-full" onClick={addParametre}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Ajouter
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {parametres.map((param) => (
+                        <div key={param.id} className="grid gap-3 md:grid-cols-[1.2fr_0.9fr_0.7fr_auto]">
+                          <input
+                            value={param.nom}
+                            onChange={(e) => updateParametre(param.id, 'nom', e.target.value)}
+                            placeholder="Nom du paramètre"
+                            className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
+                          />
+                          <input
+                            value={param.valeur}
+                            onChange={(e) => updateParametre(param.id, 'valeur', e.target.value)}
+                            placeholder="Valeur"
+                            className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
+                          />
+                          <input
+                            value={param.unite}
+                            onChange={(e) => updateParametre(param.id, 'unite', e.target.value)}
+                            placeholder="Unité"
+                            className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
+                          />
+                          <Button type="button" variant="ghost" className="h-10 w-10 rounded-full p-0" onClick={() => removeParametre(param.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -436,15 +609,38 @@ export default function TraitementPage() {
                 </div>
               </Card>
 
-              <div className="bg-[#EAF3FA] rounded-[28px] p-7 border border-[#D1E5F5]">
-                <h3 className="text-[10px] font-extrabold text-[#006A8C] uppercase tracking-[0.15em] mb-4">Aide au diagnostic</h3>
-                <p className="text-[12px] text-[#006A8C] font-medium leading-relaxed opacity-80">
-                  Consultez les antécédents médicaux complets du patient pour affiner votre diagnostic.
-                </p>
-                <Button variant="link" className="text-[#006A8C] p-0 h-auto font-bold text-[12px] mt-4 hover:no-underline">
-                  Consulter le dossier historique →
-                </Button>
-              </div>
+              {hasHistory && (
+                <div className="rounded-[28px] border border-slate-200 bg-white p-7 shadow-sm">
+                  <h3 className="text-[10px] font-extrabold text-[#006A8C] uppercase tracking-[0.15em] mb-4">Historique clinique</h3>
+                  <div className="space-y-3">
+                    {historyData.slice().reverse().map((entry) => (
+                      <div key={entry.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{entry.typeVisite || 'Consultation'}</p>
+                          <p className="text-[10px] text-slate-500">{new Date(entry.date).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                        <p className="mt-2 text-[12px] font-semibold text-slate-700">{entry.diagnostic || 'Aucun diagnostic enregistré'}</p>
+                        <p className="mt-1 text-[12px] text-slate-600 line-clamp-3">{entry.observations || 'Aucune observation détaillée'}</p>
+                        {entry.medicaments.length > 0 && (
+                          <p className="mt-2 text-[11px] text-[#006A8C]">Médicaments : {entry.medicaments.join(', ')}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {hasHistory && (
+                <div className="bg-[#EAF3FA] rounded-[28px] p-7 border border-[#D1E5F5]">
+                  <h3 className="text-[10px] font-extrabold text-[#006A8C] uppercase tracking-[0.15em] mb-4">Aide au diagnostic</h3>
+                  <p className="text-[12px] text-[#006A8C] font-medium leading-relaxed opacity-80">
+                    Consultez les antécédents médicaux complets du patient pour affiner votre diagnostic.
+                  </p>
+                  <Button variant="link" className="text-[#006A8C] p-0 h-auto font-bold text-[12px] mt-4 hover:no-underline">
+                    Consulter le dossier historique →
+                  </Button>
+                </div>
+              )}
             </aside>
           </div>
 
@@ -632,18 +828,21 @@ export default function TraitementPage() {
                     </div>
 
                     <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
-                      <div className="flex items-center gap-3 text-[#006A8C] mb-5">
+                      <div className="flex items-center gap-3 text-[#006A8C] mb-3">
                         <div className="p-2 bg-blue-50 rounded-lg">
                           <Calendar className="w-4.5 h-4.5" />
                         </div>
                         <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Contrôle / RDV de suivi</h4>
                       </div>
+                      <p className="text-[12px] text-gray-500 mb-4">
+                        Ce bloc sert à planifier le prochain contrôle : motif + date prévue.
+                      </p>
                       <div className="space-y-4">
                         <textarea
                           value={nonMedicaments.rdvMotif}
                           onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvMotif: e.target.value })}
                           className="w-full h-16 bg-[#F8FAFC] border-none rounded-2xl p-4 text-[13px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20 transition-all"
-                          placeholder="Motif du prochain rendez-vous..."
+                          placeholder="Motif du prochain contrôle..."
                         />
                         <div className="flex flex-col sm:flex-row items-center gap-4">
                           <div className="flex bg-[#F1F5F9] p-1.5 rounded-xl gap-1">
