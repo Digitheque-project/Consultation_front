@@ -112,7 +112,7 @@ export function useTraiterConsultation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, action, extra }: { id: string | number; action: 'ouvrir' | 'annuler' | 'terminer' | 'controle' | 'examen' | 'hospitalisation'; extra?: Record<string, any> }) =>
+    mutationFn: ({ id, action, extra }: { id: string | number; action: 'ouvrir' | 'annuler' | 'terminer' | 'controle' | 'examen' | 'hospitalisation' | 'reporter'; extra?: Record<string, any> }) =>
       consultationApi.traiterConsultation(id, action, extra),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: consultationsKeys.all });

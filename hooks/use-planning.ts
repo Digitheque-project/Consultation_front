@@ -8,6 +8,14 @@ export const usePlanning = () => {
   });
 };
 
+export const useMedecins = () => {
+  return useQuery({
+    queryKey: ['medecins'],
+    queryFn: planningApi.getMedecins,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
 export const useCreatePlanning = () => {
   const queryClient = useQueryClient();
 

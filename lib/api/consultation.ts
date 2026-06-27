@@ -62,6 +62,7 @@ export type ConsultationApi = {
   typeVisite?: string;
   ordreControle?: number | null;
   consultationParenteId?: number | null;
+  estReport?: boolean;
   observation?: {
     diagnostic?: string;
     diagnosticSuspicion?: string | null;
@@ -245,7 +246,7 @@ export const consultationApi = {
     return response.json();
   },
 
-  traiterConsultation: async (id: string | number, action: 'ouvrir' | 'annuler' | 'terminer' | 'controle' | 'examen' | 'hospitalisation', extra?: Record<string, any>): Promise<any> => {
+  traiterConsultation: async (id: string | number, action: 'ouvrir' | 'annuler' | 'terminer' | 'controle' | 'examen' | 'hospitalisation' | 'reporter', extra?: Record<string, any>): Promise<any> => {
     const response = await fetchWithAuth(consultationEndpoint(`/consultations/${id}/traiter`), {
       method: 'POST',
       headers: {

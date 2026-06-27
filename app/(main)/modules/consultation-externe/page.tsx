@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CalendarRange, CalendarX, ArrowLeftRight, Search, Filter, X } from "lucide-react";
+import { Calendar, CalendarRange, CalendarClock, CalendarX, ArrowLeftRight, Search, Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { useAllConsultations, useConsultationEventsSubscription, usePatientConsultationHistory } from '@/hooks/use-consultations';
+import { useAllConsultations, useConsultationEventsSubscription, usePatientConsultationHistory, useTraiterConsultation } from '@/hooks/use-consultations';
+import { useMedecins } from '@/hooks/use-planning';
 import { consultationApi, getVisiteLabel } from '@/lib/api/consultation';
 import { PatientInfoModal } from "@/components/notification/PatientInfoModal";
 import { PatientInfo } from "@/stores/notification-store";
@@ -23,6 +24,12 @@ const formatDateKey = (value: string | Date) => {
 };
 
 const getTodayDateKey = () => formatDateKey(new Date());
+
+const getTomorrowDateKey = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return formatDateKey(date);
+};
 
 type Appointment = {
   id: number;
@@ -50,6 +57,8 @@ type Appointment = {
   isArrived: boolean;
   arrivalLabel: string;
   arrivalTime?: string;
+  isReport: boolean;
+  medecinId: number;
 };
 
 const ConsultationSkeleton = () => (
@@ -87,8 +96,14 @@ const ConsultationSkeleton = () => (
 export default function ConsultationExternePage() {
   const router = useRouter();
   const [patientInfo, setPatientInfo] = useState<Appointment | null>(null);
+  const [reportTarget, setReportTarget] = useState<Appointment | null>(null);
+  const [reportDate, setReportDate] = useState('');
+  const [reportMedecinId, setReportMedecinId] = useState('');
+  const [reportError, setReportError] = useState<string | null>(null);
   const { medecin, isAuthenticated, isLoading } = useAuth();
   useConsultationEventsSubscription();
+  const { data: medecinsList = [] } = useMedecins();
+  const { mutateAsync: traiterMutation, isPending: isReporting } = useTraiterConsultation();
 
   const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,10 +158,10 @@ export default function ConsultationExternePage() {
         (consultation.consultationParenteId !== null && consultation.consultationParenteId !== undefined);
       const controlLabel = isControl
         ? (consultation.ordreControle && consultation.ordreControle > 1
-            ? `${consultation.ordreControle}e contrôle`
-            : consultation.ordreControle === 1
-              ? '1er contrôle'
-              : 'Contrôle')
+          ? `${consultation.ordreControle}e contrôle`
+          : consultation.ordreControle === 1
+            ? '1er contrôle'
+            : 'Contrôle')
         : 'Consultation initiale';
       const searchText = [
         consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
@@ -187,6 +202,8 @@ export default function ConsultationExternePage() {
         isArrived: Boolean(consultation.arriveeAccueil),
         arrivalLabel: consultation.arriveeAccueil ? 'Arrivé' : 'À confirmer',
         arrivalTime: consultation.arriveeAccueilAt ? new Date(consultation.arriveeAccueilAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : undefined,
+        isReport: Boolean(consultation.estReport),
+        medecinId: consultation.medecinId,
       };
     });
 
@@ -200,6 +217,11 @@ export default function ConsultationExternePage() {
       const bCompleted = b.status === "EFFECTUÉ";
       if (aCompleted && !bCompleted) return 1;
       if (!aCompleted && bCompleted) return -1;
+
+      const aReport = a.isReport && !aCompleted;
+      const bReport = b.isReport && !bCompleted;
+      if (aReport && !bReport) return -1;
+      if (!aReport && bReport) return 1;
 
       const aArrived = a.isArrived && !aCompleted;
       const bArrived = b.isArrived && !bCompleted;
@@ -275,6 +297,40 @@ export default function ConsultationExternePage() {
 
   const handleClosePatientInfo = () => {
     setPatientInfo(null);
+  };
+
+  const handleOpenReport = (appt: Appointment) => {
+    setReportTarget(appt);
+    setReportDate(getTomorrowDateKey());
+    setReportMedecinId(String(appt.medecinId));
+    setReportError(null);
+  };
+
+  const handleCloseReport = () => {
+    setReportTarget(null);
+    setReportError(null);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportTarget || !reportDate) {
+      setReportError('Choisissez une date de report.');
+      return;
+    }
+
+    setReportError(null);
+    try {
+      await traiterMutation({
+        id: reportTarget.id,
+        action: 'reporter',
+        extra: {
+          date: reportDate,
+          medecinId: reportMedecinId ? Number(reportMedecinId) : undefined,
+        },
+      });
+      handleCloseReport();
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : 'Erreur lors du report de la consultation.');
+    }
   };
 
   const doctorName = medecin ? `Dr. ${medecin.prenom} ${medecin.nom}` : 'Dr. connecté';
@@ -357,11 +413,11 @@ export default function ConsultationExternePage() {
               <div className="h-px bg-slate-100" />
 
               {/* Ligne 2 : statut, type de visite, plage de dates */}
-              <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+              <div className="flex min-w-0 items-center gap-2 overflow-hidden">
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-                  className="h-9 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[12px] font-semibold text-slate-600 transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005b82]/30"
+                  className="h-9 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[12px] font-semibold text-slate-600 transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005b82]/30"
                 >
                   <option value="TOUS">Tous les statuts</option>
                   <option value="EN ATTENTE">En attente</option>
@@ -372,7 +428,7 @@ export default function ConsultationExternePage() {
                 <select
                   value={visitTypeFilter}
                   onChange={(event) => setVisitTypeFilter(event.target.value as typeof visitTypeFilter)}
-                  className="h-9 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[12px] font-semibold text-slate-600 transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005b82]/30"
+                  className="h-9 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-[12px] font-semibold text-slate-600 transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005b82]/30"
                 >
                   <option value="TOUS">Tous les types</option>
                   <option value="INITIALE">Consultation initiale</option>
@@ -380,7 +436,7 @@ export default function ConsultationExternePage() {
                 </select>
 
                 <div className={cn(
-                  "flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 transition-colors",
+                  "flex h-9 min-w-0 flex-[2] items-center gap-1.5 rounded-xl border px-2.5 transition-colors",
                   hasDateRange ? "border-[#005b82]/40 bg-[#EAF3FA]" : "border-slate-200 bg-slate-50"
                 )}>
                   <CalendarRange className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -388,14 +444,14 @@ export default function ConsultationExternePage() {
                     type="date"
                     value={dateFrom}
                     onChange={(event) => setDateFrom(event.target.value)}
-                    className="h-full w-[112px] bg-transparent text-[12px] font-semibold text-slate-600 focus:outline-none"
+                    className="h-full min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-slate-600 focus:outline-none"
                   />
-                  <span className="text-slate-300">→</span>
+                  <span className="shrink-0 text-slate-300">→</span>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={(event) => setDateTo(event.target.value)}
-                    className="h-full w-[112px] bg-transparent text-[12px] font-semibold text-slate-600 focus:outline-none"
+                    className="h-full min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-slate-600 focus:outline-none"
                   />
                 </div>
 
@@ -446,82 +502,95 @@ export default function ConsultationExternePage() {
                             </tr>
                           )}
                           {filteredPatients.map((patient) => (
-                              <tr key={patient.id} className="border-t border-gray-100 hover:bg-slate-50 align-top">
-                                <td className="px-2 py-3 whitespace-nowrap">
-                                  <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2">
-                                      {patient.isUrgent && <span className="h-2 w-2 rounded-full bg-red-500" />}
-                                      <span className={cn(
-                                        "font-semibold",
-                                        patient.status === "EFFECTUÉ" ? "text-slate-400" : "text-[#005b82]"
-                                      )}>{patient.time}</span>
-                                    </div>
-                                    <span className="text-[11px] text-gray-500">{patient.date}</span>
+                            <tr key={patient.id} className="border-t border-gray-100 hover:bg-slate-50 align-top">
+                              <td className="px-2 py-3 whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    {patient.isUrgent && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                                    <span className={cn(
+                                      "font-semibold",
+                                      patient.status === "EFFECTUÉ" ? "text-slate-400" : "text-[#005b82]"
+                                    )}>{patient.time}</span>
                                   </div>
-                                </td>
-                                <td className="px-2 py-3 max-w-[220px]">
-                                  <div>
-                                    <p className="font-semibold text-gray-900 leading-tight">{patient.name}</p>
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                      <Badge className={cn(
-                                        "border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider",
-                                        patient.isControl ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700"
-                                      )}>
-                                        {patient.visitLabel}
+                                  <span className="text-[11px] text-gray-500">{patient.date}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-3 max-w-[220px]">
+                                <div>
+                                  <p className="font-semibold text-gray-900 leading-tight">{patient.name}</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    <Badge className={cn(
+                                      "border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider",
+                                      patient.isControl ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700"
+                                    )}>
+                                      {patient.visitLabel}
+                                    </Badge>
+                                    <Badge className={cn(
+                                      "border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider",
+                                      patient.isArrived ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"
+                                    )}>
+                                      {patient.arrivalLabel}{patient.arrivalTime ? ` · ${patient.arrivalTime}` : ''}
+                                    </Badge>
+                                    {patient.isControl && (
+                                      <Badge className="border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider bg-blue-50 text-blue-700">
+                                        Suivi
                                       </Badge>
-                                      <Badge className={cn(
-                                        "border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider",
-                                        patient.isArrived ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"
-                                      )}>
-                                        {patient.arrivalLabel}{patient.arrivalTime ? ` · ${patient.arrivalTime}` : ''}
+                                    )}
+                                    {patient.isReport && (
+                                      <Badge className="border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider bg-orange-50 text-orange-700">
+                                        Reporté · priorité
                                       </Badge>
-                                      {patient.isControl && (
-                                        <Badge className="border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider bg-blue-50 text-blue-700">
-                                          Suivi
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-2 py-3 whitespace-nowrap">
-                                  <Badge className={cn(
-                                    "border-none px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider",
-                                    patient.isUrgent ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-700"
-                                  )}>
-                                    {patient.urgencyLabel}
-                                  </Badge>
-                                </td>
-                                <td className="px-2 py-3 max-w-[220px]">
-                                  <p className="text-gray-600 line-clamp-2 leading-snug text-[12px]">{patient.motif || '—'}</p>
-                                </td>
-                                <td className="px-2 py-3 whitespace-nowrap">
-                                  <Badge className={cn(
-                                    "border-none px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider",
-                                    patient.status === "EFFECTUÉ" ? "bg-[#E6F4EA] text-[#059669]" : patient.isUrgent ? "bg-red-50 text-red-700" : "bg-[#EAF3FA] text-[#006A8C]"
-                                  )}>
-                                    {patient.status}
-                                  </Badge>
-                                </td>
-                                <td className="px-2 py-3 whitespace-nowrap">
-                                  <div className="flex justify-end gap-1.5">
-                                    {patient.action === "start" ? (
-                                      <>
-                                        <Button onClick={() => handleStart(patient)} className="bg-[#005b82] hover:bg-[#004a6b] text-white rounded-xl px-3 py-2 h-auto text-[11px] font-bold whitespace-nowrap">
-                                          Ouvrir
-                                        </Button>
-                                        <Button variant="ghost" onClick={() => handleOpenPatientInfo(patient)} className="text-[#005b82] hover:bg-slate-50 h-auto px-2.5 py-2 text-[11px] font-bold whitespace-nowrap">
-                                          Infos
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <Button disabled className="bg-gray-50 text-gray-400 rounded-xl px-3 py-2 h-auto text-[11px] font-bold border border-gray-100 whitespace-nowrap">
-                                        Terminé
-                                      </Button>
                                     )}
                                   </div>
-                                </td>
-                              </tr>
-                            ))}
+                                </div>
+                              </td>
+                              <td className="px-2 py-3 whitespace-nowrap">
+                                <Badge className={cn(
+                                  "border-none px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider",
+                                  patient.isUrgent ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-700"
+                                )}>
+                                  {patient.urgencyLabel}
+                                </Badge>
+                              </td>
+                              <td className="px-2 py-3 max-w-[220px]">
+                                <p className="text-gray-600 line-clamp-2 leading-snug text-[12px]">{patient.motif || '—'}</p>
+                              </td>
+                              <td className="px-2 py-3 whitespace-nowrap">
+                                <Badge className={cn(
+                                  "border-none px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider",
+                                  patient.status === "EFFECTUÉ" ? "bg-[#E6F4EA] text-[#059669]" : patient.isUrgent ? "bg-red-50 text-red-700" : "bg-[#EAF3FA] text-[#006A8C]"
+                                )}>
+                                  {patient.status}
+                                </Badge>
+                              </td>
+                              <td className="px-2 py-3 whitespace-nowrap">
+                                <div className="flex justify-end gap-1.5">
+                                  {patient.action === "start" ? (
+                                    <>
+                                      <Button onClick={() => handleStart(patient)} className="bg-[#005b82] hover:bg-[#004a6b] text-white rounded-xl px-3 py-2 h-auto text-[11px] font-bold whitespace-nowrap">
+                                        Ouvrir
+                                      </Button>
+                                      <Button variant="ghost" onClick={() => handleOpenPatientInfo(patient)} className="text-[#005b82] hover:bg-slate-50 h-auto px-2.5 py-2 text-[11px] font-bold whitespace-nowrap">
+                                        Infos
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        title="Reporter à un autre jour"
+                                        onClick={() => handleOpenReport(patient)}
+                                        className="text-orange-600 hover:bg-orange-50 h-auto px-2.5 py-2 text-[11px] font-bold whitespace-nowrap"
+                                      >
+                                        <CalendarClock className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button disabled className="bg-gray-50 text-gray-400 rounded-xl px-3 py-2 h-auto text-[11px] font-bold border border-gray-100 whitespace-nowrap">
+                                      Terminé
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -606,6 +675,70 @@ export default function ConsultationExternePage() {
             onAction={() => handleStart(patientInfo)}
             actionLabel="Commencer la consultation"
           />
+        )}
+
+        {reportTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={handleCloseReport}>
+            <div
+              className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between mb-1">
+                <h2 className="text-lg font-extrabold text-[#1a1f36]">Reporter la consultation</h2>
+                <button onClick={handleCloseReport} className="text-slate-400 hover:text-slate-600">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-[13px] text-slate-500 mb-5">
+                {reportTarget.name} — le patient sera marqué prioritaire au retour, en compensation de l’attente déjà subie.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nouvelle date</label>
+                  <input
+                    type="date"
+                    value={reportDate}
+                    min={getTodayDateKey()}
+                    onChange={(event) => setReportDate(event.target.value)}
+                    className="w-full h-10 rounded-xl border border-slate-200 px-3 text-[13px] font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#005b82]/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Médecin</label>
+                  <select
+                    value={reportMedecinId}
+                    onChange={(event) => setReportMedecinId(event.target.value)}
+                    className="w-full h-10 rounded-xl border border-slate-200 px-3 text-[13px] font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#005b82]/30"
+                  >
+                    {medecinsList.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        Dr. {doc.prenom} {doc.nom}{doc.specialite ? ` — ${doc.specialite}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {reportError && (
+                  <p className="text-[12px] font-medium text-red-600">{reportError}</p>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="ghost" onClick={handleCloseReport} className="text-slate-500 hover:bg-slate-50">
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handleSubmitReport}
+                    disabled={isReporting}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    {isReporting ? 'Report en cours...' : 'Confirmer le report'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
