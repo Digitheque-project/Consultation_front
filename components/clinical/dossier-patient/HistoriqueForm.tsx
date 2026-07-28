@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { checkPublicEnv } from '@/lib/env';
 
-const API_URL = 'https://prescription-sih-api-0yj3.onrender.com';
+const API_URL = checkPublicEnv('NEXT_PUBLIC_PRESCRIPTION_URL', process.env.NEXT_PUBLIC_PRESCRIPTION_URL);
 
 const FILTRES = [
   { id: 'all',   label: 'Tout',             icon: 'list' },

@@ -1,6 +1,7 @@
 import axios, { isAxiosError } from 'axios';
+import { checkPublicEnv } from '@/lib/env';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = checkPublicEnv('NEXT_PUBLIC_API_URL', process.env.NEXT_PUBLIC_API_URL);
 
 /** Corps attendu par POST/PATCH `/patients/register` (Swagger). */
 export type RegisterPatientPayload = {

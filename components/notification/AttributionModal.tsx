@@ -326,8 +326,7 @@ export function AttributionModal({
               Attribution Chambre & Lit
             </h2>
             <p className="mt-1 text-[11.5px] font-semibold text-gray-500">
-              Patient: <span className="text-[#0EA5E9]">{patientName}</span>{" "}
-              (ID: {patientId})
+              Patient: <span className="text-[#0EA5E9]">{patientName}</span>
             </p>
           </div>
 

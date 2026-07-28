@@ -9,11 +9,12 @@ import { Calendar, CalendarRange, CalendarClock, CalendarX, ArrowLeftRight, Sear
 import { cn } from "@/lib/utils";
 
 import { useAllConsultations, useConsultationEventsSubscription, usePatientConsultationHistory, useTraiterConsultation } from '@/hooks/use-consultations';
-import { useMedecins } from '@/hooks/use-planning';
+import { useMedecins, usePlanning } from '@/hooks/use-planning';
 import { consultationApi, getVisiteLabel } from '@/lib/api/consultation';
 import { PatientInfoModal } from "@/components/notification/PatientInfoModal";
 import { PatientInfo } from "@/stores/notification-store";
 import { useAuth } from '@/context/AuthContext';
+import { AUTH_CLIENT_URL } from '@/lib/auth/constants';
 
 const formatDateKey = (value: string | Date) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -45,6 +46,7 @@ type Appointment = {
   isControl: boolean;
   motif?: string;
   coverage?: string;
+  priseEnCharge?: { companyName: string; isActive: boolean } | null;
   idNumber?: string;
   profession?: string;
   phone?: string;
@@ -58,7 +60,7 @@ type Appointment = {
   arrivalLabel: string;
   arrivalTime?: string;
   isReport: boolean;
-  medecinId: number;
+  medecinId: string;
 };
 
 const ConsultationSkeleton = () => (
@@ -111,6 +113,8 @@ export default function ConsultationExternePage() {
   const [visitTypeFilter, setVisitTypeFilter] = useState<'TOUS' | 'INITIALE' | 'CONTROLE'>('TOUS');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const hasDateRange = Boolean(dateFrom || dateTo);
   const hasActiveFilters = hasDateRange || searchQuery.trim().length > 0 || statusFilter !== 'TOUS' || visitTypeFilter !== 'TOUS' || viewMode !== 'today';
@@ -118,10 +122,12 @@ export default function ConsultationExternePage() {
   const queryFilters = hasDateRange
     ? { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }
     : viewMode === 'today'
-      ? { arrived: true, date: getTodayDateKey() }
+      ? { date: getTodayDateKey() }
       : undefined;
 
   const { data: consultations = [], isLoading: loading, error } = useAllConsultations(queryFilters);
+  const { data: todayConsultationsRaw = [] } = useAllConsultations({ date: getTodayDateKey() });
+  const { data: plannings = [] } = usePlanning();
   const { data: historyData = [] } = usePatientConsultationHistory(patientInfo?.patientId ?? null);
 
   const handleSetViewMode = (mode: 'today' | 'all') => {
@@ -138,13 +144,6 @@ export default function ConsultationExternePage() {
     setDateFrom('');
     setDateTo('');
   };
-
-  if (!isLoading && !isAuthenticated) {
-    if (typeof window !== "undefined") {
-      window.location.assign("/login?from=/modules/consultation-externe");
-    }
-    return null;
-  }
 
   const patients: Appointment[] = useMemo(() => {
     const mapped = consultations.map((consultation) => {
@@ -164,7 +163,7 @@ export default function ConsultationExternePage() {
             : 'Contrôle')
         : 'Consultation initiale';
       const searchText = [
-        consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
+        consultation.patient?.displayName ?? ([consultation.patient?.prenom, consultation.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu'),
         consultation.observation?.diagnostic ?? '',
         consultation.observation?.notes ?? '',
         visitLabel,
@@ -180,7 +179,7 @@ export default function ConsultationExternePage() {
       return {
         id: consultation.id,
         time: consultation.heure,
-        name: consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
+        name: consultation.patient?.displayName ?? ([consultation.patient?.prenom, consultation.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu'),
         date: formattedDate,
         dateKey,
         urgencyLabel: consultation.urgence ? 'Urgence' : 'Normal',
@@ -190,6 +189,7 @@ export default function ConsultationExternePage() {
         visitLabel: isControl ? controlLabel : visitLabel,
         isControl,
         motif: consultation.motif || consultation.observation?.diagnostic || '',
+        priseEnCharge: consultation.patient?.priseEnCharge ?? null,
         idNumber: consultation.patient?.cin ?? undefined,
         profession: consultation.patient?.profession ?? undefined,
         phone: consultation.patient?.telephone ?? undefined,
@@ -255,6 +255,26 @@ export default function ConsultationExternePage() {
     });
   }, [patients, searchQuery, statusFilter, visitTypeFilter]);
 
+  // Revenir à la première page dès que les filtres ou la recherche changent —
+  // sinon on peut se retrouver sur une page vide après un nouveau filtrage.
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, visitTypeFilter, viewMode, dateFrom, dateTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedPatients = useMemo(() => {
+    const start = (safeCurrentPage - 1) * PAGE_SIZE;
+    return filteredPatients.slice(start, start + PAGE_SIZE);
+  }, [filteredPatients, safeCurrentPage]);
+
+  if (!isLoading && !isAuthenticated) {
+    if (typeof window !== "undefined") {
+      window.location.href = AUTH_CLIENT_URL;
+    }
+    return null;
+  }
+
   const handleStart = async (appt: Appointment) => {
     try {
       await consultationApi.traiterConsultation(appt.id, 'ouvrir');
@@ -272,7 +292,8 @@ export default function ConsultationExternePage() {
         body: JSON.stringify({
           consultationId: appt.id,
           patientId: consultationDetails.patientId,
-          from: appt.isControl ? 'controle' : 'prescription'
+          from: appt.isControl ? 'controle' : 'prescription',
+          origin: 'fil-de-travail',
         }),
       });
 
@@ -282,12 +303,12 @@ export default function ConsultationExternePage() {
       } else {
         console.error('Erreur lors de la redirection');
         const mode = appt.isControl ? '&mode=controle' : '';
-        router.push(`/modules/consultation-externe/traitement?id=${appt.id}${mode}`);
+        router.push(`/modules/consultation-externe/traitement?id=${appt.id}${mode}&origin=fil-de-travail`);
       }
     } catch (error) {
       console.error('Erreur réseau:', error);
       const mode = appt.isControl ? '&mode=controle' : '';
-      router.push(`/modules/consultation-externe/traitement?id=${appt.id}${mode}`);
+      router.push(`/modules/consultation-externe/traitement?id=${appt.id}${mode}&origin=fil-de-travail`);
     }
   };
 
@@ -324,7 +345,7 @@ export default function ConsultationExternePage() {
         action: 'reporter',
         extra: {
           date: reportDate,
-          medecinId: reportMedecinId ? Number(reportMedecinId) : undefined,
+          medecinId: reportMedecinId || undefined,
         },
       });
       handleCloseReport();
@@ -335,11 +356,22 @@ export default function ConsultationExternePage() {
 
   const doctorName = medecin ? `Dr. ${medecin.prenom} ${medecin.nom}` : 'Dr. connecté';
 
-  // calculate stats
-  const totalConsultations = patients.length;
-  const completedConsultations = patients.filter(p => p.status === "EFFECTUÉ").length;
-  const quota = 10;
-  const progressPercent = Math.min((totalConsultations / quota) * 100, 100);
+  // Quota d'aujourd'hui : indépendant des filtres de vue actifs
+  const todayKey = getTodayDateKey();
+  const todayTotal = todayConsultationsRaw.length;
+  const todayCompleted = todayConsultationsRaw.filter(
+    (c) => c.termine || c.statut?.toUpperCase() === 'TERMINE' || c.statut?.toUpperCase() === 'TERMINÉ'
+  ).length;
+
+  // Quota max depuis le planning du médecin (somme des créneaux du jour)
+  const todayPlannings = plannings.filter((p) => formatDateKey(p.date) === todayKey && p.disponible);
+  const quotaMax = todayPlannings.length > 0
+    ? todayPlannings.reduce((sum, p) => sum + (p.quota ?? 0), 0)
+    : null;
+
+  const progressPercent = quotaMax && quotaMax > 0
+    ? Math.min((todayTotal / quotaMax) * 100, 100)
+    : 0;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -350,13 +382,43 @@ export default function ConsultationExternePage() {
       </div>
 
       <div className="p-4 sm:p-6 lg:p-8 flex-1">
-        <div className="max-w-[1400px] mx-auto grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* La colonne de droite (Vue d'ensemble) ne se met à côté du tableau qu'à
+            partir de 2xl (1536px) — en dessous, avec la sidebar de navigation
+            (jusqu'à 260px), le tableau n'a plus assez de place pour ses 7
+            colonnes et déborde horizontalement (boutons d'action cachés). */}
+        <div className="max-w-[1400px] mx-auto grid grid-cols-1 2xl:grid-cols-3 gap-8">
 
           {/* Left Column: Consultation List */}
-          <div className="xl:col-span-2">
-            <div className="mb-6 sm:mb-8">
-              <h1 className="text-[20px] sm:text-[26px] font-extrabold text-gray-900 leading-tight tracking-tight">Mes consultations du jour</h1>
-              <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1.5 font-medium">{doctorName}</p>
+          <div className="2xl:col-span-2">
+            {/* Le quota du jour doit toujours rester visible sans scroller, même
+                si le tableau contient des centaines de lignes (vue "Tous") — la
+                carte détaillée "Vue d'ensemble" plus bas peut se retrouver très
+                loin dans ce cas, donc on affiche aussi ce résumé compact ici. */}
+            <div className="mb-6 sm:mb-8 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-[20px] sm:text-[26px] font-extrabold text-gray-900 leading-tight tracking-tight">Mes consultations du jour</h1>
+                <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1.5 font-medium">{doctorName}</p>
+              </div>
+              <div className="flex items-center gap-2.5 rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-[0px_4px_16px_rgba(17,17,26,0.05)]">
+                <div className="relative h-9 w-9 shrink-0">
+                  <svg className="h-9 w-9 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="#F1F5F9" strokeWidth="4" />
+                    <circle
+                      cx="18" cy="18" r="15.5" fill="none"
+                      stroke={progressPercent >= 100 ? "#10B981" : "#005b82"}
+                      strokeWidth="4"
+                      strokeDasharray={`${(progressPercent / 100) * 97.4} 97.4`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+                <div className="leading-tight">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Quota aujourd'hui</p>
+                  <p className="text-[15px] font-black text-[#005b82]">
+                    {todayTotal}<span className="text-gray-300 font-bold">/{quotaMax ?? '—'}</span>
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="mb-6 space-y-2.5 rounded-2xl border border-gray-100 bg-white p-2.5 shadow-[0px_4px_16px_rgba(17,17,26,0.04)]">
@@ -476,114 +538,158 @@ export default function ConsultationExternePage() {
                   <ConsultationSkeleton />
                 </>
               ) : error ? (
-                <div className='p-6 bg-red-50 text-red-700 rounded-lg'>Erreur de chargement des données.</div>
+                <Card className="border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] rounded-3xl bg-white">
+                  <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 border border-slate-100">
+                      <Calendar className="w-7 h-7" />
+                    </div>
+                    <p className="text-[15px] font-bold text-slate-700">Aucun patient à traiter</p>
+                    <p className="text-[13px] text-slate-400 font-medium max-w-xs">
+                      Aucune consultation n&apos;est programmée pour aujourd&apos;hui, ou les données ne sont pas encore disponibles.
+                    </p>
+                  </CardContent>
+                </Card>
               ) : (
                 <Card className="border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] rounded-3xl bg-white overflow-hidden">
                   <CardContent className="p-0">
 
-                    <div className="overflow-x-visible">
-                      <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm table-fixed">
                         <thead className="bg-slate-50 text-left text-gray-500">
                           <tr>
-                            <th className="px-2 py-3 font-semibold whitespace-nowrap text-[12px]">Date & heure</th>
-                            <th className="px-2 py-3 font-semibold">Patient</th>
-                            <th className="px-2 py-3 font-semibold whitespace-nowrap text-[12px]">Urgence</th>
-                            <th className="px-2 py-3 font-semibold">Motif</th>
-                            <th className="px-2 py-3 font-semibold whitespace-nowrap text-[12px]">Statut</th>
-                            <th className="px-2 py-3 font-semibold text-right whitespace-nowrap text-[12px]">Actions</th>
+                            <th className="px-1.5 py-2.5 font-semibold whitespace-nowrap text-[11px] w-[9%]">Date & heure</th>
+                            <th className="px-1.5 py-2.5 font-semibold whitespace-nowrap text-[11px] w-[16%]">Patient</th>
+                            <th className="px-1.5 py-2.5 font-semibold whitespace-nowrap text-[11px] w-[14%]">Visite</th>
+                            <th className="px-1.5 py-2.5 font-semibold whitespace-nowrap text-[11px] w-[9%]">Urgence</th>
+                            <th className="px-1.5 py-2.5 font-semibold w-[22%]">Motif</th>
+                            <th className="px-1.5 py-2.5 font-semibold whitespace-nowrap text-[11px] w-[12%]">Statut</th>
+                            <th className="px-1.5 py-2.5 font-semibold text-right whitespace-nowrap text-[11px] w-[18%]">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredPatients.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="px-2 py-10 text-center text-[13px] text-slate-400 font-medium">
-                                Aucune consultation ne correspond à ces filtres.
+                              <td colSpan={7} className="px-2 py-14 text-center">
+                                <div className="flex flex-col items-center gap-2">
+                                  <Calendar className="w-8 h-8 text-slate-200" />
+                                  <p className="text-[14px] font-semibold text-slate-500">
+                                    {viewMode === 'today' && !hasDateRange
+                                      ? 'Aucun patient à traiter aujourd\'hui'
+                                      : 'Aucune consultation ne correspond à ces filtres'}
+                                  </p>
+                                  {viewMode === 'today' && !hasDateRange && (
+                                    <p className="text-[12px] text-slate-400">Les patients arrivés apparaîtront ici automatiquement.</p>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           )}
-                          {filteredPatients.map((patient) => (
-                            <tr key={patient.id} className="border-t border-gray-100 hover:bg-slate-50 align-top">
-                              <td className="px-2 py-3 whitespace-nowrap">
+                          {paginatedPatients.map((patient) => (
+                            <tr key={patient.id} className={cn(
+                              "border-t border-gray-100 hover:bg-slate-100 align-top transition-colors",
+                              patient.priseEnCharge
+                                ? (patient.priseEnCharge.isActive ? "bg-[#EAF3FA]" : "bg-amber-50")
+                                : "hover:bg-slate-50"
+                            )}>
+                              <td className={cn(
+                                "px-1.5 py-2.5 border-l-[6px]",
+                                patient.priseEnCharge
+                                  ? (patient.priseEnCharge.isActive ? "border-[#005b82]" : "border-amber-500")
+                                  : "border-transparent"
+                              )}>
                                 <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-2">
-                                    {patient.isUrgent && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                                  <div className="flex items-center gap-1.5">
+                                    {patient.isUrgent && <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />}
                                     <span className={cn(
-                                      "font-semibold",
+                                      "font-semibold text-[12px] truncate",
                                       patient.status === "EFFECTUÉ" ? "text-slate-400" : "text-[#005b82]"
                                     )}>{patient.time}</span>
                                   </div>
-                                  <span className="text-[11px] text-gray-500">{patient.date}</span>
+                                  <span className="text-[10px] text-gray-500 truncate">{patient.date}</span>
                                 </div>
                               </td>
-                              <td className="px-2 py-3 max-w-[220px]">
-                                <div>
-                                  <p className="font-semibold text-gray-900 leading-tight">{patient.name}</p>
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    <Badge className={cn(
-                                      "border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider",
-                                      patient.isControl ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700"
-                                    )}>
-                                      {patient.visitLabel}
-                                    </Badge>
-                                    <Badge className={cn(
-                                      "border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider",
-                                      patient.isArrived ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"
-                                    )}>
-                                      {patient.arrivalLabel}{patient.arrivalTime ? ` · ${patient.arrivalTime}` : ''}
-                                    </Badge>
-                                    {patient.isControl && (
-                                      <Badge className="border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider bg-blue-50 text-blue-700">
-                                        Suivi
-                                      </Badge>
+                              <td className="px-1.5 py-2.5 overflow-hidden">
+                                <p className="font-semibold text-gray-900 leading-tight truncate text-[12px]">{patient.name}</p>
+                                {patient.priseEnCharge && (
+                                  <p
+                                    title={patient.priseEnCharge.isActive ? `Pris en charge — ${patient.priseEnCharge.companyName}` : `Prise en charge inactive — ${patient.priseEnCharge.companyName}`}
+                                    className={cn(
+                                      "mt-0.5 text-[9px] font-bold truncate",
+                                      patient.priseEnCharge.isActive ? "text-[#005b82]" : "text-amber-600"
                                     )}
-                                    {patient.isReport && (
-                                      <Badge className="border-none px-2.5 py-1 rounded-full font-semibold text-[9px] uppercase tracking-wider bg-orange-50 text-orange-700">
-                                        Reporté · priorité
-                                      </Badge>
-                                    )}
-                                  </div>
+                                  >
+                                    {patient.priseEnCharge.companyName}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-1.5 py-2.5 overflow-hidden">
+                                <div className="flex flex-wrap gap-1">
+                                  <Badge className={cn(
+                                    "border-none px-2 py-0.5 rounded-full font-semibold text-[8px] uppercase tracking-wider",
+                                    patient.isControl ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700"
+                                  )}>
+                                    {patient.visitLabel}
+                                  </Badge>
+                                  {patient.isControl && (
+                                    <Badge className="border-none px-2 py-0.5 rounded-full font-semibold text-[8px] uppercase tracking-wider bg-blue-50 text-blue-700">
+                                      Suivi
+                                    </Badge>
+                                  )}
+                                  {patient.isReport && (
+                                    <Badge className="border-none px-2 py-0.5 rounded-full font-semibold text-[8px] uppercase tracking-wider bg-orange-50 text-orange-700">
+                                      Reporté
+                                    </Badge>
+                                  )}
                                 </div>
                               </td>
-                              <td className="px-2 py-3 whitespace-nowrap">
+                              <td className="px-1.5 py-2.5">
                                 <Badge className={cn(
-                                  "border-none px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider",
+                                  "border-none px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider whitespace-nowrap",
                                   patient.isUrgent ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-700"
                                 )}>
                                   {patient.urgencyLabel}
                                 </Badge>
                               </td>
-                              <td className="px-2 py-3 max-w-[220px]">
-                                <p className="text-gray-600 line-clamp-2 leading-snug text-[12px]">{patient.motif || '—'}</p>
+                              <td className="px-1.5 py-2.5 overflow-hidden">
+                                <p className="text-gray-600 line-clamp-2 leading-snug text-[11px]">{patient.motif || '—'}</p>
                               </td>
-                              <td className="px-2 py-3 whitespace-nowrap">
-                                <Badge className={cn(
-                                  "border-none px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider",
-                                  patient.status === "EFFECTUÉ" ? "bg-[#E6F4EA] text-[#059669]" : patient.isUrgent ? "bg-red-50 text-red-700" : "bg-[#EAF3FA] text-[#006A8C]"
-                                )}>
-                                  {patient.status}
-                                </Badge>
+                              <td className="px-1.5 py-2.5">
+                                <div className="flex flex-col items-start gap-1">
+                                  <Badge className={cn(
+                                    "border-none px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider whitespace-nowrap",
+                                    patient.status === "EFFECTUÉ" ? "bg-[#E6F4EA] text-[#059669]" : patient.isUrgent ? "bg-red-50 text-red-700" : "bg-[#EAF3FA] text-[#006A8C]"
+                                  )}>
+                                    {patient.status}
+                                  </Badge>
+                                  <Badge className={cn(
+                                    "border-none px-2 py-0.5 rounded-full font-semibold text-[8px] uppercase tracking-wider whitespace-nowrap",
+                                    patient.isArrived ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"
+                                  )}>
+                                    {patient.arrivalLabel}{patient.arrivalTime ? ` · ${patient.arrivalTime}` : ''}
+                                  </Badge>
+                                </div>
                               </td>
-                              <td className="px-2 py-3 whitespace-nowrap">
-                                <div className="flex justify-end gap-1.5">
+                              <td className="px-1.5 py-2.5">
+                                <div className="flex flex-wrap justify-end gap-1">
                                   {patient.action === "start" ? (
                                     <>
-                                      <Button onClick={() => handleStart(patient)} className="bg-[#005b82] hover:bg-[#004a6b] text-white rounded-xl px-3 py-2 h-auto text-[11px] font-bold whitespace-nowrap">
+                                      <Button onClick={() => handleStart(patient)} className="bg-[#005b82] hover:bg-[#004a6b] text-white rounded-lg px-2 py-1.5 h-auto text-[10px] font-bold whitespace-nowrap">
                                         Ouvrir
                                       </Button>
-                                      <Button variant="ghost" onClick={() => handleOpenPatientInfo(patient)} className="text-[#005b82] hover:bg-slate-50 h-auto px-2.5 py-2 text-[11px] font-bold whitespace-nowrap">
+                                      <Button variant="ghost" onClick={() => handleOpenPatientInfo(patient)} className="text-[#005b82] hover:bg-slate-50 h-auto px-1.5 py-1.5 text-[10px] font-bold whitespace-nowrap">
                                         Infos
                                       </Button>
                                       <Button
                                         variant="ghost"
                                         title="Reporter à un autre jour"
                                         onClick={() => handleOpenReport(patient)}
-                                        className="text-orange-600 hover:bg-orange-50 h-auto px-2.5 py-2 text-[11px] font-bold whitespace-nowrap"
+                                        className="text-orange-600 hover:bg-orange-50 h-auto px-1.5 py-1.5 text-[10px] font-bold whitespace-nowrap"
                                       >
                                         <CalendarClock className="h-3.5 w-3.5" />
                                       </Button>
                                     </>
                                   ) : (
-                                    <Button disabled className="bg-gray-50 text-gray-400 rounded-xl px-3 py-2 h-auto text-[11px] font-bold border border-gray-100 whitespace-nowrap">
+                                    <Button disabled className="bg-gray-50 text-gray-400 rounded-lg px-2 py-1.5 h-auto text-[10px] font-bold border border-gray-100 whitespace-nowrap">
                                       Terminé
                                     </Button>
                                   )}
@@ -594,6 +700,57 @@ export default function ConsultationExternePage() {
                         </tbody>
                       </table>
                     </div>
+
+                    {filteredPatients.length > 0 && totalPages > 1 && (
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+                        <p className="text-[11px] font-medium text-gray-500">
+                          Affiche {(safeCurrentPage - 1) * PAGE_SIZE + 1}-{Math.min(safeCurrentPage * PAGE_SIZE, filteredPatients.length)} sur {filteredPatients.length} patient{filteredPatients.length > 1 ? 's' : ''}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            disabled={safeCurrentPage === 1}
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            className="h-8 px-3 rounded-lg text-[11px] font-bold"
+                          >
+                            Précédent
+                          </Button>
+                          <div className="flex items-center gap-1 px-1">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                              .filter((page) => page === 1 || page === totalPages || Math.abs(page - safeCurrentPage) <= 1)
+                              .reduce<number[]>((acc, page, idx, arr) => {
+                                if (idx > 0 && page - arr[idx - 1] > 1) acc.push(-1);
+                                acc.push(page);
+                                return acc;
+                              }, [])
+                              .map((page, idx) =>
+                                page === -1 ? (
+                                  <span key={`ellipsis-${idx}`} className="px-1 text-[11px] text-gray-400">…</span>
+                                ) : (
+                                  <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={cn(
+                                      "h-8 w-8 rounded-lg text-[11px] font-bold transition-colors",
+                                      page === safeCurrentPage ? "bg-[#005b82] text-white" : "text-gray-500 hover:bg-slate-100"
+                                    )}
+                                  >
+                                    {page}
+                                  </button>
+                                )
+                              )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            disabled={safeCurrentPage === totalPages}
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            className="h-8 px-3 rounded-lg text-[11px] font-bold"
+                          >
+                            Suivant
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -601,7 +758,10 @@ export default function ConsultationExternePage() {
           </div>
 
           {/* Right Column: Overview */}
-          <div className="space-y-8 sticky top-8 self-start">
+          {/* Côte à côte quand il y a de la place (le tableau est en pleine
+              largeur en dessous de 2xl) ; empilé à 2xl+ où cette colonne
+              redevient étroite à côté du tableau. */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-1 gap-6 sticky top-8 self-start">
             {/* Stats Widget */}
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-[#005b82] font-extrabold uppercase tracking-[0.1em] text-[11px] px-1">
@@ -612,21 +772,41 @@ export default function ConsultationExternePage() {
               <div className="bg-white rounded-[28px] sm:rounded-[32px] p-6 sm:p-7 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] border border-gray-100">
                 <div className="flex justify-between items-end mb-4">
                   <span className="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-[0.1em]">MON QUOTA AUJOURD'HUI</span>
-                  <span className="text-[13px] sm:text-[14px] font-black text-[#005b82]">{totalConsultations}/{quota}</span>
+                  <span className="text-[13px] sm:text-[14px] font-black text-[#005b82]">
+                    {todayTotal}/{quotaMax ?? '—'}
+                  </span>
                 </div>
                 <div className="w-full bg-[#F1F5F9] h-2.5 rounded-full overflow-hidden">
-                  <div className="bg-[#005b82] h-full rounded-full" style={{ width: `${progressPercent}%` }}></div>
+                  <div
+                    className={cn("h-full rounded-full transition-all", progressPercent >= 100 ? "bg-emerald-500" : "bg-[#005b82]")}
+                    style={{ width: `${progressPercent}%` }}
+                  />
                 </div>
+                {quotaMax === null && (
+                  <p className="text-[10px] text-slate-400 mt-1.5">Aucun créneau planifié aujourd'hui</p>
+                )}
 
                 <div className="flex justify-between mt-8 gap-4">
                   <div className="flex-1 bg-[#F8FAFC] rounded-2xl p-4 flex flex-col items-center">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-gray-400 tracking-widest mb-2 uppercase">Consultation</span>
-                    <span className="text-2xl sm:text-3xl font-black text-[#005b82] leading-none">{totalConsultations < 10 ? `0${totalConsultations}` : totalConsultations}</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-gray-400 tracking-widest mb-2 uppercase">Aujourd'hui</span>
+                    <span className="text-2xl sm:text-3xl font-black text-[#005b82] leading-none">
+                      {todayTotal < 10 ? `0${todayTotal}` : todayTotal}
+                    </span>
                   </div>
                   <div className="flex-1 bg-[#F8FAFC] rounded-2xl p-4 flex flex-col items-center">
                     <span className="text-[9px] sm:text-[10px] font-bold text-gray-400 tracking-widest mb-2 uppercase">Effectuées</span>
-                    <span className="text-2xl sm:text-3xl font-black text-[#059669] leading-none">{completedConsultations < 10 ? `0${completedConsultations}` : completedConsultations}</span>
+                    <span className="text-2xl sm:text-3xl font-black text-[#059669] leading-none">
+                      {todayCompleted < 10 ? `0${todayCompleted}` : todayCompleted}
+                    </span>
                   </div>
+                  {quotaMax !== null && (
+                    <div className="flex-1 bg-[#F8FAFC] rounded-2xl p-4 flex flex-col items-center">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-gray-400 tracking-widest mb-2 uppercase">Quota max</span>
+                      <span className="text-2xl sm:text-3xl font-black text-slate-500 leading-none">
+                        {quotaMax < 10 ? `0${quotaMax}` : quotaMax}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

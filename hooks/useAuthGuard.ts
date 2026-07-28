@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { AUTH_CLIENT_URL } from '@/lib/auth/constants';
 
 export function useAuthGuard() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -10,7 +11,7 @@ export function useAuthGuard() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
+      window.location.href = AUTH_CLIENT_URL;
     }
   }, [isAuthenticated, isLoading, router]);
 

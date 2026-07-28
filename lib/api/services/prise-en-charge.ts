@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { checkPublicEnv } from '@/lib/env';
 
 export type PriseEnCharge = {
   id: number;
@@ -10,7 +11,7 @@ export type PriseEnCharge = {
   updatedAt?: string;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = checkPublicEnv('NEXT_PUBLIC_API_URL', process.env.NEXT_PUBLIC_API_URL);
 
 export async function fetchPriseEnCharge(): Promise<PriseEnCharge[]> {
   const response = await axios.get<PriseEnCharge[]>(`${API_URL}/prise-en-charge`);

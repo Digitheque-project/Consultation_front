@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useControlConsultations } from '@/hooks/use-consultations';
 import { useAuth } from '@/context/AuthContext';
 import { getVisiteLabel } from '@/lib/api/consultation';
+import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
 
 export default function ControlePage() {
   const router = useRouter();
@@ -25,7 +26,8 @@ export default function ControlePage() {
         id: consultation.id,
         time: consultation.heure,
         date: new Date(consultation.date).toLocaleDateString('fr-FR'),
-        name: consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
+        name: consultation.patient?.displayName ?? ([consultation.patient?.prenom, consultation.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu'),
+        priseEnCharge: consultation.patient?.priseEnCharge ?? null,
         motif: consultation.motif ?? consultation.observation?.diagnostic ?? '',
         diagnostic: consultation.observation?.diagnostic ?? '',
         noteControle: consultation.observation?.noteControle ?? '',
@@ -72,6 +74,7 @@ export default function ControlePage() {
                           <h2 className="text-base font-bold text-slate-900">{patient.name}</h2>
                           <Badge className="bg-[#EAF3FA] text-[#006A8C]">{patient.visiteLabel}</Badge>
                           {patient.isUrgent && <Badge className="bg-red-50 text-red-700">Urgence</Badge>}
+                          <PriseEnChargeBadge priseEnCharge={patient.priseEnCharge} />
                         </div>
                         <p className="text-sm text-slate-500">{patient.motif || 'Aucun motif renseigné'}</p>
                         {patient.diagnostic && <p className="text-xs text-slate-400">Diagnostic : {patient.diagnostic}</p>}

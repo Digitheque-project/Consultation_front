@@ -1,10 +1,13 @@
 /**
  * lib/api/services/prescription.ts — CHU-Front
- * Backend : https://prescription-sih-api-0yj3.onrender.com
+ * Backend : NEXT_PUBLIC_PRESCRIPTION_URL (jamais figé en dur — cette URL a déjà
+ * changé une fois, une valeur codée en dur pointait silencieusement vers un
+ * service mort).
  * Pas d'authentification requise (routes publiques)
  */
+import { checkPublicEnv } from '@/lib/env';
 
-const API_URL = 'https://prescription-sih-api-0yj3.onrender.com';
+const API_URL = checkPublicEnv('NEXT_PUBLIC_PRESCRIPTION_URL', process.env.NEXT_PUBLIC_PRESCRIPTION_URL);
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 

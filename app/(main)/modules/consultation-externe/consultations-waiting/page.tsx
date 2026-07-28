@@ -16,10 +16,8 @@ export default function ConsultationsPage() {
 
       <h1 className="text-3xl font-bold mb-6">Consultations en attente de prescription</h1>
 
-      {error && <div className="bg-red-100 text-red-700 p-4 rounded mb-4">Erreur de chargement des données.</div>}
-
-      {consultations.length === 0 ? (
-        <div className="bg-blue-50 p-4 rounded text-blue-900">Aucune consultation en attente</div>
+      {(error || consultations.length === 0) && !loading ? (
+        <div className="bg-blue-50 p-4 rounded text-blue-900">Aucune consultation en attente de prescription.</div>
       ) : (
         <div className="space-y-4">
           {consultations.map((consultation) => (
@@ -35,7 +33,7 @@ export default function ConsultationsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Patient</p>
-                  <p className="font-semibold">{consultation.patient?.displayName ?? `Patient #${consultation.patientId}`}</p>
+                  <p className="font-semibold">{consultation.patient?.displayName ?? ([consultation.patient?.prenom, consultation.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu')}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Statut</p>

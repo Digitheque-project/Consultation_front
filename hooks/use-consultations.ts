@@ -20,7 +20,14 @@ export function useWaitingConsultations() {
 
 export function useAllConsultations(filters?: ConsultationListFilters) {
   return useQuery({
-    queryKey: [...consultationsKeys.list(), filters?.arrived ?? 'all', filters?.date ?? 'all'],
+    queryKey: [
+      ...consultationsKeys.list(),
+      filters?.arrived ?? 'all',
+      filters?.date ?? 'all',
+      filters?.dateFrom ?? 'all',
+      filters?.dateTo ?? 'all',
+      filters?.archived ?? false,
+    ],
     queryFn: () => consultationApi.getAllConsultations(filters),
     staleTime: 1000,
   });

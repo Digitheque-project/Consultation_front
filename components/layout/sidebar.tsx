@@ -5,35 +5,29 @@ import { useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  Hospital,
   FileText,
   CheckSquare,
   Archive,
+  ClipboardList,
+  BarChart2,
   X,
-  UserPlus,
-  Users,
-  CalendarDays,
-  BedDouble,
-  Pill,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavItems } from "@/hooks/use-nav-items";
 import { mockLogout } from "@/lib/auth/mock-auth-browser";
+import { useAuth } from "@/context/AuthContext";
+import { AUTH_CLIENT_URL } from "@/lib/auth/constants";
 
 const ICON_SIZE_CLASS = "w-[20px] h-[20px]";
 
 const navIconMap: Record<string, { component: LucideIcon; strokeWidth: number }> = {
   "layout-dashboard": { component: LayoutDashboard, strokeWidth: 2.5 },
-  hospital: { component: Hospital, strokeWidth: 2 },
   "file-text": { component: FileText, strokeWidth: 2 },
   "check-square": { component: CheckSquare, strokeWidth: 2 },
   archive: { component: Archive, strokeWidth: 2 },
-  "user-plus": { component: UserPlus, strokeWidth: 2 },
-  users: { component: Users, strokeWidth: 2 },
-  "calendar-days": { component: CalendarDays, strokeWidth: 2 },
-  "bed-double": { component: BedDouble, strokeWidth: 2 },
-  pill: { component: Pill, strokeWidth: 2 },
+  "clipboard-list": { component: ClipboardList, strokeWidth: 2 },
+  "bar-chart-2": { component: BarChart2, strokeWidth: 2 },
 };
 
 type SidebarProps = {
@@ -45,18 +39,10 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { items: navItems, loading } = useNavItems();
-
+  const { logout } = useAuth();
 
   /** Plus long href qui matche : évite que /modules/clinical reste actif sur /modules/clinical/patients */
   const activeHref = useMemo(() => {
-    // Pages « centre de notifications » : aucun item de menu ne doit rester actif
-    if (
-      pathname === "/modules/clinical/notification" ||
-      pathname === "/modules/accueil/notification"
-    ) {
-      return null;
-    }
-
     const matches = navItems.filter(
       (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
     );
@@ -71,8 +57,9 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const handleLogout = () => {
     mockLogout();
-    router.replace("/login");
+    logout();
     onClose?.();
+    window.location.href = AUTH_CLIENT_URL;
   };
 
   return (

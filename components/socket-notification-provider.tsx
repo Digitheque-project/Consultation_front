@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { useNotificationStore, EnrichedNotification, PatientInfo } from "@/stores/notification-store";
+import { checkPublicEnv } from "@/lib/env";
 
 export function SocketNotificationProvider() {
   const addNotification = useNotificationStore((state) => state.addNotification);
@@ -78,7 +79,7 @@ export function SocketNotificationProvider() {
     window.addEventListener("keydown", unlockAudio);
 
     // 3. Connecter le Socket
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const apiUrl = checkPublicEnv("NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
     const socket = io(`${apiUrl}/hospitalisations`, {
       transports: ["websocket", "polling"],
       withCredentials: true,

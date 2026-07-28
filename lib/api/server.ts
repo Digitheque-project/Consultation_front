@@ -1,9 +1,10 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
+import { checkPublicEnv } from "@/lib/env";
 
 const API_TIMEOUT_MS = 10000;
 
 function resolveBaseUrl() {
-  return process.env.NEXT_PUBLIC_API_URL || "https://api.sih.chu";
+  return checkPublicEnv("NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
 }
 
 function getAuthToken() {

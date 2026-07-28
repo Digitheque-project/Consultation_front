@@ -6,6 +6,7 @@ import { LogOut, RefreshCw, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
+import { AUTH_CLIENT_URL } from '@/lib/auth/constants';
 
 type ConsultationSessionSwitcherProps = {
   className?: string;
@@ -18,8 +19,8 @@ export function ConsultationSessionSwitcher({ className }: ConsultationSessionSw
   const [email, setEmail] = useState(medecin?.email ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const displayName = medecin ? `${medecin.prenom} ${medecin.nom}` : 'Aucun médecin connecté';
-  const specialtyLabel = medecin?.specialite?.trim() || 'Consultation externe';
+  const displayName = isLoading ? 'Chargement…' : medecin ? `${medecin.prenom} ${medecin.nom}` : 'Aucun médecin connecté';
+  const specialtyLabel = isLoading ? '…' : medecin?.specialite?.trim() || 'Consultation externe';
 
   const handleSwitchUser = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -40,8 +41,7 @@ export function ConsultationSessionSwitcher({ className }: ConsultationSessionSw
     setEmail('');
     setPassword('');
     setIsEditing(false);
-    router.push('/login?from=/modules/consultation-externe');
-    router.refresh();
+    window.location.href = AUTH_CLIENT_URL;
   };
 
   return (

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
+import { AUTH_CLIENT_URL } from "@/lib/auth/constants";
 
-/** Fallback if middleware is bypassed: root always goes to login. */
 export default function HomePage() {
-  redirect("/login");
+  redirect(AUTH_CLIENT_URL);
 }

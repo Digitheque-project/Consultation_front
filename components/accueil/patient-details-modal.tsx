@@ -64,7 +64,6 @@ export function PatientDetailsModal({ open, patient, onClose }: PatientDetailsMo
             <h2 className="mt-2 text-xl font-semibold text-gray-900">
               {patient.nom} {patient.prenom ?? ''}
             </h2>
-            <p className="text-sm text-gray-500">ID patient : {patient.id}</p>
           </div>
           <button
             type="button"

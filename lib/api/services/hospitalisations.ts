@@ -1,4 +1,5 @@
 ﻿import axios from 'axios';
+import { checkPublicEnv } from '@/lib/env';
 
 export type HospitalisationCreationPayload = {
   patientId: string;
@@ -9,7 +10,7 @@ export type HospitalisationCreationPayload = {
   commentaire: string;
 };
 
-const CLINICAL_API_URL = process.env.NEXT_PUBLIC_CLINICAL_API_URL || 'https://hospitalisation-back.onrender.com';
+const CLINICAL_API_URL = checkPublicEnv('NEXT_PUBLIC_CLINICAL_API_URL', process.env.NEXT_PUBLIC_CLINICAL_API_URL);
 
 export const fetchActiveHospitalisations = async (): Promise<any[]> => {
   const url = `${CLINICAL_API_URL}/hospitalisations/actives`;

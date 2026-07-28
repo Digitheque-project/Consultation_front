@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useConsultation, useFinalizeConsultation, usePatientConsultationHistory } from '@/hooks/use-consultations';
-import { ConsultationApi, consultationApi } from '@/lib/api/consultation';
+import { ConsultationApi, consultationApi, type HospitalisationServiceOption } from '@/lib/api/consultation';
+import { useAuth } from '@/context/AuthContext';
+import { checkPublicEnv } from '@/lib/env';
 import {
   ArrowLeft,
   User,
@@ -17,12 +19,49 @@ import {
   Save,
   ClipboardList,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
+import { MedicamentAutocomplete } from '@/components/prescription/medicament-autocomplete';
+import { creerPrescriptionMedicale, getStockLevel, type PharmacieArticle, type StockLevel } from '@/lib/prescription-api';
 import { cn } from '@/lib/utils';
+
+const CE_SERVICE_ID = checkPublicEnv('NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID', process.env.NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID);
+
+const FREQUENCE_TYPE_OPTIONS = [
+  { value: 'PAR_JOUR', label: 'Fois / jour' },
+  { value: 'HEURES', label: 'Toutes les X heures' },
+  { value: 'SOS', label: 'Si besoin (SOS)' },
+  { value: 'CONTINU', label: 'En continu' },
+] as const;
+
+// Couleur du champ médicament une fois sélectionné — jamais de chiffre/seuil
+// affiché, juste un signal (aucune couleur = stock correct).
+const STOCK_LEVEL_TEXT_CLASS: Record<StockLevel, string> = {
+  ok: '',
+  low: 'text-amber-600',
+  critical: 'text-red-500',
+  out: 'text-red-600',
+};
+
+// Page d'où le médecin a ouvert cette consultation — le bouton "Retour" doit
+// ramener au même endroit plutôt que toujours vers le fil de travail.
+const ORIGIN_PATHS: Record<string, string> = {
+  'fil-de-travail': '/modules/consultation-externe',
+  'dashboard': '/modules/consultation-externe/dashboard',
+  'planning-complet': '/modules/consultation-externe/planning-complet',
+};
+const DEFAULT_BACK_PATH = '/modules/consultation-externe';
+
+const QUANTITE_TYPE_OPTIONS = [
+  'UNITE', 'BOITE', 'GELULE', 'CACHET', 'COMPRIME', 'ML', 'L', 'G', 'MG', 'UG',
+  'GOUTTE', 'FLACON', 'SACHET', 'POCHE', 'AMPOULE', 'SERINGUE', 'PATCH',
+  'SUPPOSITOIRE', 'OVULE', 'POMMADE_TUBE', 'CREME_POT', 'SPRAY', 'INHALATEUR',
+] as const;
 
 type Appointment = {
   id: number;
@@ -37,28 +76,14 @@ type Appointment = {
   motif?: string;
   diagnostic?: string;
   notes?: string;
+  priseEnCharge?: { companyName: string; isActive: boolean } | null;
+  patientNom?: string;
+  patientPrenom?: string;
+  patientSexe?: string;
+  patientDateNaissance?: string;
 };
 
 
-const examenServices = [
-  'Imagerie',
-  'Dialyse',
-  'Endoscopie',
-  'Laboratoire',
-  'EEG',
-  'Kinésithérapie',
-  'Anatomie pathologie',
-];
-
-const hospitalisationServices = [
-  'GEMI',
-  'Chirurgie',
-  'Neurologie',
-  'Stomatologie',
-  'Pédiatrie',
-  'Cardiologie',
-  'Urgences',
-];
 
 const defaultClinicalParameters = [
   { id: 1, nom: 'Tension', valeur: '', unite: 'mmHg' },
@@ -73,7 +98,7 @@ const mapConsultation = (consultation: ConsultationApi): Appointment => ({
   id: consultation.id,
   patientId: consultation.patientId,
   t: consultation.heure,
-  n: consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
+  n: consultation.patient?.displayName ?? ([consultation.patient?.prenom, consultation.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu'),
   a: new Date(consultation.date).toLocaleDateString('fr-FR'),
   g: consultation.urgence ? 'Urgence' : 'Normal',
   s: consultation.statut?.toUpperCase().replace(/_/g, ' ') || 'EN ATTENTE',
@@ -81,6 +106,11 @@ const mapConsultation = (consultation: ConsultationApi): Appointment => ({
   motif: consultation.motif ?? '',
   diagnostic: consultation.observation?.diagnosticRetenu ?? consultation.observation?.diagnostic ?? '',
   notes: consultation.observation?.notes ?? '',
+  priseEnCharge: consultation.patient?.priseEnCharge ?? null,
+  patientNom: consultation.patient?.nom,
+  patientPrenom: consultation.patient?.prenom,
+  patientSexe: consultation.patient?.sexe ?? undefined,
+  patientDateNaissance: consultation.patient?.dateNaissance ?? undefined,
 });
 
 const TreatmentSkeleton = () => (
@@ -166,13 +196,56 @@ const TreatmentSkeleton = () => (
   </div>
 );
 
+const PHARMACIE_URL = checkPublicEnv('NEXT_PUBLIC_PHARMACIE_URL', process.env.NEXT_PUBLIC_PHARMACIE_URL);
+
 export default function TraitementPage() {
   const router = useRouter();
+  const { medecin } = useAuth();
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [origin, setOrigin] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'medicament' | 'non-medicamentaux'>('medicament');
+  const goToParacliniques = () => {
+    const params = new URLSearchParams();
+    if (appointment?.patientId) params.set('patientId', appointment.patientId);
+    if (appointmentId) params.set('consultationId', appointmentId);
+    if (appointment?.patientNom) params.set('patientNom', appointment.patientNom);
+    if (appointment?.patientPrenom) params.set('patientPrenom', appointment.patientPrenom);
+    if (appointment?.patientSexe) params.set('patientSexe', appointment.patientSexe);
+    if (appointment?.patientDateNaissance) params.set('patientDateNaissance', appointment.patientDateNaissance);
+    if (origin) params.set('origin', origin);
+    router.push(`/modules/consultation-externe/prescriptions?${params.toString()}`);
+  };
   const [isControlMode, setIsControlMode] = useState(false);
   const [followUpSummary, setFollowUpSummary] = useState<{ id: number; date: string; motif: string } | null>(null);
+  const [savingControle, setSavingControle] = useState(false);
+  const [savedControle, setSavedControle] = useState(false);
+  // Message de confirmation standardisé (uniformisation inter-services) : vert = succès, rouge = erreur.
+  const [toastMsg, setToastMsg] = useState<{ text: string; variant: 'success' | 'error' } | null>(null);
+  const showToast = (text: string, variant: 'success' | 'error' = 'success') => {
+    setToastMsg({ text, variant });
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+  const [savingHospitalisation, setSavingHospitalisation] = useState(false);
+  const [savedHospitalisation, setSavedHospitalisation] = useState(false);
+  // Selon que le médecin appartient ou non au service destinataire, la confirmation
+  // vaut soit admission directe (VALIDE), soit demande à valider par ce service
+  // (EN_ATTENTE) — le backend tranche et renvoie le vrai statut.
+  const [hospitalisationOutcome, setHospitalisationOutcome] = useState<'VALIDE' | 'EN_ATTENTE' | null>(null);
+  const [showNoTreatmentReasonModal, setShowNoTreatmentReasonModal] = useState(false);
+  const [noTreatmentReason, setNoTreatmentReason] = useState('');
+  const [hospitalisationServiceOptions, setHospitalisationServiceOptions] = useState<HospitalisationServiceOption[]>([]);
+
+  // Liste dynamique des services CLINIQUE (registre service-service, propre au CHU du
+  // médecin connecté) — un service créé/désactivé côté registre apparaît/disparaît
+  // automatiquement ici, sans rien à changer côté code.
+  useEffect(() => {
+    let cancelled = false;
+    consultationApi.getHospitalisationServices()
+      .then((services) => { if (!cancelled) setHospitalisationServiceOptions(services); })
+      .catch(() => { if (!cancelled) setHospitalisationServiceOptions([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   const { data: consultationData, isLoading: loading, error: queryError } = useConsultation(appointmentId);
   const { mutateAsync: finalizeMutation, isPending: saving } = useFinalizeConsultation();
@@ -191,10 +264,17 @@ export default function TraitementPage() {
     forme: string;
     dosage: string;
     voie: string;
-    posologie: string;
-    duree: string;
+    quantite: string;
+    quantiteType: string;
+    frequenceType: string;
+    frequenceValeur: string;
+    dureeJours: string;
     instructions: string;
+    articleId?: string | number;
+    unitPrice?: number;
+    stockLevel?: StockLevel;
   }>>([]);
+  const [pharmacieWarning, setPharmacieWarning] = useState<string | null>(null);
   const [nonMedicaments, setNonMedicaments] = useState({
     recommandationsNotes: '',
     rdvMotif: '',
@@ -216,21 +296,47 @@ export default function TraitementPage() {
       forme: '',
       dosage: '',
       voie: '',
-      posologie: '',
-      duree: '',
+      quantite: '1',
+      quantiteType: 'UNITE',
+      frequenceType: 'PAR_JOUR',
+      frequenceValeur: '1',
+      dureeJours: '',
       instructions: '',
     }]);
   };
 
   const updateMedicament = (id: number, field: string, value: string) => {
     setMedicaments(medicaments.map(med =>
-      med.id === id ? { ...med, [field]: value } : med
+      med.id === id
+        // Une modification manuelle du nom décorrèle la ligne de l'article catalogue sélectionné.
+        ? { ...med, [field]: value, ...(field === 'medicament' ? { articleId: undefined, unitPrice: undefined, stockLevel: undefined } : {}) }
+        : med
+    ));
+  };
+
+  const selectArticleForMedicament = (id: number, article: PharmacieArticle) => {
+    setMedicaments(medicaments.map(med =>
+      med.id === id
+        ? {
+            ...med,
+            medicament: article.dci,
+            dosage: article.dosage ?? med.dosage,
+            articleId: article.id,
+            unitPrice: typeof article.sale_price === 'string' ? parseFloat(article.sale_price) : article.sale_price,
+            stockLevel: getStockLevel(article),
+          }
+        : med
     ));
   };
 
   const removeMedicament = (id: number) => {
     setMedicaments(medicaments.filter(med => med.id !== id));
   };
+
+  const medicamentsTotal = medicaments.reduce(
+    (sum, med) => sum + (med.unitPrice ?? 0) * (parseInt(med.quantite, 10) || 0),
+    0,
+  );
 
   const addParametre = () => {
     setParametres([...parametres, { id: Date.now(), nom: '', valeur: '', unite: '' }]);
@@ -244,26 +350,100 @@ export default function TraitementPage() {
     setParametres(parametres.filter((param) => param.id !== id));
   };
 
+  // Envoie l'ordonnance médicamenteuse à la pharmacie (non bloquant)
+  const sendToPharmacy = async (meds: typeof medicaments) => {
+    if (!PHARMACIE_URL || !appointment || meds.length === 0) return;
+
+    const lines = meds.map((med) => {
+      const frequenceLabel =
+        med.frequenceType === 'PAR_JOUR' ? `${med.frequenceValeur || '1'} fois/jour` :
+        med.frequenceType === 'HEURES' ? `toutes les ${med.frequenceValeur || '1'}h` :
+        med.frequenceType === 'SOS' ? 'si besoin (SOS)' :
+        med.frequenceType === 'CONTINU' ? 'en continu' : '';
+
+      return {
+        designation: [med.medicament, med.dosage, med.forme].filter(Boolean).join(' '),
+        quantity: parseInt(med.quantite) || 1,
+        posology: [
+          med.voie && `Voie ${med.voie}`,
+          frequenceLabel,
+          med.dureeJours && `pendant ${med.dureeJours} jours`,
+          med.instructions,
+        ].filter(Boolean).join(' - '),
+      };
+    });
+
+    const body = {
+      patientId: appointment.patientId,
+      prescriptionId: String(appointmentId),
+      category: 'EXTERNE',
+      medecinId: medecin?.id ?? '',
+      medecinNom: medecin?.nom ?? '',
+      medecinPrenom: medecin?.prenom ?? '',
+      dispensation_type: 'EXTERNE',
+      payment_mode: 'CASH',
+      chuId: medecin?.chuId ?? '',
+      lines,
+    };
+
+    const token =
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('auth_token') ||
+      localStorage.getItem('token') ||
+      '';
+
+    const res = await fetch(`${PHARMACIE_URL}/dispensations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Pharmacie ${res.status}: ${text}`);
+    }
+  };
+
   // Fonction pour finaliser la consultation
   const finalizeConsultation = async () => {
     if (!appointmentId) return;
 
     try {
+      const medsToSend = medicaments.filter((med) => med.medicament.trim() !== '');
+
+      // Le rendez-vous et l'hospitalisation ont pu être confirmés individuellement pendant
+      // la consultation (boutons "Valider"/"Confirmer l'hospitalisation") — dans ce cas ils
+      // sont déjà enregistrés côté serveur et ne doivent pas repartir dans la finalisation,
+      // sous peine de créer un rendez-vous ou une admission en double.
+      const effectiveNonMedicaments = {
+        ...nonMedicaments,
+        rdvMotif: savedControle ? '' : nonMedicaments.rdvMotif,
+        rdvDate: savedControle ? '' : nonMedicaments.rdvDate,
+        hospitalisationMotif: savedHospitalisation ? '' : nonMedicaments.hospitalisationMotif,
+        hospitalisationService: savedHospitalisation ? '' : nonMedicaments.hospitalisationService,
+      };
+
+      const combinedNotes = [observation.notes.trim(), noTreatmentReason.trim() ? `Motif d'absence de traitement : ${noTreatmentReason.trim()}` : '']
+        .filter(Boolean)
+        .join('\n\n');
+
       const payload = {
-        observation: (observation.diagnosticSuspicion.trim() || observation.diagnosticRetenu.trim() || observation.notes.trim()) ? {
+        observation: (observation.diagnosticSuspicion.trim() || observation.diagnosticRetenu.trim() || combinedNotes.trim()) ? {
           diagnosticSuspicion: observation.diagnosticSuspicion,
           diagnosticRetenu: observation.diagnosticRetenu,
-          notes: observation.notes,
+          notes: combinedNotes,
         } : null,
-        medicaments: medicaments.filter(med => med.medicament.trim() !== ''),
         nonMedicaments: (
-          nonMedicaments.recommandationsNotes.trim() ||
-          nonMedicaments.rdvMotif.trim() ||
-          nonMedicaments.examenService.trim() ||
-          nonMedicaments.examenMotif.trim() ||
-          nonMedicaments.hospitalisationMotif.trim() ||
-          nonMedicaments.hospitalisationService.trim()
-        ) ? nonMedicaments : null,
+          effectiveNonMedicaments.recommandationsNotes.trim() ||
+          effectiveNonMedicaments.rdvMotif.trim() ||
+          effectiveNonMedicaments.examenService.trim() ||
+          effectiveNonMedicaments.examenMotif.trim() ||
+          effectiveNonMedicaments.hospitalisationMotif.trim() ||
+          effectiveNonMedicaments.hospitalisationService.trim()
+        ) ? effectiveNonMedicaments : null,
         parametres: parametres
           .filter((param) => param.nom.trim() || param.valeur.trim())
           .map((param) => ({
@@ -274,7 +454,52 @@ export default function TraitementPage() {
       };
 
       const result = await finalizeMutation({ id: appointmentId, payload });
+
+      // Envoi au service prescription puis à la pharmacie — non bloquant : une
+      // erreur n'annule pas la finalisation, déjà enregistrée côté clinique.
+      if (medsToSend.length > 0) {
+        try {
+          await creerPrescriptionMedicale({
+            patientId: appointment?.patientId,
+            prescripteurId: medecin?.id,
+            urgence: appointment?.u ? 'URGENT' : undefined,
+            chuId: medecin?.chuId,
+            serviceId: CE_SERVICE_ID,
+            medicaments: medsToSend.map((med) => ({
+              nom: med.medicament,
+              dose: [med.dosage, med.forme].filter(Boolean).join(' ') || '—',
+              quantite: parseInt(med.quantite, 10) || 1,
+              quantiteType: med.quantiteType,
+              voie: med.voie || undefined,
+              frequenceType: med.frequenceType,
+              frequenceValeur: (med.frequenceType === 'PAR_JOUR' || med.frequenceType === 'HEURES')
+                ? (parseInt(med.frequenceValeur, 10) || 1)
+                : undefined,
+              dureeJours: parseInt(med.dureeJours, 10) || 1,
+              instructions: med.instructions || undefined,
+              articleId: med.articleId,
+              prixUnitaire: med.unitPrice,
+            })),
+          });
+        } catch (prescErr) {
+          setPharmacieWarning(
+            `Ordonnance enregistrée, mais l'envoi au service prescription a échoué (${prescErr instanceof Error ? prescErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
+          );
+          return;
+        }
+
+        try {
+          await sendToPharmacy(medsToSend);
+        } catch (pharmErr) {
+          setPharmacieWarning(
+            `Ordonnance enregistrée, mais l'envoi à la pharmacie a échoué (${pharmErr instanceof Error ? pharmErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
+          );
+          return;
+        }
+      }
+
       const followUp = result?.followUp;
+      showToast('Validé avec succès');
 
       if (followUp?.id) {
         setFollowUpSummary({
@@ -288,9 +513,68 @@ export default function TraitementPage() {
 
       router.push('/modules/consultation-externe');
     } catch (err) {
-      alert('Erreur lors de la sauvegarde: ' + (err instanceof Error ? err.message : 'Erreur inconnue'));
+      showToast('Erreur lors de la sauvegarde : ' + (err instanceof Error ? err.message : 'Erreur inconnue'), 'error');
     }
   };
+
+  // Clic sur "Terminer la consultation" : si aucun médicament n'a été prescrit, on
+  // exige une raison avant de clôturer (le médecin peut confirmer volontairement
+  // qu'aucun traitement n'était nécessaire).
+  const handleTerminerClick = () => {
+    const hasTraitement = medicaments.some((med) => med.medicament.trim() !== '');
+    if (!hasTraitement && !noTreatmentReason.trim()) {
+      setShowNoTreatmentReasonModal(true);
+      return;
+    }
+    finalizeConsultation();
+  };
+
+  const handleSaveControle = async () => {
+    if (!appointmentId) return;
+    setSavingControle(true);
+    try {
+      await consultationApi.traiterConsultation(appointmentId, 'controle', {
+        rdvMotif: nonMedicaments.rdvMotif || null,
+        rdvDate: nonMedicaments.rdvDate || null,
+        rdvNiveau: nonMedicaments.rdvNiveau,
+      });
+      setSavedControle(true);
+      showToast('Validé avec succès');
+      setTimeout(() => setSavedControle(false), 3500);
+    } catch (err) {
+      showToast('Erreur RDV : ' + (err instanceof Error ? err.message : 'Erreur inconnue'), 'error');
+    } finally {
+      setSavingControle(false);
+    }
+  };
+
+  const handleSaveHospitalisation = async () => {
+    if (!appointmentId || !nonMedicaments.hospitalisationMotif.trim()) return;
+    setSavingHospitalisation(true);
+    try {
+      const result = await consultationApi.traiterConsultation(appointmentId, 'hospitalisation', {
+        hospitalisationMotif: nonMedicaments.hospitalisationMotif,
+        hospitalisationService: nonMedicaments.hospitalisationService || null,
+      });
+      const outcome = result?.consultation?.hospitalisationStatus === 'EN_ATTENTE' ? 'EN_ATTENTE' : 'VALIDE';
+      setHospitalisationOutcome(outcome);
+      setSavedHospitalisation(true);
+      showToast(
+        outcome === 'VALIDE'
+          ? 'Hospitalisation confirmée'
+          : 'Demande envoyée au service concerné, en attente de validation',
+      );
+      // Confirmer l'hospitalisation ne termine pas la consultation : le médecin reste
+      // sur la page pour continuer à remplir le traitement, puis clique lui-même sur
+      // "Terminer la consultation" quand il a fini.
+    } catch (err) {
+      showToast('Erreur hospitalisation : ' + (err instanceof Error ? err.message : 'Erreur inconnue'), 'error');
+    } finally {
+      setSavingHospitalisation(false);
+    }
+  };
+
+  const backHref = (origin && ORIGIN_PATHS[origin]) || DEFAULT_BACK_PATH;
 
   const handleCancelAndGoBack = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -303,7 +587,7 @@ export default function TraitementPage() {
       }
     }
 
-    router.push('/modules/consultation-externe');
+    router.push(backHref);
   };
 
   useEffect(() => {
@@ -313,6 +597,7 @@ export default function TraitementPage() {
     const consultationId = params.get('consultationId') ?? params.get('id');
     const patientId = params.get('patientId');
     const mode = params.get('mode');
+    const originParam = params.get('origin');
 
     console.log('URL params:', window.location.search);
     console.log('consultationId from URL:', consultationId);
@@ -323,6 +608,7 @@ export default function TraitementPage() {
     }
 
     setIsControlMode(mode === 'controle');
+    setOrigin(originParam);
   }, []);
 
   useEffect(() => {
@@ -378,8 +664,8 @@ export default function TraitementPage() {
         <div className="max-w-5xl mx-auto rounded-3xl bg-white p-10 shadow-sm border border-slate-200 text-slate-700">
           <p className="text-lg font-semibold mb-4">Impossible d'ouvrir la consultation</p>
           <p className="mb-6 text-slate-500">{queryError ? 'Erreur de chargement de la consultation' : 'Aucune consultation trouvée.'}</p>
-          <Link href="/modules/consultation-externe/prescription" className="inline-flex rounded-full bg-blue-700 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-800">
-            Retour à la prescription
+          <Link href={backHref} className="inline-flex rounded-full bg-blue-700 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-800">
+            Retour
           </Link>
         </div>
       </div>
@@ -397,6 +683,24 @@ export default function TraitementPage() {
     <Suspense fallback={<TreatmentSkeleton />}>
       <div className="bg-[#F5F8FA] min-h-screen py-8 px-6">
         <div className="max-w-7xl mx-auto">
+
+          {/* Avertissement envoi pharmacie */}
+          {pharmacieWarning && (
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+              <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-amber-800">Envoi à la pharmacie non effectué</p>
+                <p className="text-[12px] text-amber-700 mt-0.5">{pharmacieWarning}</p>
+              </div>
+              <button
+                onClick={() => setPharmacieWarning(null)}
+                className="text-amber-400 hover:text-amber-600 transition-colors shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-md md:w-full pointer-events-none">
             <div className="pointer-events-auto ml-auto">
             </div>
@@ -405,7 +709,7 @@ export default function TraitementPage() {
           {/* Header Section */}
           <div className="mb-10 flex items-start gap-5">
             <Link
-              href="/modules/consultation-externe"
+              href={backHref}
               onClick={handleCancelAndGoBack}
               className="group inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-sm border border-gray-100 hover:bg-[#EAF3FA] transition-all text-[#006A8C] hover:scale-105 active:scale-95 mt-1"
               title="Retour"
@@ -508,6 +812,68 @@ export default function TraitementPage() {
                 )}
 
                 <div className="space-y-6 pt-2">
+                  {/* Ordre logique : paramètres cliniques → observations → diagnostic */}
+                  <div className="rounded-[24px] border border-gray-100 bg-[#F8FAFC] p-5">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#64748B]">Paramètres cliniques</p>
+                        <p className="text-[12px] text-gray-500">Tension, température, poids, saturation, etc.</p>
+                      </div>
+                      <Button type="button" variant="outline" className="rounded-full" onClick={addParametre}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Ajouter
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {parametres.map((param) => {
+                        const isPredefined = [1, 2, 3, 4, 5, 6].includes(param.id);
+                        return (
+                          <div key={param.id} className="grid gap-3 md:grid-cols-[1.2fr_0.9fr_0.7fr_auto]">
+                            {isPredefined ? (
+                              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] font-semibold text-gray-700 flex items-center">
+                                {param.nom}
+                              </div>
+                            ) : (
+                              <input
+                                value={param.nom}
+                                onChange={(e) => updateParametre(param.id, 'nom', e.target.value)}
+                                placeholder="Nom du paramètre"
+                                className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
+                              />
+                            )}
+                            <input
+                              value={param.valeur}
+                              onChange={(e) => updateParametre(param.id, 'valeur', e.target.value)}
+                              placeholder="Valeur"
+                              className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
+                            />
+                            <input
+                              value={param.unite}
+                              onChange={(e) => updateParametre(param.id, 'unite', e.target.value)}
+                              placeholder="Unité"
+                              className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
+                            />
+                            {!isPredefined ? (
+                              <Button type="button" variant="ghost" className="h-10 w-10 rounded-full p-0" onClick={() => removeParametre(param.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <div className="w-10" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Observations médicales</label>
+                    <textarea
+                      value={observation.notes}
+                      onChange={(e) => setObservation({ ...observation, notes: e.target.value })}
+                      className="w-full min-h-[140px] rounded-[24px] border border-gray-100 bg-white p-5 text-[14px] text-gray-700 shadow-sm focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] outline-none transition-all placeholder:text-gray-400"
+                      placeholder="Saisir les notes d'observation clinique..."
+                    />
+                  </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Suspicion diagnostique</label>
@@ -528,54 +894,6 @@ export default function TraitementPage() {
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-[0.15em] mb-3 block">Observations médicales</label>
-                    <textarea
-                      value={observation.notes}
-                      onChange={(e) => setObservation({ ...observation, notes: e.target.value })}
-                      className="w-full min-h-[140px] rounded-[24px] border border-gray-100 bg-white p-5 text-[14px] text-gray-700 shadow-sm focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] outline-none transition-all placeholder:text-gray-400"
-                      placeholder="Saisir les notes d'observation clinique..."
-                    />
-                  </div>
-                  <div className="rounded-[24px] border border-gray-100 bg-[#F8FAFC] p-5">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#64748B]">Paramètres cliniques</p>
-                        <p className="text-[12px] text-gray-500">Tension, température, poids, saturation, etc.</p>
-                      </div>
-                      <Button type="button" variant="outline" className="rounded-full" onClick={addParametre}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Ajouter
-                      </Button>
-                    </div>
-                    <div className="space-y-3">
-                      {parametres.map((param) => (
-                        <div key={param.id} className="grid gap-3 md:grid-cols-[1.2fr_0.9fr_0.7fr_auto]">
-                          <input
-                            value={param.nom}
-                            onChange={(e) => updateParametre(param.id, 'nom', e.target.value)}
-                            placeholder="Nom du paramètre"
-                            className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
-                          />
-                          <input
-                            value={param.valeur}
-                            onChange={(e) => updateParametre(param.id, 'valeur', e.target.value)}
-                            placeholder="Valeur"
-                            className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
-                          />
-                          <input
-                            value={param.unite}
-                            onChange={(e) => updateParametre(param.id, 'unite', e.target.value)}
-                            placeholder="Unité"
-                            className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-700 outline-none focus:border-[#006A8C]"
-                          />
-                          <Button type="button" variant="ghost" className="h-10 w-10 rounded-full p-0" onClick={() => removeParametre(param.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -590,6 +908,10 @@ export default function TraitementPage() {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Identité</p>
                     <p className="mt-1 text-[13px] font-extrabold text-gray-900">{appointment.n}</p>
                     <p className="text-[12px] font-medium text-gray-500">Dossier : #PAT-{appointment.id}</p>
+                  </div>
+                  <div className="pt-4 border-t border-gray-50">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Prise en charge</p>
+                    <PriseEnChargeBadge priseEnCharge={appointment.priseEnCharge} />
                   </div>
                   <div className="pt-4 border-t border-gray-50">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Urgence</p>
@@ -621,9 +943,6 @@ export default function TraitementPage() {
                         </div>
                         <p className="mt-2 text-[12px] font-semibold text-slate-700">{entry.diagnostic || 'Aucun diagnostic enregistré'}</p>
                         <p className="mt-1 text-[12px] text-slate-600 line-clamp-3">{entry.observations || 'Aucune observation détaillée'}</p>
-                        {entry.medicaments.length > 0 && (
-                          <p className="mt-2 text-[11px] text-[#006A8C]">Médicaments : {entry.medicaments.join(', ')}</p>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -662,6 +981,14 @@ export default function TraitementPage() {
                 <span className="text-[13px] uppercase tracking-wider">Prescriptions non médicamenteuses</span>
                 {activeSection === 'non-medicamentaux' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#006A8C] rounded-t-full"></div>}
               </button>
+              <button
+                onClick={goToParacliniques}
+                className="flex items-center cursor-pointer gap-2.5 py-6 transition-all relative text-gray-400 hover:text-gray-600 font-medium"
+              >
+                <Stethoscope className="h-4.5 w-4.5" />
+                <span className="text-[13px] uppercase tracking-wider">Examens para-cliniques</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
             </div>
 
             <CardContent className="p-8">
@@ -677,21 +1004,29 @@ export default function TraitementPage() {
                     </Badge>
                   </div>
 
-                  <div className="border border-gray-100 rounded-[20px] overflow-hidden shadow-sm">
+                  {/* overflow-x-auto : chaque prescription tient sur une seule ligne, le tableau
+                      scrolle horizontalement plutôt que de faire déborder la page */}
+                  <div className="border border-gray-100 rounded-[20px] shadow-sm overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-[#F8FAFC] border-b border-gray-100">
-                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Médicament</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Type / Dosage</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Voie / Qté</th>
-                          <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Durée / Instructions</th>
-                          <th className="px-6 py-4 w-10"></th>
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Médicament</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Forme</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Dosage</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Voie</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Fréquence</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Qté</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Unité</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Durée (j)</th>
+                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Instructions</th>
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Prix</th>
+                          <th className="px-2 py-3 w-10"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {medicaments.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="px-6 py-12 text-center">
+                            <td colSpan={11} className="px-6 py-12 text-center">
                               <div className="flex flex-col items-center gap-3">
                                 <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                                   <FileText className="w-6 h-6" />
@@ -702,67 +1037,120 @@ export default function TraitementPage() {
                           </tr>
                         ) : medicaments.map((med) => (
                           <tr key={med.id} className="hover:bg-[#F8FAFC]/50 transition-colors">
-                            <td className="px-4 py-4 align-top">
-                              <input
-                                type="text"
+                            <td className="px-3 py-2 align-middle">
+                              <MedicamentAutocomplete
                                 value={med.medicament}
-                                onChange={(e) => updateMedicament(med.id, 'medicament', e.target.value)}
-                                className="w-full text-[13px] font-bold bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] p-3 transition-all"
-                                placeholder="Nom du médicament..."
+                                onChangeText={(text) => updateMedicament(med.id, 'medicament', text)}
+                                onSelectArticle={(article) => selectArticleForMedicament(med.id, article)}
+                                chuId={medecin?.chuId}
+                                className={`w-64 text-[12px] font-bold bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] p-2 transition-all ${STOCK_LEVEL_TEXT_CLASS[med.stockLevel ?? 'ok']}`}
+                                placeholder="Médicament..."
                               />
                             </td>
-                            <td className="px-4 py-4 space-y-2 align-top">
+                            <td className="px-2 py-2 align-middle">
                               <input
                                 type="text"
                                 value={med.forme}
                                 onChange={(e) => updateMedicament(med.id, 'forme', e.target.value)}
-                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
-                                placeholder="Forme (ex: Comprimé)..."
+                                className="w-20 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                                placeholder="Forme..."
                               />
+                            </td>
+                            <td className="px-2 py-2 align-middle">
                               <input
                                 type="text"
                                 value={med.dosage}
                                 onChange={(e) => updateMedicament(med.id, 'dosage', e.target.value)}
-                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
-                                placeholder="Dosage (ex: 500mg)..."
+                                className="w-20 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                                placeholder="Dosage..."
                               />
                             </td>
-                            <td className="px-4 py-4 space-y-2 align-top">
+                            <td className="px-2 py-2 align-middle">
                               <input
                                 type="text"
                                 value={med.voie}
                                 onChange={(e) => updateMedicament(med.id, 'voie', e.target.value)}
-                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
-                                placeholder="Voie (ex: Orale)..."
-                              />
-                              <input
-                                type="text"
-                                value={med.posologie}
-                                onChange={(e) => updateMedicament(med.id, 'posologie', e.target.value)}
-                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
-                                placeholder="Posologie/Quantité..."
+                                className="w-16 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                                placeholder="Voie..."
                               />
                             </td>
-                            <td className="px-4 py-4 space-y-2 align-top">
+                            <td className="px-2 py-2 align-middle">
+                              <div className="flex gap-1">
+                                <select
+                                  value={med.frequenceType}
+                                  onChange={(e) => updateMedicament(med.id, 'frequenceType', e.target.value)}
+                                  className="w-24 shrink-0 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                                >
+                                  {FREQUENCE_TYPE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                                {(med.frequenceType === 'PAR_JOUR' || med.frequenceType === 'HEURES') && (
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={med.frequenceValeur}
+                                    onChange={(e) => updateMedicament(med.id, 'frequenceValeur', e.target.value)}
+                                    className="w-12 shrink-0 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                                  />
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 align-middle">
+                              <input
+                                type="number"
+                                min="1"
+                                value={med.quantite}
+                                onChange={(e) => updateMedicament(med.id, 'quantite', e.target.value)}
+                                className="w-14 text-[11px] bg-white border border-[#006A8C]/30 rounded-lg focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] p-2 transition-all"
+                              />
+                            </td>
+                            <td className="px-2 py-2 align-middle">
+                              <select
+                                value={med.quantiteType}
+                                onChange={(e) => updateMedicament(med.id, 'quantiteType', e.target.value)}
+                                className="w-20 text-[10px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                              >
+                                {QUANTITE_TYPE_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-2 py-2 align-middle">
+                              <input
+                                type="number"
+                                min="1"
+                                value={med.dureeJours}
+                                onChange={(e) => updateMedicament(med.id, 'dureeJours', e.target.value)}
+                                className="w-14 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                              />
+                            </td>
+                            <td className="px-2 py-2 align-middle">
                               <input
                                 type="text"
-                                value={med.duree}
-                                onChange={(e) => updateMedicament(med.id, 'duree', e.target.value)}
-                                className="w-full text-[12px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all"
-                                placeholder="Durée du traitement..."
-                              />
-                              <textarea
                                 value={med.instructions}
                                 onChange={(e) => updateMedicament(med.id, 'instructions', e.target.value)}
-                                className="w-full text-[11px] bg-white border border-gray-100 rounded-xl focus:border-[#006A8C] p-2.5 transition-all h-10 min-h-[40px]"
-                                placeholder="Instructions complémentaires..."
+                                className="w-32 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
+                                placeholder="Instructions..."
                               />
                             </td>
-                            <td className="px-4 py-4 align-middle">
+                            <td className="px-3 py-2 align-middle whitespace-nowrap">
+                              {med.unitPrice != null ? (
+                                <span
+                                  className="text-[12px] font-bold text-[#006A8C] cursor-help"
+                                  title="Prix indicatif : calculé à partir du prix de vente pharmacie pour l'unité sélectionnée, sans conversion entre boîte et unité."
+                                >
+                                  ≈ {((med.unitPrice ?? 0) * (parseInt(med.quantite, 10) || 0)).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} Ar
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-2 align-middle">
                               <button
                                 type="button"
                                 onClick={() => removeMedicament(med.id)}
-                                className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                               >
                                 <Trash2 className="h-5 w-5" />
                               </button>
@@ -771,6 +1159,14 @@ export default function TraitementPage() {
                         ))}
                       </tbody>
                     </table>
+                    {medicamentsTotal > 0 && (
+                      <div className="flex items-center justify-end gap-3 px-6 py-4 bg-[#EAF3FA] border-t border-blue-100">
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-[#006A8C]">Total à payer</span>
+                        <span className="text-[16px] font-extrabold text-[#006A8C]">
+                          {medicamentsTotal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} Ar
+                        </span>
+                      </div>
+                    )}
                     <div className="p-6 bg-[#F8FAFC]/30">
                       <button
                         type="button"
@@ -782,36 +1178,10 @@ export default function TraitementPage() {
                       </button>
                     </div>
                   </div>
-
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-10 pt-8 border-t border-gray-50">
-                    <Button variant="outline" className="rounded-full px-10 h-12 text-[13px] font-bold text-gray-500 border-gray-200 hover:bg-gray-50 transition-all w-full sm:w-auto">
-                      ANNULER LES MODIFICATIONS
-                    </Button>
-                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                      <Button
-                        type="button"
-                        onClick={finalizeConsultation}
-                        disabled={saving}
-                        className="rounded-full px-8 h-12 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100 font-bold text-[13px] transition-all w-full sm:w-auto disabled:opacity-50 gap-2 shadow-none"
-                      >
-                        <Save className="w-4 h-4" />
-                        {saving ? 'SAUVEGARDE...' : 'VALIDER LA PRESCRIPTION'}
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={finalizeConsultation}
-                        disabled={saving}
-                        className="rounded-full px-10 h-12 bg-[#006A8C] text-white hover:bg-[#004d66] font-extrabold text-[13px] transition-all w-full sm:w-auto disabled:opacity-50 gap-2 shadow-lg shadow-blue-900/10"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        {saving ? 'TRAITEMENT...' : 'TERMINER LA CONSULTATION'}
-                      </Button>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+                  <div className="pt-4">
                     <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
                       <div className="flex items-center gap-3 text-[#006A8C] mb-5">
                         <div className="p-2 bg-blue-50 rounded-lg">
@@ -822,173 +1192,253 @@ export default function TraitementPage() {
                       <textarea
                         value={nonMedicaments.recommandationsNotes}
                         onChange={(e) => setNonMedicaments({ ...nonMedicaments, recommandationsNotes: e.target.value })}
-                        className="w-full h-36 bg-[#F8FAFC] border-none rounded-2xl p-5 text-[14px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20 transition-all placeholder:text-gray-400"
+                        className="w-full h-48 bg-[#F8FAFC] border-none rounded-2xl p-5 text-[14px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20 transition-all placeholder:text-gray-400"
                         placeholder="Ex: Régime hyposodé, repos strict, arrêt de travail..."
                       />
-                    </div>
-
-                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
-                      <div className="flex items-center gap-3 text-[#006A8C] mb-3">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <Calendar className="w-4.5 h-4.5" />
-                        </div>
-                        <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Contrôle / RDV de suivi</h4>
-                      </div>
-                      <p className="text-[12px] text-gray-500 mb-4">
-                        Ce bloc sert à planifier le prochain contrôle : motif + date prévue.
-                      </p>
-                      <div className="space-y-4">
-                        <textarea
-                          value={nonMedicaments.rdvMotif}
-                          onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvMotif: e.target.value })}
-                          className="w-full h-16 bg-[#F8FAFC] border-none rounded-2xl p-4 text-[13px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20 transition-all"
-                          placeholder="Motif du prochain contrôle..."
-                        />
-                        <div className="flex flex-col sm:flex-row items-center gap-4">
-                          <div className="flex bg-[#F1F5F9] p-1.5 rounded-xl gap-1">
-                            {(['NIVEAU_1', 'NIVEAU_2', 'NIVEAU_3', 'NIVEAU_4'] as const).map((niveau) => (
-                              <button
-                                key={niveau}
-                                onClick={() => setNonMedicaments({ ...nonMedicaments, rdvNiveau: niveau })}
-                                className={`w-8 h-8 rounded-lg text-[11px] font-black flex items-center justify-center transition-all ${nonMedicaments.rdvNiveau === niveau
-                                  ? 'bg-white text-[#006A8C] shadow-sm'
-                                  : 'text-gray-400 hover:text-gray-600'
-                                  }`}
-                              >
-                                {niveau.split('_')[1]}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="relative flex-1 w-full">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                              value={nonMedicaments.rdvDate}
-                              onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvDate: e.target.value })}
-                              className="w-full bg-[#F8FAFC] border-none rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20"
-                              type="date"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8">
-                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
-                      <div className="flex items-center gap-3 text-[#006A8C] mb-5">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <Stethoscope className="w-4.5 h-4.5" />
-                        </div>
-                        <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Examens para-cliniques</h4>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Service destinataire</label>
-                          <select
-                            value={nonMedicaments.examenService}
-                            onChange={(e) => setNonMedicaments({ ...nonMedicaments, examenService: e.target.value })}
-                            className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl p-3 text-[13px] text-gray-700 focus:border-[#006A8C] outline-none"
-                          >
-                            <option value="">Sélectionner un plateau technique...</option>
-                            {examenServices.map((service) => (
-                              <option key={service} value={service}>{service}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Description de l'examen</label>
-                          <textarea
-                            value={nonMedicaments.examenMotif}
-                            onChange={(e) => setNonMedicaments({ ...nonMedicaments, examenMotif: e.target.value })}
-                            className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl p-4 text-[13px] text-gray-700 focus:border-[#006A8C] transition-all min-h-[100px]"
-                            placeholder="Détails de l'examen demandé..."
-                          />
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {(['STAT', 'URGENTE', 'NORMALE'] as const).map((priorite) => (
-                            <button
-                              key={priorite}
-                              onClick={() => setNonMedicaments({ ...nonMedicaments, examenPriorite: priorite })}
-                              className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${nonMedicaments.examenPriorite === priorite
-                                ? priorite === 'STAT' ? 'bg-red-600 text-white shadow-lg shadow-red-200' :
-                                  priorite === 'URGENTE' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' :
-                                    'bg-[#006A8C] text-white shadow-lg shadow-blue-200'
-                                : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
-                                }`}
-                            >
-                              {priorite}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
-                      <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-3 text-[#006A8C]">
-                          <div className="p-2 bg-blue-50 rounded-lg">
-                            <Stethoscope className="w-4.5 h-4.5" />
-                          </div>
-                          <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Demande d'hospitalisation</h4>
-                        </div>
-                        <Badge className="bg-[#EAF3FA] text-[#006A8C] border-none font-black text-[9px] px-2 py-0.5">EN ATTENTE</Badge>
-                      </div>
-                      <div className="space-y-4">
-                        <textarea
-                          value={nonMedicaments.hospitalisationMotif}
-                          onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationMotif: e.target.value })}
-                          className="w-full h-24 bg-[#F8FAFC] border border-gray-100 rounded-xl p-4 text-[13px] text-gray-700 focus:border-[#006A8C] transition-all"
-                          placeholder="Motif justifiant l'hospitalisation..."
-                        />
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Service d'accueil</label>
-                          <select
-                            value={nonMedicaments.hospitalisationService}
-                            onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationService: e.target.value })}
-                            className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl p-3 text-[13px] text-gray-700 focus:border-[#006A8C] outline-none"
-                          >
-                            <option value="">Sélectionner un service clinique...</option>
-                            {hospitalisationServices.map((service) => (
-                              <option key={service} value={service}>{service}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="pt-2">
-                          <p className="text-[11px] text-gray-400 italic">La validation finale sera effectuée par le chef de service.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-10 pt-8 border-t border-gray-50">
-                    <Button variant="outline" className="rounded-full px-8 h-12 text-[13px] font-bold text-gray-500 border-gray-200">
-                      ANNULER
-                    </Button>
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={finalizeConsultation}
-                        disabled={saving}
-                        className="rounded-full px-8 h-12 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100 font-bold text-[13px] gap-2 shadow-none"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>{saving ? 'SAUVEGARDE...' : 'VALIDER LA PRESCRIPTION'}</span>
-                      </Button>
-                      <Button
-                        onClick={finalizeConsultation}
-                        disabled={saving}
-                        className="rounded-full px-10 h-12 bg-[#006A8C] text-white hover:bg-[#004d66] font-extrabold text-[13px] gap-2 shadow-lg shadow-blue-900/10"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>{saving ? 'TRAITEMENT...' : 'TERMINER LA CONSULTATION'}</span>
-                      </Button>
                     </div>
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Suivi & Demandes — sections déplacées hors des onglets de prescription */}
+          <Card className="mt-10 rounded-[32px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
+            <CardHeader className="px-8 pt-8 pb-0">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-[#EAF3FA] rounded-xl">
+                  <ClipboardList className="w-5 h-5 text-[#006A8C]" />
+                </div>
+                <CardTitle className="text-[15px] font-extrabold text-gray-900 uppercase tracking-tight">
+                  Suivi &amp; Demandes
+                </CardTitle>
+              </div>
+              <p className="text-[12px] text-gray-400 font-medium pb-6 border-b border-gray-100">
+                Contrôle de suivi, examens para-cliniques et demandes d'hospitalisation.
+              </p>
+            </CardHeader>
+            <CardContent className="p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                {/* Contrôle / RDV de suivi */}
+                <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-[#006A8C] border-x border-b border-gray-100 flex flex-col">
+                  <div className="flex items-center gap-3 text-[#006A8C] mb-1">
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Contrôle / RDV de suivi</h4>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mb-4">Planifier le prochain rendez-vous de contrôle.</p>
+
+                  <div className="space-y-3 flex-1">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block">Motif du contrôle</label>
+                      <textarea
+                        value={nonMedicaments.rdvMotif}
+                        onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvMotif: e.target.value })}
+                        className="w-full h-24 bg-[#F8FAFC] border border-gray-100 rounded-2xl p-4 text-[13px] text-gray-700 focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C]/20 transition-all outline-none"
+                        placeholder="Ex : Réévaluation tensionnelle, suivi glycémie..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block">Niveau de priorité</label>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {([
+                          { key: 'NIVEAU_1', label: 'Routine', sub: '~1 mois' },
+                          { key: 'NIVEAU_2', label: 'Prioritaire', sub: '~2 sem.' },
+                          { key: 'NIVEAU_3', label: 'Urgent', sub: '~1 sem.' },
+                          { key: 'NIVEAU_4', label: 'STAT', sub: '< 48h' },
+                        ] as const).map(({ key, label, sub }) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setNonMedicaments({ ...nonMedicaments, rdvNiveau: key })}
+                            className={`flex flex-col items-center py-2 px-1 rounded-xl text-center transition-all border ${
+                              nonMedicaments.rdvNiveau === key
+                                ? 'bg-[#EAF3FA] border-[#006A8C] text-[#006A8C]'
+                                : 'bg-[#F8FAFC] border-gray-100 text-gray-400 hover:border-gray-200'
+                            }`}
+                          >
+                            <span className="text-[11px] font-black">{label}</span>
+                            <span className="text-[9px] mt-0.5 opacity-70">{sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block">Date souhaitée</label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                        <input
+                          value={nonMedicaments.rdvDate}
+                          onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvDate: e.target.value })}
+                          className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-gray-700 focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C]/20 outline-none transition-all"
+                          type="date"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveControle}
+                    disabled={savingControle || (!nonMedicaments.rdvMotif.trim() && !nonMedicaments.rdvDate)}
+                    className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[12px] transition-all disabled:opacity-40 ${
+                      savedControle
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-[#006A8C] hover:bg-[#004d66] text-white shadow-sm shadow-blue-900/10'
+                    }`}
+                  >
+                    {savedControle ? (
+                      <><CheckCircle2 className="w-4 h-4" /> RDV enregistré</>
+                    ) : savingControle ? (
+                      'Enregistrement...'
+                    ) : (
+                      <><Save className="w-3.5 h-3.5" /> Enregistrer le RDV</>
+                    )}
+                  </button>
+                </div>
+
+                {/* Demande d'hospitalisation */}
+                <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-[#006A8C] border-x border-b border-gray-100 flex flex-col">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-3 text-[#006A8C]">
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <Stethoscope className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Hospitalisation</h4>
+                    </div>
+                    <Badge className={`border-none font-black text-[9px] px-2 py-0.5 ${
+                      hospitalisationOutcome === 'VALIDE' ? 'bg-emerald-50 text-emerald-700'
+                        : hospitalisationOutcome === 'EN_ATTENTE' ? 'bg-amber-50 text-amber-700'
+                        : 'bg-[#EAF3FA] text-[#006A8C]'
+                    }`}>
+                      {hospitalisationOutcome === 'VALIDE' ? 'CONFIRMÉE' : hospitalisationOutcome === 'EN_ATTENTE' ? 'DEMANDE ENVOYÉE' : 'À CONFIRMER'}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mb-4">Si vous appartenez au service choisi, le patient est admis directement ; sinon une demande est envoyée pour validation par ce service.</p>
+
+                  <div className="space-y-3 flex-1">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block">
+                        Motif d'hospitalisation <span className="text-red-400">*</span>
+                      </label>
+                      <textarea
+                        value={nonMedicaments.hospitalisationMotif}
+                        onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationMotif: e.target.value })}
+                        className="w-full h-28 bg-[#F8FAFC] border border-gray-100 rounded-xl p-4 text-[13px] text-gray-700 focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C]/20 outline-none transition-all"
+                        placeholder="Décrire le motif clinique justifiant l'hospitalisation..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block">Service d'accueil</label>
+                      <select
+                        value={nonMedicaments.hospitalisationService}
+                        onChange={(e) => setNonMedicaments({ ...nonMedicaments, hospitalisationService: e.target.value })}
+                        className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl p-3 text-[13px] text-gray-700 focus:border-[#006A8C] outline-none transition-all"
+                      >
+                        <option value="">Sélectionner un service clinique...</option>
+                        {hospitalisationServiceOptions.map((service) => (
+                          <option key={service.id} value={service.name}>{service.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveHospitalisation}
+                    disabled={savingHospitalisation || !nonMedicaments.hospitalisationMotif.trim()}
+                    className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[12px] transition-all disabled:opacity-40 ${
+                      hospitalisationOutcome === 'VALIDE'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : hospitalisationOutcome === 'EN_ATTENTE'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-[#006A8C] hover:bg-[#004d66] text-white shadow-sm shadow-blue-900/10'
+                    }`}
+                  >
+                    {hospitalisationOutcome === 'VALIDE' ? (
+                      <><CheckCircle2 className="w-4 h-4" /> Hospitalisation confirmée</>
+                    ) : hospitalisationOutcome === 'EN_ATTENTE' ? (
+                      <><CheckCircle2 className="w-4 h-4" /> Demande envoyée</>
+                    ) : savingHospitalisation ? (
+                      'Confirmation en cours...'
+                    ) : (
+                      <><Save className="w-3.5 h-3.5" /> Confirmer l'hospitalisation</>
+                    )}
+                  </button>
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action finale — conclut la consultation quel que soit l'onglet actif */}
+          <div className="mt-10 flex items-center justify-end">
+            <Button
+              type="button"
+              onClick={handleTerminerClick}
+              disabled={saving}
+              className="rounded-full px-10 h-12 bg-[#006A8C] text-white hover:bg-[#004d66] font-extrabold text-[13px] transition-all disabled:opacity-50 gap-2 shadow-lg shadow-blue-900/10"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              {saving ? 'TRAITEMENT...' : 'TERMINER LA CONSULTATION'}
+            </Button>
+          </div>
+
         </div>
       </div>
+
+      {toastMsg && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 rounded-full px-5 py-3 text-[13px] font-bold text-white shadow-lg ${
+            toastMsg.variant === 'success' ? 'bg-emerald-500' : 'bg-red-500'
+          }`}
+        >
+          {toastMsg.variant === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {toastMsg.text}
+        </div>
+      )}
+
+      {showNoTreatmentReasonModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-[15px] font-extrabold text-gray-800 mb-2">Aucun traitement prescrit</h3>
+            <p className="text-[12px] text-gray-500 mb-4">
+              Vous terminez cette consultation sans avoir prescrit de médicament. Merci d'indiquer la raison avant de continuer.
+            </p>
+            <textarea
+              value={noTreatmentReason}
+              onChange={(e) => setNoTreatmentReason(e.target.value)}
+              className="w-full text-[13px] bg-white border border-gray-200 rounded-xl p-3 h-24 focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] transition-all"
+              placeholder="Ex : patient orienté en paraclinique, aucun traitement nécessaire..."
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowNoTreatmentReasonModal(false)}
+                className="px-4 py-2.5 text-[12px] font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={!noTreatmentReason.trim()}
+                onClick={() => {
+                  setShowNoTreatmentReasonModal(false);
+                  finalizeConsultation();
+                }}
+                className="px-4 py-2.5 text-[12px] font-bold text-white bg-[#006A8C] hover:bg-[#004d66] rounded-xl disabled:opacity-40 transition-all"
+              >
+                Confirmer et terminer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Suspense>
   );
 }

@@ -1,29 +1,24 @@
 {
   "items": [
     {
-      "label": "Tableau de bord",
-      "href": "/modules/clinical",
+      "label": "Dashboard",
+      "href": "/modules/consultation-externe/dashboard",
       "icon": "layout-dashboard"
     },
     {
-      "label": "Patient hospitalisé",
-      "href": "/modules/clinical/patients",
-      "icon": "hospital"
-    },
-    {
-      "label": "Consultation externe",
+      "label": "Fil de travail",
       "href": "/modules/consultation-externe",
-      "icon": "file-text"
-    },
-    {
-      "label": "Contrôle",
-      "href": "/modules/consultation-externe/controle",
-      "icon": "check-square"
+      "icon": "clipboard-list"
     },
     {
       "label": "Archive",
-      "href": "/archive",
+      "href": "/modules/consultation-externe/archive",
       "icon": "archive"
+    },
+    {
+      "label": "Rapport",
+      "href": "/modules/consultation-externe/rapport",
+      "icon": "bar-chart-2"
     }
   ]
 }

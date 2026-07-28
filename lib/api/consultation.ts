@@ -9,7 +9,6 @@ export type ConsultationHistoryEntry = {
   ordreControle?: number | null;
   diagnostic: string;
   observations: string;
-  medicaments: string[];
   nonMedicamentPrescriptions: Array<{
     rdvMotif?: string | null;
     rdvDate?: string | null;
@@ -30,6 +29,7 @@ export type ConsultationListFilters = {
   date?: string;
   dateFrom?: string;
   dateTo?: string;
+  archived?: boolean;
 };
 
 export type ConsultationApi = {
@@ -52,13 +52,15 @@ export type ConsultationApi = {
     profession?: string | null;
     contactUrgence?: string | null;
     priseEnChargeId?: string | null;
+    priseEnCharge?: { id: string; companyName: string; isActive: boolean } | null;
   };
-  medecinId: number;
+  medecinId: string;
   statut: string;
   urgence: boolean;
   termine: boolean;
   arriveeAccueil?: boolean;
   arriveeAccueilAt?: string | null;
+  createdAt?: string;
   typeVisite?: string;
   ordreControle?: number | null;
   consultationParenteId?: number | null;
@@ -71,7 +73,6 @@ export type ConsultationApi = {
     noteControle?: string;
   } | null;
   parametresCliniques?: ClinicalParameter[];
-  medicamentPrescriptions?: Array<any>;
   nonMedicamentPrescriptions?: Array<any>;
 };
 
@@ -140,7 +141,17 @@ const fetchWithAuth = async (input: string, init: RequestInit = {}) => {
 
 const consultationEndpoint = (path: string) => getConsultationExterneApiUrl(path);
 
+export type HospitalisationServiceOption = { id: string; name: string };
+
 export const consultationApi = {
+  // Liste dynamique (registre service-service, type CLINIQUE) — jamais figée en dur :
+  // un service créé/désactivé côté registre doit apparaître/disparaître automatiquement.
+  getHospitalisationServices: async (): Promise<HospitalisationServiceOption[]> => {
+    const response = await fetchWithAuth(consultationEndpoint('/consultations/hospitalisation-services'));
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    return response.json();
+  },
+
   getWaitingConsultations: async (): Promise<ConsultationApi[]> => {
     const response = await fetchWithAuth(consultationEndpoint('/consultations/waiting-prescription'));
     if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -160,6 +171,9 @@ export const consultationApi = {
     }
     if (filters?.dateTo) {
       params.set('dateTo', filters.dateTo);
+    }
+    if (filters?.archived !== undefined) {
+      params.set('archived', String(filters.archived));
     }
 
     const queryString = params.toString();

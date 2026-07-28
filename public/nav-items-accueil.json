@@ -1,34 +1,24 @@
-﻿{
+{
   "items": [
     {
-      "label": "Dashboard Accueil",
-      "href": "/modules/accueil",
+      "label": "Dashboard",
+      "href": "/modules/consultation-externe/dashboard",
       "icon": "layout-dashboard"
     },
     {
-      "label": "Enregistrement Patient",
-      "href": "/modules/accueil/enregistrement-patient",
-      "icon": "user-plus"
+      "label": "Fil de travail",
+      "href": "/modules/consultation-externe",
+      "icon": "clipboard-list"
     },
     {
-      "label": "Liste Patients",
-      "href": "/modules/accueil/liste-patients",
-      "icon": "users"
+      "label": "Archive",
+      "href": "/modules/consultation-externe/archive",
+      "icon": "archive"
     },
     {
-      "label": "Rendez-vous",
-      "href": "/modules/accueil/rendez-vous",
-      "icon": "calendar-days"
-    },
-    {
-      "label": "Hospitalisation",
-      "href": "/modules/accueil/hospitalisation",
-      "icon": "bed-double"
-    },
-    {
-      "label": "Pharmacie",
-      "href": "/modules/accueil/pharmacie",
-      "icon": "pill"
+      "label": "Rapport",
+      "href": "/modules/consultation-externe/rapport",
+      "icon": "bar-chart-2"
     }
   ]
 }

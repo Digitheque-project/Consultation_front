@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, ClipboardList, FileText, Plus, Save, Stethoscope, Trash2, User } from 'lucide-react';
+import { ArrowLeft, Calendar, ClipboardList, Save, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,26 +12,14 @@ import { ConsultationApi, getVisiteLabel } from '@/lib/api/consultation';
 
 const mapConsultation = (consultation: ConsultationApi) => ({
   id: consultation.id,
-  patientName: consultation.patient?.displayName ?? `Patient #${consultation.patientId}`,
+  patientName: consultation.patient?.displayName ?? ([consultation.patient?.prenom, consultation.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu'),
   date: consultation.date,
   heure: consultation.heure,
   motif: consultation.motif ?? '',
   diagnostic: consultation.observation?.diagnostic ?? '',
   notes: consultation.observation?.notes ?? '',
   noteControle: consultation.observation?.noteControle ?? '',
-  medicamentPrescriptions: consultation.medicamentPrescriptions ?? [],
   nonMedicamentPrescriptions: consultation.nonMedicamentPrescriptions ?? [],
-});
-
-const emptyMedicationRow = () => ({
-  id: Date.now(),
-  medicament: '',
-  forme: '',
-  dosage: '',
-  voie: '',
-  posologie: '',
-  duree: '',
-  instructions: '',
 });
 
 export default function ControleDetailPage() {
@@ -43,7 +31,6 @@ export default function ControleDetailPage() {
   const { mutateAsync: savePrescriptions, isPending: isSavingPrescriptions } = useSaveControlPrescriptions();
   const visiteLabel = consultationData ? getVisiteLabel(consultationData) : 'Consultation';
   const [noteControle, setNoteControle] = useState('');
-  const [medicaments, setMedicaments] = useState<Array<any>>([]);
   const [nonMedicaments, setNonMedicaments] = useState({
     recommandationsNotes: '',
     rdvMotif: '',
@@ -71,22 +58,6 @@ export default function ControleDetailPage() {
 
   useEffect(() => {
     if (consultationData) {
-      const prescriptions = consultationData.medicamentPrescriptions ?? [];
-      setMedicaments(
-        prescriptions.length > 0
-          ? prescriptions.map((item: any) => ({
-              id: item.id,
-              medicament: item.medicament ?? '',
-              forme: item.forme ?? '',
-              dosage: item.dosage ?? '',
-              voie: item.voie ?? '',
-              posologie: item.posologie ?? '',
-              duree: item.duree ?? '',
-              instructions: item.instructions ?? '',
-            }))
-          : [emptyMedicationRow()],
-      );
-
       const existingNonMed = consultationData.nonMedicamentPrescriptions?.[0];
       if (existingNonMed) {
         setNonMedicaments({
@@ -109,18 +80,6 @@ export default function ControleDetailPage() {
     if (!consultationData) return null;
     return mapConsultation(consultationData);
   }, [consultationData]);
-
-  const updateMedication = (id: number, field: string, value: string) => {
-    setMedicaments((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
-  };
-
-  const addMedication = () => {
-    setMedicaments((prev) => [...prev, emptyMedicationRow()]);
-  };
-
-  const removeMedication = (id: number) => {
-    setMedicaments((prev) => prev.filter((item) => item.id !== id));
-  };
 
   const handleSaveNote = async () => {
     if (!id) return;
@@ -146,7 +105,6 @@ export default function ControleDetailPage() {
     await savePrescriptions({
       id,
       payload: {
-        medicaments: medicaments.filter((item) => item.medicament.trim() !== ''),
         nonMedicaments: hasNonMedicationData() ? nonMedicaments : null,
       },
     });
@@ -251,10 +209,6 @@ export default function ControleDetailPage() {
                 </div>
                 <div className="mt-4 space-y-3">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Médicamenteuses</p>
-                    <p className="mt-1 text-sm text-slate-700">{consultation.medicamentPrescriptions.length} prescription(s)</p>
-                  </div>
-                  <div>
                     <p className="text-[10px] uppercase tracking-wide text-slate-400">Non médicamenteuses</p>
                     <p className="mt-1 text-sm text-slate-700">{consultation.nonMedicamentPrescriptions.length} prescription(s)</p>
                   </div>
@@ -278,64 +232,6 @@ export default function ControleDetailPage() {
             </div>
 
             <div className="space-y-8">
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 text-[#006A8C]">
-                    <FileText className="h-4 w-4" />
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-[0.12em]">Médicamenteuses</h4>
-                  </div>
-                  <Button variant="outline" onClick={addMedication} className="rounded-full">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {medicaments.map((item) => (
-                    <div key={item.id} className="grid gap-3 rounded-2xl border border-slate-200 p-3 md:grid-cols-5">
-                      <input
-                        value={item.medicament}
-                        onChange={(e) => updateMedication(item.id, 'medicament', e.target.value)}
-                        placeholder="Médicament"
-                        className="rounded-xl border border-slate-200 p-2 text-sm"
-                      />
-                      <input
-                        value={item.forme}
-                        onChange={(e) => updateMedication(item.id, 'forme', e.target.value)}
-                        placeholder="Forme"
-                        className="rounded-xl border border-slate-200 p-2 text-sm"
-                      />
-                      <input
-                        value={item.dosage}
-                        onChange={(e) => updateMedication(item.id, 'dosage', e.target.value)}
-                        placeholder="Dosage"
-                        className="rounded-xl border border-slate-200 p-2 text-sm"
-                      />
-                      <input
-                        value={item.posologie}
-                        onChange={(e) => updateMedication(item.id, 'posologie', e.target.value)}
-                        placeholder="Posologie"
-                        className="rounded-xl border border-slate-200 p-2 text-sm"
-                      />
-                      <div className="flex gap-2">
-                        <input
-                          value={item.duree}
-                          onChange={(e) => updateMedication(item.id, 'duree', e.target.value)}
-                          placeholder="Durée"
-                          className="w-full rounded-xl border border-slate-200 p-2 text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeMedication(item.id)}
-                          className="rounded-xl border border-red-200 p-2 text-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
               <section>
                 <div className="flex items-center gap-2 text-[#006A8C] mb-4">
                   <ClipboardList className="h-4 w-4" />

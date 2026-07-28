@@ -19,7 +19,8 @@ import { RefreshCw } from 'lucide-react';
 import { EhrFormSection } from '@/components/clinical/dossier-patient/EhrFormSection';
 import { ehr } from '@/lib/clinical/ehr-theme';
 import { readDossierPatientPrefill } from '@/lib/clinical/dossier-patient-prefill';
-import { useUserConfig } from '@/hooks/use-user-config';
+import { useAuth } from '@/context/AuthContext';
+import { checkPublicEnv } from '@/lib/env';
 
 // ── Nouveau layout + sous-formulaires ──────────────────────────────────────
 import PrescriptionLayout, { type Section } from '@/components/clinical/dossier-patient/PrescriptionLayout';
@@ -38,7 +39,7 @@ import DiaryseForm       from '@/components/clinical/dossier-patient/para/Diarys
 import AnapathForm       from '@/components/clinical/dossier-patient/para/AnapathForm';
 // ───────────────────────────────────────────────────────────────────────────
 
-const PRESCRIPTION_API_URL      = 'https://prescription-sih-api-0yj3.onrender.com';
+const PRESCRIPTION_API_URL      = checkPublicEnv('NEXT_PUBLIC_PRESCRIPTION_URL', process.env.NEXT_PUBLIC_PRESCRIPTION_URL);
 const PRESCRIPTION_TOKEN        = process.env.NEXT_PUBLIC_PRESCRIPTION_TOKEN;
 const PRESCRIPTION_FRONTEND_URL = process.env.NEXT_PUBLIC_PRESCRIPTION_FRONTEND_URL;
 const APP_PUBLIC_URL            = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL) || '';
@@ -190,7 +191,7 @@ export function PrescriptionsTab({ patientId }: { patientId: string }) {
 
   // ── Patient + Prescripteur depuis les sources CHU ───────────────────────
   const prefill = useMemo(() => readDossierPatientPrefill(patientId), [patientId]);
-  const { config: userConfig } = useUserConfig();
+  const { medecin } = useAuth();
 
   const patient = useMemo(() => {
     const p = prefill?.patient as Record<string, unknown> | null | undefined;
@@ -214,12 +215,12 @@ export function PrescriptionsTab({ patientId }: { patientId: string }) {
   }, [prefill, patientId]);
 
   const prescripteur = useMemo(() => ({
-    id:      userConfig?.id ?? 'user-inconnu',
-    nom:     userConfig?.doctorName ?? 'Médecin',
-    prenoms: undefined as string | undefined,
-    poste:   userConfig?.speciality ?? '',
-    service: userConfig?.speciality ?? '',
-  }), [userConfig]);
+    id:      medecin?.id ?? 'user-inconnu',
+    nom:     medecin ? `${medecin.prenom} ${medecin.nom}` : 'Médecin',
+    prenoms: medecin?.prenom,
+    poste:   medecin?.specialite ?? '',
+    service: medecin?.specialite ?? '',
+  }), [medecin]);
 
   // Objet patient simplifié pour les sous-formulaires (ils attendent { id, nom, prenom })
   const patientForForms = useMemo(() => ({

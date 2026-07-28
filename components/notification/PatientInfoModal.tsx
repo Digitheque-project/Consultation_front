@@ -75,8 +75,7 @@ export function PatientInfoModal({
 
   const nom = pickString(patient.nom, patient.lastName, patient.lastname);
   const prenom = pickString(patient.prenom, patient.firstName, patient.firstname);
-  const fullName = pickString(`${nom ?? ""} ${prenom ?? ""}`.trim(), notification?.patientId) ??
-    "Patient inconnu";
+  const fullName = pickString(`${nom ?? ""} ${prenom ?? ""}`.trim()) ?? "Patient inconnu";
   const birthDate = pickString(
     patient.dateNaissance,
     patient.birthDate,
@@ -84,7 +83,7 @@ export function PatientInfoModal({
   );
   const age = calculateAge(birthDate);
   const sexe = pickString(patient.sexe, patient.gender, patient.sex) ?? "-";
-  const cin = pickString(patient.cin, patient.cni, patient.numeroCin, patient.id);
+  const cin = pickString(patient.cin, patient.cni, patient.numeroCin);
   const profession = pickString(patient.profession, patient.job, patient.occupation);
   const adresse = pickString(patient.adresse, patient.address, patient.adresseComplete);
   const telephone = pickString(patient.telephone, patient.phone, patient.phoneNumber);
