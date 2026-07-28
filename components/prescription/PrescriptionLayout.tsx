@@ -3,13 +3,21 @@ import { useState } from "react";
 import LaboForm from "./para/LaboForm";
 import ImagerieForm from "./para/ImagerieForm";
 import EEGForm from "./para/EEGForm";
+import ECGForm from "./para/ECGForm";
+import PolysomnographieForm from "./para/PolysomnographieForm";
 import KineForm from "./para/KineForm";
 import EndoscopieForm from "./para/EndoscopieForm";
 import DiaryseForm from "./para/DiaryseForm";
 import AnapathForm from "./para/AnapathForm";
+import ORLForm from "./para/ORLForm";
+import ActesOrlForm from "./ActesOrlForm";
 import TransfusionForm from "./TransfusionForm";
 import BlocForm from "./BlocForm";
 import HistoriqueForm from "./HistoriqueForm";
+import MedicaleForm from "./medicale/MedicaleForm";
+import NonMedicaleForm from "./NonMedicaleForm";
+import SurveillanceForm from "./SurveillanceForm";
+import SoinsInfirmierForm from "./SoinsInfirmierForm";
 
 export interface PatientInfo {
   id: string;
@@ -36,26 +44,34 @@ interface Props {
   onBack?: () => void;
 }
 
-type TabId = "labo" | "imagerie" | "eeg" | "kine" | "endo" | "dialyse" | "anapath" | "trans" | "bloc" | "hist";
+type TabId = "med" | "nm" | "soins-inf" | "surv" | "labo" | "imagerie" | "eeg" | "ecg" | "poly" | "kine" | "endo" | "dialyse" | "anapath" | "orl" | "actes-orl" | "trans" | "bloc" | "hist";
 type GlobalCartItem = { id: number; tabId: TabId; label: string; count: number; submit: () => Promise<unknown> };
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "med",      label: "Médicamenteuse", icon: "medication"       },
+  { id: "nm",       label: "Non médicamenteuse", icon: "self_care"    },
+  { id: "soins-inf", label: "Soins infirmier", icon: "health_and_safety" },
+  { id: "surv",     label: "Surveillance",   icon: "monitor_heart"    },
   { id: "labo",     label: "Laboratoire",    icon: "science"          },
   { id: "imagerie", label: "Imagerie",        icon: "radiology"        },
   { id: "eeg",      label: "EEG",             icon: "neurology"        },
+  { id: "ecg",      label: "ECG",             icon: "favorite"         },
+  { id: "poly",     label: "Polysomnographie", icon: "bedtime"        },
   { id: "kine",     label: "Kinésithérapie",  icon: "exercise"         },
   { id: "endo",     label: "Endoscopie",      icon: "visibility"       },
   { id: "dialyse",  label: "Dialyse",         icon: "water_full"       },
   { id: "anapath",  label: "Anapath",         icon: "biotech"          },
+  { id: "orl",      label: "ORL",             icon: "hearing"          },
+  { id: "actes-orl", label: "Actes ORL",     icon: "hearing"           },
   { id: "trans",    label: "Transfusion",     icon: "bloodtype"        },
   { id: "bloc",     label: "Bloc Opératoire", icon: "medical_services" },
   { id: "hist",     label: "Historique",      icon: "history"          },
 ];
 
 export default function PrescriptionLayout({ patient, prescripteur, onBack }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>("labo");
+  const [activeTab, setActiveTab] = useState<TabId>("med");
   // Track visited tabs so forms are mounted only when first opened (preserves state, avoids premature API calls)
-  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(new Set(["labo"]));
+  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(new Set(["med"]));
 
   const [globalCart, setGlobalCart] = useState<GlobalCartItem[]>([]);
   const [globalSubmitting, setGlobalSubmitting] = useState(false);
@@ -199,6 +215,26 @@ export default function PrescriptionLayout({ patient, prescripteur, onBack }: Pr
 
       {/* ── Form area — only visited tabs are mounted; active is visible ── */}
       <div style={{ padding: "4px 16px 100px", background: "var(--bg)" }}>
+        {visitedTabs.has("med") && (
+          <div style={{ display: activeTab === "med" ? "block" : "none" }}>
+            <MedicaleForm patient={patient} prescripteur={prescripteur} />
+          </div>
+        )}
+        {visitedTabs.has("nm") && (
+          <div style={{ display: activeTab === "nm" ? "block" : "none" }}>
+            <NonMedicaleForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("nm", item)} />
+          </div>
+        )}
+        {visitedTabs.has("soins-inf") && (
+          <div style={{ display: activeTab === "soins-inf" ? "block" : "none" }}>
+            <SoinsInfirmierForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("soins-inf", item)} />
+          </div>
+        )}
+        {visitedTabs.has("surv") && (
+          <div style={{ display: activeTab === "surv" ? "block" : "none" }}>
+            <SurveillanceForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("surv", item)} />
+          </div>
+        )}
         {visitedTabs.has("labo") && (
           <div style={{ display: activeTab === "labo" ? "block" : "none" }}>
             <LaboForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("labo", item)} />
@@ -212,6 +248,16 @@ export default function PrescriptionLayout({ patient, prescripteur, onBack }: Pr
         {visitedTabs.has("eeg") && (
           <div style={{ display: activeTab === "eeg" ? "block" : "none" }}>
             <EEGForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("eeg", item)} />
+          </div>
+        )}
+        {visitedTabs.has("ecg") && (
+          <div style={{ display: activeTab === "ecg" ? "block" : "none" }}>
+            <ECGForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("ecg", item)} />
+          </div>
+        )}
+        {visitedTabs.has("poly") && (
+          <div style={{ display: activeTab === "poly" ? "block" : "none" }}>
+            <PolysomnographieForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("poly", item)} />
           </div>
         )}
         {visitedTabs.has("kine") && (
@@ -232,6 +278,16 @@ export default function PrescriptionLayout({ patient, prescripteur, onBack }: Pr
         {visitedTabs.has("anapath") && (
           <div style={{ display: activeTab === "anapath" ? "block" : "none" }}>
             <AnapathForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("anapath", item)} />
+          </div>
+        )}
+        {visitedTabs.has("orl") && (
+          <div style={{ display: activeTab === "orl" ? "block" : "none" }}>
+            <ORLForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("orl", item)} />
+          </div>
+        )}
+        {visitedTabs.has("actes-orl") && (
+          <div style={{ display: activeTab === "actes-orl" ? "block" : "none" }}>
+            <ActesOrlForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("actes-orl", item)} />
           </div>
         )}
         {visitedTabs.has("trans") && (

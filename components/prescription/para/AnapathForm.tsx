@@ -30,6 +30,8 @@ interface Props {
   onAddToCart?: (item: { label: string; count: number; submit: () => Promise<unknown> }) => void;
 }
 
+interface DemandeItem { id: number; tab: AnaTab; label: string; data: Record<string, unknown> }
+
 function calcAge(dateNaissance?: string): number | null {
   if (!dateNaissance) return null;
   const diff = Date.now() - new Date(dateNaissance).getTime();
@@ -48,6 +50,11 @@ export default function AnapathForm({ patient, prescripteur, onAddToCart }: Prop
   const [showValidationModal, setShowValidationModal] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [validatedPrescription, setValidatedPrescription] = useState<any>(null);
+
+  // ── Panier — plusieurs demandes (même type ou types différents) possibles
+  // dans une seule prescription Anapath ──
+  const [cart, setCart] = useState<DemandeItem[]>([]);
+  const removeCartItem = (id: number) => setCart(prev => prev.filter(i => i.id !== id));
 
   const age = calcAge(patient?.dateNaissance);
   const sexeLabel = patient?.sexe === 'M' ? 'Masculin' : patient?.sexe === 'F' ? 'Féminin' : patient?.sexe;
@@ -148,17 +155,36 @@ export default function AnapathForm({ patient, prescripteur, onAddToCart }: Prop
     if (tab === "liq")  return { renseign, service: liqService, unite: liqUnite, type_liquide: liqNat === "Autre" ? liqNatAutre : liqNat, nature: liqNat, natureAutre: liqNatAutre, volume: parseFloat(liqVolume) || 1, note: liqNotes };
     if (tab === "bio" || tab === "pos" || tab === "poc") return { renseign, service: bioService, examAnt: bioExamAnt, resAnt: bioResAnt, gpa: bioGPA, ddr: bioDDR, menopause: bioMeno, atcd: bioAtcd, datePrelev: bioDatePrelev, fixateur: bioFixateur, organe: bioOrgane, nature: bioNature, natureAutre: bioNatureAutre, suspicion: bioSuspicion, faitA: bioFaitA, faitLe: bioFaitLe, note: bioNote };
     if (tab === "ext")  return { renseign, service: extService, chirurgien: extChirurgien, poste: extPoste, intervention: extIntervention, nature: extNature, organe: extOrgane, question: extQuestion, heure: extHeure, urgence_chirurgicale: extUrgenceChir, note: extNote };
+    return {};
+  }
+
+  function resetCurrentTabFields() {
+    setRenseign("");
+    if (tab === "fcv") { setFcvService(""); setFcvGPA(""); setFcvDDR(""); setFcvMeno(""); setFcvMenarche(""); setFcvRapport(""); setFcvContra(""); setFcvTtt(""); setFcvPapLieu(""); setFcvPapNb(""); setFcvPapDate(""); setFcvPapRes(""); setFcvAtcd(""); setFcvMeth(""); setFcvEtatCol(""); setFcvNote(""); }
+    if (tab === "cyto") { setCytoService(""); setCytoSiege(""); setCytoOrgane(""); setCytoFix(""); setCytoFixAutre(""); setCytoNotes(""); }
+    if (tab === "liq") { setLiqService(""); setLiqUnite(""); setLiqNat(""); setLiqNatAutre(""); setLiqVolume(""); setLiqNotes(""); }
+    if (tab === "bio" || tab === "pos" || tab === "poc") { setBioService(""); setBioExamAnt(""); setBioResAnt(""); setBioGPA(""); setBioDDR(""); setBioMeno(""); setBioAtcd(""); setBioDatePrelev(""); setBioFixateur(""); setBioOrgane(""); setBioNature(""); setBioNatureAutre(""); setBioSuspicion(""); setBioFaitA(""); setBioFaitLe(""); setBioNote(""); }
+    if (tab === "ext") { setExtService(""); setExtChirurgien(""); setExtPoste(""); setExtIntervention(""); setExtNature(""); setExtOrgane(""); setExtQuestion(""); setExtHeure(""); setExtUrgenceChir(false); setExtNote(""); }
+  }
+
+  function addToCart() {
+    setCart(prev => [...prev, { id: Date.now(), tab, label: TABS.find(t => t.key === tab)?.label || tab, data: buildData() }]);
+    resetCurrentTabFields();
+  }
+
+  function buildDemandes(items: DemandeItem[]) {
+    return items.map(i => ({ typeExamen: i.tab, data: i.data }));
   }
 
   async function handleSubmit() {
     setShowModal(false); setLoading(true); setApiError("");
     try {
-      await creerPrescriptionAnapath({ patientId: patient.id, prescripteurId: prescripteur.id, chuId: prescripteur.chuId, serviceId: prescripteur.serviceId, urgence, alertes, typeExamen: tab, data: buildData() });
-      if (tab === "ext") setTimerActive(true);
-      setValidatedPrescription({ urgence, alertes, renseign, tab, patient: { ...patient, age, sexeLabel }, prescripteur, date: new Date().toLocaleString('fr-FR') });
+      await creerPrescriptionAnapath({ patientId: patient.id, prescripteurId: prescripteur.id, chuId: prescripteur.chuId, serviceId: prescripteur.serviceId, urgence, alertes, demandes: buildDemandes(cart) });
+      if (cart.some(i => i.tab === "ext")) setTimerActive(true);
+      setValidatedPrescription({ urgence, alertes, cart: [...cart], patient: { ...patient, age, sexeLabel }, prescripteur, date: new Date().toLocaleString('fr-FR') });
       setShowValidationModal(true);
-      showToast("Demande Anapath transmise");
-      setRenseign(""); setAlertes(""); setUrgence("n");
+      showToast(`${cart.length} demande(s) Anapath transmise(s)`);
+      setCart([]); setAlertes(""); setUrgence("n");
     } catch { setApiError("Erreur lors de l'envoi. Vérifiez la connexion."); }
     finally { setLoading(false); }
   }
@@ -301,23 +327,62 @@ export default function AnapathForm({ patient, prescripteur, onAddToCart }: Prop
           <textarea rows={2} value={alertes} onChange={e => setAlertes(e.target.value)} placeholder="Risque infectieux..." style={{ background: "var(--red-lt)", border: "1.5px solid var(--red-bdr)", padding: '8px 12px', boxSizing: 'border-box', width: '100%' }} />
         </div>
         <div className="card mb12" style={{ padding: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}><span className="ms" style={{ fontSize: 15, color: 'var(--navy)' }}>biotech</span><span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.8px', color: 'var(--navy)' }}>Examen sélectionné</span></div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{TABS.find(t => t.key === tab)?.label}</span>
+          <button
+            onClick={addToCart}
+            disabled={!isFormValid}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              padding: '11px 16px', border: '2px dashed', borderColor: isFormValid ? 'var(--navy)' : 'var(--bdr)',
+              borderRadius: 10, background: isFormValid ? 'var(--navy-lt)' : 'transparent',
+              color: isFormValid ? 'var(--navy)' : 'var(--txt3)',
+              cursor: isFormValid ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700,
+            }}
+          >
+            <span className="ms" style={{ fontSize: 18 }}>add_circle</span>
+            Ajouter cet examen à la prescription
+          </button>
+        </div>
+
+        <div className="card mb12" style={{ padding: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span className="sh" style={{ margin: 0 }}>Demandes prescrites</span>
+            <span style={{ background: 'var(--navy)', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 800 }}>{cart.length}</span>
+          </div>
+          {cart.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--txt3)', fontSize: 12 }}>
+              <span className="ms" style={{ fontSize: 28, display: 'block', marginBottom: 6 }}>playlist_add</span>
+              Aucune demande ajoutée.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {cart.map(item => (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: 'var(--navy-lt)', border: '1.5px solid var(--navy-mid)', borderRadius: 9, padding: '8px 10px' }}>
+                  <span className="ms" style={{ fontSize: 16, color: 'var(--navy)', marginTop: 1 }}>biotech</span>
+                  <span style={{ flex: 1, fontSize: 12, color: 'var(--navy)', fontWeight: 600, lineHeight: 1.4 }}>{item.label}</span>
+                  <button onClick={() => removeCartItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 2, lineHeight: 1 }}>
+                    <span className="ms" style={{ fontSize: 15 }}>close</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         {apiError && <div style={{background:"var(--red-lt)",border:"1px solid var(--red-bdr)",borderRadius:8,padding:"10px 12px",fontSize:12,color:"var(--red)",marginBottom:12}}>{apiError}</div>}
-        <button className="bp" onClick={() => setShowModal(true)} style={{ opacity: isFormValid && !loading ? 1 : 0.5, pointerEvents: isFormValid && !loading ? "auto" : "none", width: '100%' }}><span className="ms">check_circle</span>{loading ? "Envoi..." : "Valider"}</button>
+        <button className="bp" onClick={() => setShowModal(true)} disabled={cart.length === 0 || loading} style={{ opacity: cart.length > 0 && !loading ? 1 : 0.5, width: '100%' }}><span className="ms">check_circle</span>{loading ? "Envoi..." : `Valider la prescription (${cart.length})`}</button>
       </div>
 
-      {showModal && <div className="mb op" onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}><div className="mbox"><h3>Confirmer la demande ?</h3><p>La demande sera transmise au service d&apos;Anatomie Pathologique.{tab === "ext" && " La minuterie de 30 min démarrera à la validation."}</p><div className="mbtns"><button className="bca" onClick={() => setShowModal(false)}>Annuler</button><button className="bok" onClick={() => { if (onAddToCart) { const data = buildData(); const snap = { patientId: patient.id, prescripteurId: prescripteur.id, chuId: prescripteur.chuId, serviceId: prescripteur.serviceId, urgence, alertes, typeExamen: tab, data }; onAddToCart({ label: `Anapath — ${tab}`, count: 1, submit: () => creerPrescriptionAnapath(snap) }); setShowModal(false); } else { handleSubmit(); } }}>Confirmer</button></div></div></div>}
+      {showModal && <div className="mb op" onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}><div className="mbox"><h3>Confirmer la demande ?</h3><p>{cart.length} demande(s) seront transmises au service d&apos;Anatomie Pathologique.{cart.some(i => i.tab === "ext") && " La minuterie de 30 min démarrera à la validation."}</p><ul style={{ margin: "0 0 16px", padding: "0 0 0 16px", fontSize: 13, color: "var(--txt2)" }}>{cart.map(i => <li key={i.id}>{i.label}</li>)}</ul><div className="mbtns"><button className="bca" onClick={() => setShowModal(false)}>Annuler</button><button className="bok" onClick={() => { if (onAddToCart) { const snapCart = [...cart]; const snap = { patientId: patient.id, prescripteurId: prescripteur.id, chuId: prescripteur.chuId, serviceId: prescripteur.serviceId, urgence, alertes, demandes: buildDemandes(snapCart) }; onAddToCart({ label: `Anapath — ${snapCart.length} demande${snapCart.length > 1 ? "s" : ""}`, count: snapCart.length, submit: () => creerPrescriptionAnapath(snap) }); setShowModal(false); setCart([]); } else { handleSubmit(); } }}>Confirmer</button></div></div></div>}
 
       {showValidationModal && validatedPrescription && (
         <div className="mb op" onClick={e => { if (e.target === e.currentTarget) setShowValidationModal(false); }}>
           <div className="mbox" style={{ maxWidth: 560, width: '95%', maxHeight: '85vh', overflowY: 'auto' }}>
-            <div style={{ background: 'var(--navy)', color: '#fff', padding: '16px 20px', borderRadius: '20px 20px 0 0', display: 'flex', alignItems: 'center', gap: 12 }}><span className="ms" style={{ fontSize: 24 }}>check_circle</span><div><h3 style={{ fontFamily: '"Manrope", sans-serif', fontSize: 18, fontWeight: 800, margin: 0 }}>Demande Anapath validée</h3><p style={{ fontSize: 12, opacity: 0.9, margin: '4px 0 0 0' }}>{validatedPrescription.date}</p></div></div>
+            <div style={{ background: 'var(--navy)', color: '#fff', padding: '16px 20px', borderRadius: '20px 20px 0 0', display: 'flex', alignItems: 'center', gap: 12 }}><span className="ms" style={{ fontSize: 24 }}>check_circle</span><div><h3 style={{ fontFamily: '"Manrope", sans-serif', fontSize: 18, fontWeight: 800, margin: 0 }}>Demande(s) Anapath validée(s)</h3><p style={{ fontSize: 12, opacity: 0.9, margin: '4px 0 0 0' }}>{validatedPrescription.date}</p></div></div>
             <div style={{ padding: '20px' }}>
-              <div style={{ background: '#fff', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}><div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>Type d&apos;examen</div><div style={{ fontSize: 12, color: 'var(--txt2)' }}>{TABS.find(t => t.key === validatedPrescription.tab)?.label}</div></div>
-              {validatedPrescription.renseign && <div style={{ background: '#fff', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}><div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>Renseignements cliniques</div><div style={{ fontSize: 12, color: 'var(--txt2)' }}>{validatedPrescription.renseign}</div></div>}
-              <div style={{ background: validatedPrescription.urgence === 'n' ? '#dbeafe' : validatedPrescription.urgence === 'u' ? '#fef3c7' : '#fee2e2', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}><div style={{ fontSize: 13, fontWeight: 700, color: validatedPrescription.urgence === 'n' ? '#1e40af' : validatedPrescription.urgence === 'u' ? '#92400e' : '#991b1b' }}>{validatedPrescription.urgence === 'n' ? 'Normal' : validatedPrescription.urgence === 'u' ? 'Urgent' : 'TRES_URGENT'}</div></div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--navy)', marginBottom: 8 }}>Demandes prescrites ({validatedPrescription.cart.length})</div>
+              {validatedPrescription.cart.map((item: DemandeItem) => (
+                <div key={item.id} style={{ background: '#fff', border: '1px solid var(--bdr)', borderRadius: 10, padding: '10px 14px', marginBottom: 6, fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{item.label}</div>
+              ))}
+              <div style={{ background: validatedPrescription.urgence === 'n' ? '#dbeafe' : validatedPrescription.urgence === 'u' ? '#fef3c7' : '#fee2e2', borderRadius: 10, padding: '12px 14px', marginTop: 12, marginBottom: 16 }}><div style={{ fontSize: 13, fontWeight: 700, color: validatedPrescription.urgence === 'n' ? '#1e40af' : validatedPrescription.urgence === 'u' ? '#92400e' : '#991b1b' }}>{validatedPrescription.urgence === 'n' ? 'Normal' : validatedPrescription.urgence === 'u' ? 'Urgent' : 'TRES_URGENT'}</div></div>
               {validatedPrescription.alertes && <div style={{ background: 'var(--red-lt)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}><div style={{ fontSize: 13, color: 'var(--txt)' }}>{validatedPrescription.alertes}</div></div>}
               <div className="mbtns" style={{ marginTop: 20 }}><button className="bok" onClick={() => setShowValidationModal(false)}>Fermer</button></div>
             </div>
