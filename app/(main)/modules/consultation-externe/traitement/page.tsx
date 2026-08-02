@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useConsultation, useFinalizeConsultation, usePatientConsultationHistory } from '@/hooks/use-consultations';
 import { ConsultationApi, consultationApi, type HospitalisationServiceOption } from '@/lib/api/consultation';
 import { useAuth } from '@/context/AuthContext';
@@ -238,6 +238,16 @@ export default function TraitementPage() {
   const [medicaments, setMedicaments] = useState<Medicament[]>([]);
   const [nonMedicamentItems, setNonMedicamentItems] = useState<NonMedicamentItem[]>([]);
   const [pharmacieWarning, setPharmacieWarning] = useState<string | null>(null);
+  // Étape ordonnance (contenu du modèle) : après création de la prescription,
+  // le médecin choisit lesquels des médicaments prescrits partent réellement
+  // à la pharmacie et ajuste les quantités, avant de terminer la consultation.
+  const [pendingOrdonnance, setPendingOrdonnance] = useState<{
+    id: string;
+    medicaments: (Medicament & { selected: boolean; ordonnanceQuantite: number })[];
+  } | null>(null);
+  const [ordonnanceLoading, setOrdonnanceLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pendingFollowUpRef = useRef<any>(null);
   const [nonMedicaments, setNonMedicaments] = useState({
     rdvMotif: '',
     rdvNiveau: 'NIVEAU_1' as 'NIVEAU_1' | 'NIVEAU_2' | 'NIVEAU_3' | 'NIVEAU_4',
@@ -308,14 +318,14 @@ export default function TraitementPage() {
       };
 
       const result = await finalizeMutation({ id: appointmentId, payload });
+      pendingFollowUpRef.current = result?.followUp ?? null;
 
-      // Prescription médicamenteuse : créée puis son ordonnance envoyée à la
-      // pharmacie via le service prescription (deux ressources distinctes,
-      // même contrat que l'interface modèle — remplace l'ancien envoi direct
-      // à PHARMACIE_URL/dispensations) — non bloquant : une erreur n'annule
-      // pas la finalisation, déjà enregistrée côté clinique.
+      // Prescription médicamenteuse : créée immédiatement, mais l'ordonnance
+      // (sous-ensemble réellement envoyé à la pharmacie, quantités ajustables)
+      // reste une étape manuelle — même contrat que l'interface modèle.
+      // Non bloquant pour la prescription elle-même : une erreur n'annule pas
+      // la finalisation, déjà enregistrée côté clinique.
       if (medsToSend.length > 0) {
-        let prescriptionId: string | undefined;
         try {
           const created = await creerPrescriptionMedicale({
             patientId: appointment?.patientId,
@@ -325,61 +335,98 @@ export default function TraitementPage() {
             serviceId: CE_SERVICE_ID,
             medicaments: buildMedicamentsPayload(medsToSend),
           });
-          prescriptionId = (created as { id: string }).id;
+          const prescriptionId = (created as { id: string }).id;
+          // Bascule sur l'étape ordonnance — la suite (non médicamenteuse +
+          // redirection) reprend depuis handleCreerOrdonnance/handleSkipOrdonnance.
+          setPendingOrdonnance({
+            id: prescriptionId,
+            medicaments: medsToSend.map((m) => ({ ...m, selected: true, ordonnanceQuantite: m.quantite })),
+          });
+          return;
         } catch (prescErr) {
           setPharmacieWarning(
-            `Ordonnance enregistrée, mais l'envoi au service prescription a échoué (${prescErr instanceof Error ? prescErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
-          );
-          return;
-        }
-
-        try {
-          await creerOrdonnanceMedicale(prescriptionId!, buildMedicamentsPayload(medsToSend));
-        } catch (pharmErr) {
-          setPharmacieWarning(
-            `Ordonnance enregistrée, mais l'envoi à la pharmacie a échoué (${pharmErr instanceof Error ? pharmErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
+            `Consultation enregistrée, mais l'envoi au service prescription a échoué (${prescErr instanceof Error ? prescErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
           );
           return;
         }
       }
 
-      // Prescription non médicamenteuse (régime, mobilisation, hygiène, contention...)
-      if (nonMedicamentItems.length > 0) {
-        try {
-          await creerPrescriptionNonMedicale({
-            patientId: appointment?.patientId,
-            prescripteurId: medecin?.id,
-            urgence: appointment?.u ? 'URGENT' : undefined,
-            chuId: medecin?.chuId,
-            serviceId: CE_SERVICE_ID,
-            items: buildNonMedicamentItems(nonMedicamentItems),
-          });
-        } catch (nmErr) {
-          setPharmacieWarning(
-            `Consultation enregistrée, mais l'envoi de la prescription non médicamenteuse a échoué (${nmErr instanceof Error ? nmErr.message : 'erreur inconnue'}).`
-          );
-          return;
-        }
-      }
-
-      const followUp = result?.followUp;
-      showToast('Validé avec succès');
-
-      if (followUp?.id) {
-        setFollowUpSummary({
-          id: followUp.id,
-          date: followUp.date ? new Date(followUp.date).toLocaleDateString('fr-FR') : 'à définir',
-          motif: followUp.motif || 'Contrôle de suivi',
-        });
-        router.push(`/modules/consultation-externe/traitement?id=${followUp.id}&mode=controle`);
-        return;
-      }
-
-      router.push('/modules/consultation-externe');
+      await finishAfterOrdonnance();
     } catch (err) {
       showToast('Erreur lors de la sauvegarde : ' + (err instanceof Error ? err.message : 'Erreur inconnue'), 'error');
     }
   };
+
+  // Suite de la finalisation une fois l'étape ordonnance passée (ou sautée
+  // faute de médicaments) : prescription non médicamenteuse puis redirection.
+  const finishAfterOrdonnance = async () => {
+    if (nonMedicamentItems.length > 0) {
+      try {
+        await creerPrescriptionNonMedicale({
+          patientId: appointment?.patientId,
+          prescripteurId: medecin?.id,
+          urgence: appointment?.u ? 'URGENT' : undefined,
+          chuId: medecin?.chuId,
+          serviceId: CE_SERVICE_ID,
+          items: buildNonMedicamentItems(nonMedicamentItems),
+        });
+      } catch (nmErr) {
+        setPharmacieWarning(
+          `Consultation enregistrée, mais l'envoi de la prescription non médicamenteuse a échoué (${nmErr instanceof Error ? nmErr.message : 'erreur inconnue'}).`
+        );
+        return;
+      }
+    }
+
+    const followUp = pendingFollowUpRef.current;
+    showToast('Validé avec succès');
+
+    if (followUp?.id) {
+      setFollowUpSummary({
+        id: followUp.id,
+        date: followUp.date ? new Date(followUp.date).toLocaleDateString('fr-FR') : 'à définir',
+        motif: followUp.motif || 'Contrôle de suivi',
+      });
+      router.push(`/modules/consultation-externe/traitement?id=${followUp.id}&mode=controle`);
+      return;
+    }
+
+    router.push('/modules/consultation-externe');
+  };
+
+  function toggleOrdonnanceMed(id: number) {
+    setPendingOrdonnance((prev) => prev ? { ...prev, medicaments: prev.medicaments.map((m) => m.id === id ? { ...m, selected: !m.selected } : m) } : prev);
+  }
+  function updateOrdonnanceQuantite(id: number, qty: number) {
+    setPendingOrdonnance((prev) => prev ? { ...prev, medicaments: prev.medicaments.map((m) => m.id === id ? { ...m, ordonnanceQuantite: Math.max(0, qty) } : m) } : prev);
+  }
+
+  async function handleCreerOrdonnance() {
+    if (!pendingOrdonnance) return;
+    const selected = pendingOrdonnance.medicaments.filter((m) => m.selected && m.ordonnanceQuantite > 0);
+    if (selected.length === 0) return;
+    setOrdonnanceLoading(true);
+    try {
+      await creerOrdonnanceMedicale(
+        pendingOrdonnance.id,
+        buildMedicamentsPayload(selected.map((m) => ({ ...m, quantite: m.ordonnanceQuantite }))),
+      );
+      setPendingOrdonnance(null);
+      await finishAfterOrdonnance();
+    } catch (pharmErr) {
+      setPharmacieWarning(
+        `Prescription enregistrée, mais l'envoi à la pharmacie a échoué (${pharmErr instanceof Error ? pharmErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
+      );
+      setPendingOrdonnance(null);
+    } finally {
+      setOrdonnanceLoading(false);
+    }
+  }
+
+  async function handleSkipOrdonnance() {
+    setPendingOrdonnance(null);
+    await finishAfterOrdonnance();
+  }
 
   // Clic sur "Terminer la consultation" : si aucun médicament n'a été prescrit, on
   // exige une raison avant de clôturer (le médecin peut confirmer volontairement
@@ -1117,6 +1164,55 @@ export default function TraitementPage() {
                 className="px-4 py-2.5 text-[12px] font-bold text-white bg-[#006A8C] hover:bg-[#004d66] rounded-xl disabled:opacity-40 transition-all"
               >
                 Confirmer et terminer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingOrdonnance && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-[15px] font-extrabold text-gray-800 mb-1">Ordonnance à envoyer à la pharmacie</h3>
+            <p className="text-[12px] text-gray-500 mb-4">
+              La prescription a été enregistrée. Choisissez les médicaments à envoyer à la pharmacie et ajustez les quantités si besoin.
+            </p>
+            <div className="mb-4">
+              {pendingOrdonnance.medicaments.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 py-2 border-b border-gray-100 text-[13px]">
+                  <input type="checkbox" checked={m.selected} onChange={() => toggleOrdonnanceMed(m.id)} />
+                  <div className="flex-1">
+                    <strong className="text-gray-800">{m.nom} {m.dose}</strong>
+                    <span className="block text-[11px] text-gray-400">{m.frequenceType} · {m.dureeJours} jour(s)</span>
+                  </div>
+                  <span className="text-[11px] text-gray-400">Qté :</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={m.ordonnanceQuantite}
+                    onChange={(e) => updateOrdonnanceQuantite(m.id, parseInt(e.target.value, 10) || 0)}
+                    disabled={!m.selected}
+                    className="w-16 text-center text-[12px] bg-white border border-gray-200 rounded-lg p-1.5 disabled:opacity-40"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleSkipOrdonnance}
+                disabled={ordonnanceLoading}
+                className="px-4 py-2.5 text-[12px] font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all disabled:opacity-40"
+              >
+                Ne pas faire d&apos;ordonnance
+              </button>
+              <button
+                type="button"
+                onClick={handleCreerOrdonnance}
+                disabled={ordonnanceLoading || pendingOrdonnance.medicaments.filter((m) => m.selected && m.ordonnanceQuantite > 0).length === 0}
+                className="px-4 py-2.5 text-[12px] font-bold text-white bg-[#006A8C] hover:bg-[#004d66] rounded-xl disabled:opacity-40 transition-all"
+              >
+                {ordonnanceLoading ? 'Envoi...' : 'Créer et envoyer l\'ordonnance'}
               </button>
             </div>
           </div>
