@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { fetchAllPharmacieArticles, PharmacieArticle } from '@/lib/prescription-api';
+import { useState } from "react";
+import { PharmacieArticle } from '@/lib/prescription-api';
+import { MedicamentAutocomplete } from '@/components/prescription/medicament-autocomplete';
 
 const QUANTITE_TYPES = ['COMPRIME', 'GELULE', 'CACHET', 'ML', 'G', 'MG', 'GOUTTE', 'FLACON', 'SACHET', 'AMPOULE', 'SERINGUE', 'PATCH', 'SUPPOSITOIRE', 'POMMADE_TUBE', 'SPRAY', 'INHALATEUR'];
 const VOIES = ['Orale (per os)', 'Intraveineuse (IV)', 'Intramusculaire (IM)', 'Sous-cutanée (SC)', 'Rectale', 'Topique / locale', 'Inhalation', 'Sublinguale'];
@@ -47,28 +48,13 @@ export default function MedicamentBuilder({ medicaments, onChange, chuId }: Prop
   const [selectedPrix, setSelectedPrix] = useState<number | undefined>(undefined);
   const [selectedArticleId, setSelectedArticleId] = useState<string | undefined>(undefined);
 
-  const [articles, setArticles] = useState<PharmacieArticle[]>([]);
-  const [suggestions, setSuggestions] = useState<PharmacieArticle[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  useEffect(() => {
-    fetchAllPharmacieArticles(chuId).then(setArticles).catch(() => setArticles([]));
-  }, [chuId]);
-
-  const handleSearchChange = useCallback((value: string) => {
-    setNom(value);
-    if (value.trim().length < 1) { setSuggestions([]); setShowSuggestions(false); return; }
-    const lower = value.trim().toLowerCase();
-    const matched = articles.filter(a => a.dci?.toLowerCase().includes(lower)).slice(0, 15);
-    setSuggestions(matched); setShowSuggestions(matched.length > 0);
-  }, [articles]);
-
-  function selectSuggestion(a: PharmacieArticle) {
+  // Sélection d'un article dans le catalogue pharmacie (MedicamentAutocomplete
+  // charge et affiche tout le catalogue au focus, coloré par niveau de stock).
+  function selectArticle(a: PharmacieArticle) {
     setNom(`${a.dci}${a.dosage ? ` ${a.dosage}` : ''}${a.conditionnement ? ` — ${a.conditionnement}` : ''}`);
     setDose(a.dosage || "");
     setSelectedPrix(a.sale_price != null ? Number(a.sale_price) : undefined);
     setSelectedArticleId(String(a.id));
-    setShowSuggestions(false);
   }
 
   const isAddValid = nom.trim() !== "" && dose.trim() !== "" && dureeJours > 0
@@ -94,16 +80,13 @@ export default function MedicamentBuilder({ medicaments, onChange, chuId }: Prop
         <div className="card" style={{ padding: 12 }}>
           <div className="mb12" style={{ position: 'relative' }}>
             <label className="lbl">Médicament <span className="req">*</span></label>
-            <input type="text" value={nom} onChange={e => handleSearchChange(e.target.value)} onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }} placeholder="Rechercher dans le stock pharmacie..." />
-            {showSuggestions && suggestions.length > 0 && (
-              <ul style={{ position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 2, background: 'var(--card)', border: '1px solid var(--bdr)', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 30, maxHeight: 200, overflowY: 'auto', listStyle: 'none', padding: 0, margin: 0 }}>
-                {suggestions.map(a => (
-                  <li key={a.id} onMouseDown={() => selectSuggestion(a)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--bdr)' }}>
-                    {a.dci} {a.dosage} {a.conditionnement ? `— ${a.conditionnement}` : ''}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <MedicamentAutocomplete
+              value={nom}
+              onChangeText={setNom}
+              onSelectArticle={selectArticle}
+              chuId={chuId}
+              placeholder="Rechercher dans le stock pharmacie..."
+            />
           </div>
           <div className="g2 mb12">
             <div><label className="lbl">Dose <span className="req">*</span></label><input type="text" value={dose} onChange={e => setDose(e.target.value)} placeholder="Ex : 500mg" /></div>
