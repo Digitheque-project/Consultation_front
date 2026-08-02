@@ -29,12 +29,24 @@ Copy-Item .env.example .env.local
 
 ## Variables d'environnement
 
-Variables utilisées par la couche API:
+Voir `.env.example` pour la liste complète et le rôle de chaque variable.
+Les plus importantes:
 
-- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: URL du backend du module consultation externe.
-- `NEXT_PUBLIC_BACKEND_URL` (fallback): URL alternative du backend.
-- `NEXT_PUBLIC_API_URL` (fallback générique): URL de base du backend.
+- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: URL du backend consultation externe, avec `/consultation/api`.
+- `NEXT_PUBLIC_API_URL`: URL nue du même backend (sans `/consultation/api`) — requise séparément par le websocket hospitalisations et plusieurs services clients.
+- `NEXT_PUBLIC_BACKEND_URL` (repli, rarement nécessaire): nom alternatif lu en dernier recours si ni `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL` ni `NEXT_PUBLIC_API_URL` ne sont définies.
 - `SERVICE_API_TOKEN` (optionnel): token service utilisé côté serveur.
+
+**Important**: toutes les variables `NEXT_PUBLIC_*` sont figées dans le bundle JS pendant `next build` — jamais lues au runtime. En Docker, elles doivent être fournies en `--build-arg`, pas via un fichier `.env` monté au démarrage du conteneur.
+
+## Docker
+
+Voir les commentaires en tête du `Dockerfile` pour la commande `docker build` complète avec tous les `--build-arg` nécessaires.
+
+```bash
+docker build --build-arg NEXT_PUBLIC_CONSULTATION_EXTERNE_URL=... [...] -t chu-front .
+docker run -p 3000:3000 chu-front
+```
 
 ## Scripts
 
