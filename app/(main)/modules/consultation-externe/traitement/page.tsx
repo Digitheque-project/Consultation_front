@@ -26,27 +26,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
-import { MedicamentAutocomplete } from '@/components/prescription/medicament-autocomplete';
-import { creerPrescriptionMedicale, getStockLevel, type PharmacieArticle, type StockLevel } from '@/lib/prescription-api';
+import MedicamentBuilder, { buildMedicamentsPayload, type Medicament } from '@/components/prescription/medicale/MedicamentBuilder';
+import NonMedicamentBuilder, { buildNonMedicamentItems, type NonMedicamentItem } from '@/components/prescription/NonMedicamentBuilder';
+import { creerPrescriptionMedicale, creerOrdonnanceMedicale, creerPrescriptionNonMedicale } from '@/lib/prescription-api';
 import { cn } from '@/lib/utils';
 
 const CE_SERVICE_ID = checkPublicEnv('NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID', process.env.NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID);
-
-const FREQUENCE_TYPE_OPTIONS = [
-  { value: 'PAR_JOUR', label: 'Fois / jour' },
-  { value: 'HEURES', label: 'Toutes les X heures' },
-  { value: 'SOS', label: 'Si besoin (SOS)' },
-  { value: 'CONTINU', label: 'En continu' },
-] as const;
-
-// Couleur du champ médicament une fois sélectionné — jamais de chiffre/seuil
-// affiché, juste un signal (aucune couleur = stock correct).
-const STOCK_LEVEL_TEXT_CLASS: Record<StockLevel, string> = {
-  ok: '',
-  low: 'text-amber-600',
-  critical: 'text-red-500',
-  out: 'text-red-600',
-};
 
 // Page d'où le médecin a ouvert cette consultation — le bouton "Retour" doit
 // ramener au même endroit plutôt que toujours vers le fil de travail.
@@ -56,12 +41,6 @@ const ORIGIN_PATHS: Record<string, string> = {
   'planning-complet': '/modules/consultation-externe/planning-complet',
 };
 const DEFAULT_BACK_PATH = '/modules/consultation-externe';
-
-const QUANTITE_TYPE_OPTIONS = [
-  'UNITE', 'BOITE', 'GELULE', 'CACHET', 'COMPRIME', 'ML', 'L', 'G', 'MG', 'UG',
-  'GOUTTE', 'FLACON', 'SACHET', 'POCHE', 'AMPOULE', 'SERINGUE', 'PATCH',
-  'SUPPOSITOIRE', 'OVULE', 'POMMADE_TUBE', 'CREME_POT', 'SPRAY', 'INHALATEUR',
-] as const;
 
 type Appointment = {
   id: number;
@@ -196,8 +175,6 @@ const TreatmentSkeleton = () => (
   </div>
 );
 
-const PHARMACIE_URL = checkPublicEnv('NEXT_PUBLIC_PHARMACIE_URL', process.env.NEXT_PUBLIC_PHARMACIE_URL);
-
 export default function TraitementPage() {
   const router = useRouter();
   const { medecin } = useAuth();
@@ -258,25 +235,10 @@ export default function TraitementPage() {
   // États pour les données dynamiques
   const [observation, setObservation] = useState({ diagnosticSuspicion: '', diagnosticRetenu: '', notes: '' });
   const [parametres, setParametres] = useState<Array<{ id: number; nom: string; valeur: string; unite: string }>>(defaultClinicalParameters);
-  const [medicaments, setMedicaments] = useState<Array<{
-    id: number;
-    medicament: string;
-    forme: string;
-    dosage: string;
-    voie: string;
-    quantite: string;
-    quantiteType: string;
-    frequenceType: string;
-    frequenceValeur: string;
-    dureeJours: string;
-    instructions: string;
-    articleId?: string | number;
-    unitPrice?: number;
-    stockLevel?: StockLevel;
-  }>>([]);
+  const [medicaments, setMedicaments] = useState<Medicament[]>([]);
+  const [nonMedicamentItems, setNonMedicamentItems] = useState<NonMedicamentItem[]>([]);
   const [pharmacieWarning, setPharmacieWarning] = useState<string | null>(null);
   const [nonMedicaments, setNonMedicaments] = useState({
-    recommandationsNotes: '',
     rdvMotif: '',
     rdvNiveau: 'NIVEAU_1' as 'NIVEAU_1' | 'NIVEAU_2' | 'NIVEAU_3' | 'NIVEAU_4',
     rdvDate: '',
@@ -287,56 +249,6 @@ export default function TraitementPage() {
     hospitalisationService: '',
     hospitalisationStatus: 'EN_ATTENTE' as 'EN_ATTENTE' | 'VALIDE' | 'REFUSE',
   });
-
-  // Fonctions pour gérer les médicaments
-  const addMedicament = () => {
-    setMedicaments([...medicaments, {
-      id: Date.now(),
-      medicament: '',
-      forme: '',
-      dosage: '',
-      voie: '',
-      quantite: '1',
-      quantiteType: 'UNITE',
-      frequenceType: 'PAR_JOUR',
-      frequenceValeur: '1',
-      dureeJours: '',
-      instructions: '',
-    }]);
-  };
-
-  const updateMedicament = (id: number, field: string, value: string) => {
-    setMedicaments(medicaments.map(med =>
-      med.id === id
-        // Une modification manuelle du nom décorrèle la ligne de l'article catalogue sélectionné.
-        ? { ...med, [field]: value, ...(field === 'medicament' ? { articleId: undefined, unitPrice: undefined, stockLevel: undefined } : {}) }
-        : med
-    ));
-  };
-
-  const selectArticleForMedicament = (id: number, article: PharmacieArticle) => {
-    setMedicaments(medicaments.map(med =>
-      med.id === id
-        ? {
-            ...med,
-            medicament: article.dci,
-            dosage: article.dosage ?? med.dosage,
-            articleId: article.id,
-            unitPrice: typeof article.sale_price === 'string' ? parseFloat(article.sale_price) : article.sale_price,
-            stockLevel: getStockLevel(article),
-          }
-        : med
-    ));
-  };
-
-  const removeMedicament = (id: number) => {
-    setMedicaments(medicaments.filter(med => med.id !== id));
-  };
-
-  const medicamentsTotal = medicaments.reduce(
-    (sum, med) => sum + (med.unitPrice ?? 0) * (parseInt(med.quantite, 10) || 0),
-    0,
-  );
 
   const addParametre = () => {
     setParametres([...parametres, { id: Date.now(), nom: '', valeur: '', unite: '' }]);
@@ -350,69 +262,12 @@ export default function TraitementPage() {
     setParametres(parametres.filter((param) => param.id !== id));
   };
 
-  // Envoie l'ordonnance médicamenteuse à la pharmacie (non bloquant)
-  const sendToPharmacy = async (meds: typeof medicaments) => {
-    if (!PHARMACIE_URL || !appointment || meds.length === 0) return;
-
-    const lines = meds.map((med) => {
-      const frequenceLabel =
-        med.frequenceType === 'PAR_JOUR' ? `${med.frequenceValeur || '1'} fois/jour` :
-        med.frequenceType === 'HEURES' ? `toutes les ${med.frequenceValeur || '1'}h` :
-        med.frequenceType === 'SOS' ? 'si besoin (SOS)' :
-        med.frequenceType === 'CONTINU' ? 'en continu' : '';
-
-      return {
-        designation: [med.medicament, med.dosage, med.forme].filter(Boolean).join(' '),
-        quantity: parseInt(med.quantite) || 1,
-        posology: [
-          med.voie && `Voie ${med.voie}`,
-          frequenceLabel,
-          med.dureeJours && `pendant ${med.dureeJours} jours`,
-          med.instructions,
-        ].filter(Boolean).join(' - '),
-      };
-    });
-
-    const body = {
-      patientId: appointment.patientId,
-      prescriptionId: String(appointmentId),
-      category: 'EXTERNE',
-      medecinId: medecin?.id ?? '',
-      medecinNom: medecin?.nom ?? '',
-      medecinPrenom: medecin?.prenom ?? '',
-      dispensation_type: 'EXTERNE',
-      payment_mode: 'CASH',
-      chuId: medecin?.chuId ?? '',
-      lines,
-    };
-
-    const token =
-      localStorage.getItem('access_token') ||
-      localStorage.getItem('auth_token') ||
-      localStorage.getItem('token') ||
-      '';
-
-    const res = await fetch(`${PHARMACIE_URL}/dispensations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Pharmacie ${res.status}: ${text}`);
-    }
-  };
-
   // Fonction pour finaliser la consultation
   const finalizeConsultation = async () => {
     if (!appointmentId) return;
 
     try {
-      const medsToSend = medicaments.filter((med) => med.medicament.trim() !== '');
+      const medsToSend = medicaments.filter((med) => med.nom.trim() !== '');
 
       // Le rendez-vous et l'hospitalisation ont pu être confirmés individuellement pendant
       // la consultation (boutons "Valider"/"Confirmer l'hospitalisation") — dans ce cas ils
@@ -437,7 +292,6 @@ export default function TraitementPage() {
           notes: combinedNotes,
         } : null,
         nonMedicaments: (
-          effectiveNonMedicaments.recommandationsNotes.trim() ||
           effectiveNonMedicaments.rdvMotif.trim() ||
           effectiveNonMedicaments.examenService.trim() ||
           effectiveNonMedicaments.examenMotif.trim() ||
@@ -455,32 +309,23 @@ export default function TraitementPage() {
 
       const result = await finalizeMutation({ id: appointmentId, payload });
 
-      // Envoi au service prescription puis à la pharmacie — non bloquant : une
-      // erreur n'annule pas la finalisation, déjà enregistrée côté clinique.
+      // Prescription médicamenteuse : créée puis son ordonnance envoyée à la
+      // pharmacie via le service prescription (deux ressources distinctes,
+      // même contrat que l'interface modèle — remplace l'ancien envoi direct
+      // à PHARMACIE_URL/dispensations) — non bloquant : une erreur n'annule
+      // pas la finalisation, déjà enregistrée côté clinique.
       if (medsToSend.length > 0) {
+        let prescriptionId: string | undefined;
         try {
-          await creerPrescriptionMedicale({
+          const created = await creerPrescriptionMedicale({
             patientId: appointment?.patientId,
             prescripteurId: medecin?.id,
             urgence: appointment?.u ? 'URGENT' : undefined,
             chuId: medecin?.chuId,
             serviceId: CE_SERVICE_ID,
-            medicaments: medsToSend.map((med) => ({
-              nom: med.medicament,
-              dose: [med.dosage, med.forme].filter(Boolean).join(' ') || '—',
-              quantite: parseInt(med.quantite, 10) || 1,
-              quantiteType: med.quantiteType,
-              voie: med.voie || undefined,
-              frequenceType: med.frequenceType,
-              frequenceValeur: (med.frequenceType === 'PAR_JOUR' || med.frequenceType === 'HEURES')
-                ? (parseInt(med.frequenceValeur, 10) || 1)
-                : undefined,
-              dureeJours: parseInt(med.dureeJours, 10) || 1,
-              instructions: med.instructions || undefined,
-              articleId: med.articleId,
-              prixUnitaire: med.unitPrice,
-            })),
+            medicaments: buildMedicamentsPayload(medsToSend),
           });
+          prescriptionId = (created as { id: string }).id;
         } catch (prescErr) {
           setPharmacieWarning(
             `Ordonnance enregistrée, mais l'envoi au service prescription a échoué (${prescErr instanceof Error ? prescErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
@@ -489,10 +334,29 @@ export default function TraitementPage() {
         }
 
         try {
-          await sendToPharmacy(medsToSend);
+          await creerOrdonnanceMedicale(prescriptionId!, buildMedicamentsPayload(medsToSend));
         } catch (pharmErr) {
           setPharmacieWarning(
             `Ordonnance enregistrée, mais l'envoi à la pharmacie a échoué (${pharmErr instanceof Error ? pharmErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
+          );
+          return;
+        }
+      }
+
+      // Prescription non médicamenteuse (régime, mobilisation, hygiène, contention...)
+      if (nonMedicamentItems.length > 0) {
+        try {
+          await creerPrescriptionNonMedicale({
+            patientId: appointment?.patientId,
+            prescripteurId: medecin?.id,
+            urgence: appointment?.u ? 'URGENT' : undefined,
+            chuId: medecin?.chuId,
+            serviceId: CE_SERVICE_ID,
+            items: buildNonMedicamentItems(nonMedicamentItems),
+          });
+        } catch (nmErr) {
+          setPharmacieWarning(
+            `Consultation enregistrée, mais l'envoi de la prescription non médicamenteuse a échoué (${nmErr instanceof Error ? nmErr.message : 'erreur inconnue'}).`
           );
           return;
         }
@@ -521,7 +385,7 @@ export default function TraitementPage() {
   // exige une raison avant de clôturer (le médecin peut confirmer volontairement
   // qu'aucun traitement n'était nécessaire).
   const handleTerminerClick = () => {
-    const hasTraitement = medicaments.some((med) => med.medicament.trim() !== '');
+    const hasTraitement = medicaments.some((med) => med.nom.trim() !== '');
     if (!hasTraitement && !noTreatmentReason.trim()) {
       setShowNoTreatmentReasonModal(true);
       return;
@@ -639,7 +503,6 @@ export default function TraitementPage() {
       const existingNonMed = consultationData.nonMedicamentPrescriptions?.[0];
       if (existingNonMed) {
         setNonMedicaments({
-          recommandationsNotes: existingNonMed.recommandationsNotes ?? '',
           rdvMotif: existingNonMed.rdvMotif ?? '',
           rdvNiveau: (existingNonMed.rdvNiveau as 'NIVEAU_1' | 'NIVEAU_2' | 'NIVEAU_3' | 'NIVEAU_4') ?? 'NIVEAU_1',
           rdvDate: existingNonMed.rdvDate ? new Date(existingNonMed.rdvDate).toISOString().slice(0, 10) : '',
@@ -1003,200 +866,20 @@ export default function TraitementPage() {
                       {medicaments.length} MÉDICAMENT(S)
                     </Badge>
                   </div>
-
-                  {/* overflow-x-auto : chaque prescription tient sur une seule ligne, le tableau
-                      scrolle horizontalement plutôt que de faire déborder la page */}
-                  <div className="border border-gray-100 rounded-[20px] shadow-sm overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#F8FAFC] border-b border-gray-100">
-                          <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Médicament</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Forme</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Dosage</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Voie</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Fréquence</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Qté</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Unité</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Durée (j)</th>
-                          <th className="px-2 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Instructions</th>
-                          <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Prix</th>
-                          <th className="px-2 py-3 w-10"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {medicaments.length === 0 ? (
-                          <tr>
-                            <td colSpan={11} className="px-6 py-12 text-center">
-                              <div className="flex flex-col items-center gap-3">
-                                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
-                                  <FileText className="w-6 h-6" />
-                                </div>
-                                <p className="text-[13px] text-gray-400 font-medium">Aucune prescription ajoutée pour le moment.</p>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : medicaments.map((med) => (
-                          <tr key={med.id} className="hover:bg-[#F8FAFC]/50 transition-colors">
-                            <td className="px-3 py-2 align-middle">
-                              <MedicamentAutocomplete
-                                value={med.medicament}
-                                onChangeText={(text) => updateMedicament(med.id, 'medicament', text)}
-                                onSelectArticle={(article) => selectArticleForMedicament(med.id, article)}
-                                chuId={medecin?.chuId}
-                                className={`w-64 text-[12px] font-bold bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] p-2 transition-all ${STOCK_LEVEL_TEXT_CLASS[med.stockLevel ?? 'ok']}`}
-                                placeholder="Médicament..."
-                              />
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <input
-                                type="text"
-                                value={med.forme}
-                                onChange={(e) => updateMedicament(med.id, 'forme', e.target.value)}
-                                className="w-20 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                                placeholder="Forme..."
-                              />
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <input
-                                type="text"
-                                value={med.dosage}
-                                onChange={(e) => updateMedicament(med.id, 'dosage', e.target.value)}
-                                className="w-20 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                                placeholder="Dosage..."
-                              />
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <input
-                                type="text"
-                                value={med.voie}
-                                onChange={(e) => updateMedicament(med.id, 'voie', e.target.value)}
-                                className="w-16 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                                placeholder="Voie..."
-                              />
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <div className="flex gap-1">
-                                <select
-                                  value={med.frequenceType}
-                                  onChange={(e) => updateMedicament(med.id, 'frequenceType', e.target.value)}
-                                  className="w-24 shrink-0 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                                >
-                                  {FREQUENCE_TYPE_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                  ))}
-                                </select>
-                                {(med.frequenceType === 'PAR_JOUR' || med.frequenceType === 'HEURES') && (
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={med.frequenceValeur}
-                                    onChange={(e) => updateMedicament(med.id, 'frequenceValeur', e.target.value)}
-                                    className="w-12 shrink-0 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                                  />
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <input
-                                type="number"
-                                min="1"
-                                value={med.quantite}
-                                onChange={(e) => updateMedicament(med.id, 'quantite', e.target.value)}
-                                className="w-14 text-[11px] bg-white border border-[#006A8C]/30 rounded-lg focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C] p-2 transition-all"
-                              />
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <select
-                                value={med.quantiteType}
-                                onChange={(e) => updateMedicament(med.id, 'quantiteType', e.target.value)}
-                                className="w-20 text-[10px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                              >
-                                {QUANTITE_TYPE_OPTIONS.map((opt) => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <input
-                                type="number"
-                                min="1"
-                                value={med.dureeJours}
-                                onChange={(e) => updateMedicament(med.id, 'dureeJours', e.target.value)}
-                                className="w-14 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                              />
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <input
-                                type="text"
-                                value={med.instructions}
-                                onChange={(e) => updateMedicament(med.id, 'instructions', e.target.value)}
-                                className="w-32 text-[11px] bg-white border border-gray-100 rounded-lg focus:border-[#006A8C] p-2 transition-all"
-                                placeholder="Instructions..."
-                              />
-                            </td>
-                            <td className="px-3 py-2 align-middle whitespace-nowrap">
-                              {med.unitPrice != null ? (
-                                <span
-                                  className="text-[12px] font-bold text-[#006A8C] cursor-help"
-                                  title="Prix indicatif : calculé à partir du prix de vente pharmacie pour l'unité sélectionnée, sans conversion entre boîte et unité."
-                                >
-                                  ≈ {((med.unitPrice ?? 0) * (parseInt(med.quantite, 10) || 0)).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} Ar
-                                </span>
-                              ) : (
-                                <span className="text-[11px] text-gray-300">—</span>
-                              )}
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <button
-                                type="button"
-                                onClick={() => removeMedicament(med.id)}
-                                className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {medicamentsTotal > 0 && (
-                      <div className="flex items-center justify-end gap-3 px-6 py-4 bg-[#EAF3FA] border-t border-blue-100">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-[#006A8C]">Total à payer</span>
-                        <span className="text-[16px] font-extrabold text-[#006A8C]">
-                          {medicamentsTotal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} Ar
-                        </span>
-                      </div>
-                    )}
-                    <div className="p-6 bg-[#F8FAFC]/30">
-                      <button
-                        type="button"
-                        onClick={addMedicament}
-                        className="w-full py-4 cursor-pointer border-2 border-dashed border-gray-200 rounded-[20px] text-[#006A8C] font-extrabold text-[13px] flex items-center justify-center gap-2 hover:bg-white hover:border-[#006A8C] hover:shadow-sm transition-all group"
-                      >
-                        <Plus className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                        AJOUTER UN MÉDICAMENT À LA LISTE
-                      </button>
-                    </div>
-                  </div>
+                  <MedicamentBuilder medicaments={medicaments} onChange={setMedicaments} chuId={medecin?.chuId} />
                 </div>
               ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="pt-4">
-                    <div className="bg-white rounded-[24px] p-6 shadow-sm border-t-4 border-blue-400 border-x border-b border-gray-100">
-                      <div className="flex items-center gap-3 text-[#006A8C] mb-5">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <FileText className="w-4.5 h-4.5" />
-                        </div>
-                        <h4 className="font-extrabold text-[13px] uppercase tracking-wider">Recommandations & Notes</h4>
-                      </div>
-                      <textarea
-                        value={nonMedicaments.recommandationsNotes}
-                        onChange={(e) => setNonMedicaments({ ...nonMedicaments, recommandationsNotes: e.target.value })}
-                        className="w-full h-48 bg-[#F8FAFC] border-none rounded-2xl p-5 text-[14px] text-gray-700 focus:ring-2 focus:ring-[#006A8C]/20 transition-all placeholder:text-gray-400"
-                        placeholder="Ex: Régime hyposodé, repos strict, arrêt de travail..."
-                      />
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h4 className="text-[18px] font-extrabold text-gray-900 tracking-tight">Prescriptions non médicamenteuses</h4>
+                      <p className="text-[12px] text-gray-500 font-medium">Régime, mobilisation, hygiène, contention...</p>
                     </div>
+                    <Badge variant="info" className="bg-[#EAF3FA] text-[#006A8C] border-none px-3 py-1 font-bold">
+                      {nonMedicamentItems.length} PRESCRIPTION(S)
+                    </Badge>
                   </div>
+                  <NonMedicamentBuilder items={nonMedicamentItems} onChange={setNonMedicamentItems} />
                 </div>
               )}
             </CardContent>

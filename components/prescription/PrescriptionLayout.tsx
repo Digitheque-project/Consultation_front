@@ -14,8 +14,6 @@ import ActesOrlForm from "./ActesOrlForm";
 import TransfusionForm from "./TransfusionForm";
 import BlocForm from "./BlocForm";
 import HistoriqueForm from "./HistoriqueForm";
-import MedicaleForm from "./medicale/MedicaleForm";
-import NonMedicaleForm from "./NonMedicaleForm";
 import SurveillanceForm from "./SurveillanceForm";
 import SoinsInfirmierForm from "./SoinsInfirmierForm";
 
@@ -44,12 +42,14 @@ interface Props {
   onBack?: () => void;
 }
 
-type TabId = "med" | "nm" | "soins-inf" | "surv" | "labo" | "imagerie" | "eeg" | "ecg" | "poly" | "kine" | "endo" | "dialyse" | "anapath" | "orl" | "actes-orl" | "trans" | "bloc" | "hist";
+// Médicamenteuse/Non médicamenteuse ne sont plus des onglets ici : elles sont
+// intégrées à la page de traitement (finalisation de consultation), qui
+// réutilise MedicamentBuilder/NonMedicamentBuilder — même modèle, un seul
+// endroit pour les prescrire, plus de redondance.
+type TabId = "soins-inf" | "surv" | "labo" | "imagerie" | "eeg" | "ecg" | "poly" | "kine" | "endo" | "dialyse" | "anapath" | "orl" | "actes-orl" | "trans" | "bloc" | "hist";
 type GlobalCartItem = { id: number; tabId: TabId; label: string; count: number; submit: () => Promise<unknown> };
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "med",      label: "Médicamenteuse", icon: "medication"       },
-  { id: "nm",       label: "Non médicamenteuse", icon: "self_care"    },
   { id: "soins-inf", label: "Soins infirmier", icon: "health_and_safety" },
   { id: "surv",     label: "Surveillance",   icon: "monitor_heart"    },
   { id: "labo",     label: "Laboratoire",    icon: "science"          },
@@ -69,9 +69,9 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
 ];
 
 export default function PrescriptionLayout({ patient, prescripteur, onBack }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>("med");
+  const [activeTab, setActiveTab] = useState<TabId>("labo");
   // Track visited tabs so forms are mounted only when first opened (preserves state, avoids premature API calls)
-  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(new Set(["med"]));
+  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(new Set(["labo"]));
 
   const [globalCart, setGlobalCart] = useState<GlobalCartItem[]>([]);
   const [globalSubmitting, setGlobalSubmitting] = useState(false);
@@ -215,16 +215,6 @@ export default function PrescriptionLayout({ patient, prescripteur, onBack }: Pr
 
       {/* ── Form area — only visited tabs are mounted; active is visible ── */}
       <div style={{ padding: "4px 16px 100px", background: "var(--bg)" }}>
-        {visitedTabs.has("med") && (
-          <div style={{ display: activeTab === "med" ? "block" : "none" }}>
-            <MedicaleForm patient={patient} prescripteur={prescripteur} />
-          </div>
-        )}
-        {visitedTabs.has("nm") && (
-          <div style={{ display: activeTab === "nm" ? "block" : "none" }}>
-            <NonMedicaleForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("nm", item)} />
-          </div>
-        )}
         {visitedTabs.has("soins-inf") && (
           <div style={{ display: activeTab === "soins-inf" ? "block" : "none" }}>
             <SoinsInfirmierForm patient={patient} prescripteur={prescripteur} onAddToCart={item => addToGlobalCart("soins-inf", item)} />
