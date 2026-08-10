@@ -11,8 +11,14 @@ export const MOCK_SESSION_VERSION = 1 as const;
  * URL du service d'authentification SSO (page de login).
  * Pas de valeur de secours codée en dur : une URL périmée utilisée
  * silencieusement a déjà causé une perte de données ailleurs dans ce projet.
+ *
+ * NEXT_PUBLIC_AUTH_CLIENT_URL ne doit contenir que l'origine (ex.
+ * https://auth-client.example.com, jamais .../login) — c'est ce fichier,
+ * pas la variable d'environnement, qui connaît le chemin de la page de
+ * connexion.
  */
-export const AUTH_CLIENT_URL = checkPublicEnv("NEXT_PUBLIC_AUTH_CLIENT_URL", process.env.NEXT_PUBLIC_AUTH_CLIENT_URL);
+const AUTH_CLIENT_BASE_URL = checkPublicEnv("NEXT_PUBLIC_AUTH_CLIENT_URL", process.env.NEXT_PUBLIC_AUTH_CLIENT_URL);
+export const AUTH_CLIENT_URL = AUTH_CLIENT_BASE_URL ? `${AUTH_CLIENT_BASE_URL.replace(/\/+$/, '')}/login` : '';
 
 /**
  * Identifiant du service hospitalier utilisé pour le module clinique.

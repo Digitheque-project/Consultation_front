@@ -8,18 +8,20 @@
 # vraies URL du réseau local du CHU) :
 #
 #   docker build \
-#     --build-arg NEXT_PUBLIC_CONSULTATION_EXTERNE_URL=http://consultation-back.local/consultation/api \
+#     --build-arg NEXT_PUBLIC_CONSULTATION_EXTERNE_URL=http://consultation-back.local \
 #     --build-arg NEXT_PUBLIC_API_URL=http://consultation-back.local \
 #     --build-arg NEXT_PUBLIC_PRESCRIPTION_URL=http://prescription-back.local \
 #     --build-arg NEXT_PUBLIC_PHARMACIE_URL=http://pharmacie-back.local \
 #     --build-arg NEXT_PUBLIC_CLINICAL_API_URL=http://consultation-back.local \
 #     --build-arg NEXT_PUBLIC_NOTIFICATION_URL=http://notification-back.local \
-#     --build-arg NEXT_PUBLIC_AUTH_CLIENT_URL=http://auth-client.local/login \
+#     --build-arg NEXT_PUBLIC_AUTH_CLIENT_URL=http://auth-client.local \
 #     --build-arg NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
 #     --build-arg NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
 #     -t chu-front .
 #
-# Voir .env.example pour le détail et le rôle de chaque variable.
+# Règle : chaque --build-arg ne contient que l'origine du service (schéma +
+# hôte + port), jamais de chemin — voir .env.example pour le détail de
+# chaque variable.
 #
 # Run :
 #   docker run -p 3000:3000 chu-front

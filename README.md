@@ -10,8 +10,8 @@ Frontend Next.js 16 (App Router) du Systeme d'Information Hospitalier.
 ## Installation
 
 ```bash
-git clone https://github.com/Digitheque-project/CHU-Front.git
-cd CHU-Front
+git clone https://github.com/Digitheque-project/Consultation_front.git
+cd Consultation_front
 npm install
 ```
 
@@ -29,13 +29,21 @@ Copy-Item .env.example .env.local
 
 ## Variables d'environnement
 
-Voir `.env.example` pour la liste complète et le rôle de chaque variable.
+Voir `.env.example` pour la liste complète (noms seulement, sans valeur — les
+vraies valeurs dépendent du CHU/environnement où l'app est déployée).
+
+**Règle : chaque variable ne contient que l'origine d'un service** (schéma +
+hôte + port, ex. `http://consultation-back.local`), jamais de chemin/préfixe
+comme `/consultation/api` ou `/login` — c'est le code applicatif qui connaît
+et ajoute le chemin de chaque route (voir `lib/api/consultation-config.ts` et
+`lib/auth/constants.ts`).
+
 Les plus importantes:
 
-- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: URL du backend consultation externe, avec `/consultation/api`.
-- `NEXT_PUBLIC_API_URL`: URL nue du même backend (sans `/consultation/api`) — requise séparément par le websocket hospitalisations et plusieurs services clients.
+- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: origine du backend consultation externe.
+- `NEXT_PUBLIC_API_URL`: même origine, requise séparément par le websocket hospitalisations et plusieurs services clients.
 - `NEXT_PUBLIC_BACKEND_URL` (repli, rarement nécessaire): nom alternatif lu en dernier recours si ni `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL` ni `NEXT_PUBLIC_API_URL` ne sont définies.
-- `SERVICE_API_TOKEN` (optionnel): token service utilisé côté serveur.
+- `SERVICE_API_TOKEN` (optionnel, **pas** `NEXT_PUBLIC_*`): token de service utilisé par les Route Handlers serveur (`app/api/...`) pour appeler le backend consultation externe en son propre nom — lu au runtime, jamais inliné dans le bundle client.
 
 **Important**: toutes les variables `NEXT_PUBLIC_*` sont figées dans le bundle JS pendant `next build` — jamais lues au runtime. En Docker, elles doivent être fournies en `--build-arg`, pas via un fichier `.env` monté au démarrage du conteneur.
 
