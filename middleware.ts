@@ -28,17 +28,28 @@ export function middleware(request: NextRequest) {
     request.cookies.get("auth_token")?.value ||
     request.cookies.get("access_token")?.value;
 
+  // NEXT_PUBLIC_AUTH_CLIENT_URL non renseignée au build → AUTH_CLIENT_URL vide.
+  // NextResponse.redirect("") lève "Invalid URL", et comme ce middleware
+  // s'exécute sur CHAQUE requête, ça rendrait tout le site inaccessible (500)
+  // au lieu de dégrader seulement la connexion. On laisse donc passer la
+  // requête : la page cliente affichera l'erreur de configuration déjà
+  // journalisée par checkPublicEnv.
+  const redirectToAuth = (): NextResponse => {
+    if (!AUTH_CLIENT_URL) return NextResponse.next();
+    return NextResponse.redirect(AUTH_CLIENT_URL);
+  };
+
   // Racine → dashboard si connecté, sinon auth service
   if (pathname === "/") {
     if (authToken) {
       return NextResponse.redirect(new URL(DASHBOARD, request.url));
     }
-    return NextResponse.redirect(AUTH_CLIENT_URL);
+    return redirectToAuth();
   }
 
   // Routes protégées sans token → auth service
   if (isProtectedPathname(pathname) && !authToken) {
-    return NextResponse.redirect(AUTH_CLIENT_URL);
+    return redirectToAuth();
   }
 
   return NextResponse.next();

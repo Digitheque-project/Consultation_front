@@ -40,8 +40,8 @@ et ajoute le chemin de chaque route (voir `lib/api/consultation-config.ts` et
 
 Les plus importantes:
 
-- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: origine du backend consultation externe.
-- `NEXT_PUBLIC_API_URL`: même origine, requise séparément par le websocket hospitalisations et plusieurs services clients.
+- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: origine du backend consultation externe. **La seule réellement indispensable.**
+- `NEXT_PUBLIC_API_URL`: origine du backend SIH/hospitalisation (routes `/cpa`, `/vpa`, `/patients`, websocket `/hospitalisations`) — **pas** le backend consultation externe. Optionnelle pour un déploiement consultation externe seul.
 - `NEXT_PUBLIC_BACKEND_URL` (repli, rarement nécessaire): nom alternatif lu en dernier recours si ni `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL` ni `NEXT_PUBLIC_API_URL` ne sont définies.
 - `SERVICE_API_TOKEN` (optionnel, **pas** `NEXT_PUBLIC_*`): token de service utilisé par les Route Handlers serveur (`app/api/...`) pour appeler le backend consultation externe en son propre nom — lu au runtime, jamais inliné dans le bundle client.
 

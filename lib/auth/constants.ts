@@ -18,7 +18,17 @@ export const MOCK_SESSION_VERSION = 1 as const;
  * connexion.
  */
 const AUTH_CLIENT_BASE_URL = checkPublicEnv("NEXT_PUBLIC_AUTH_CLIENT_URL", process.env.NEXT_PUBLIC_AUTH_CLIENT_URL);
-export const AUTH_CLIENT_URL = AUTH_CLIENT_BASE_URL ? `${AUTH_CLIENT_BASE_URL.replace(/\/+$/, '')}/login` : '';
+
+/**
+ * Tolère volontairement l'ancien format ".../login" en plus de l'origine
+ * seule : les déploiements existants (Render) ont encore l'ancienne valeur,
+ * et concaténer aveuglément donnerait ".../login/login" — donc une page de
+ * connexion introuvable pour TOUS les utilisateurs, y compris via le
+ * middleware qui redirige chaque requête non authentifiée.
+ */
+export const AUTH_CLIENT_URL = AUTH_CLIENT_BASE_URL
+  ? `${AUTH_CLIENT_BASE_URL.replace(/\/+$/, "").replace(/\/login$/i, "")}/login`
+  : "";
 
 /**
  * Identifiant du service hospitalier utilisé pour le module clinique.

@@ -40,9 +40,6 @@ import AnapathForm       from '@/components/clinical/dossier-patient/para/Anapat
 // ───────────────────────────────────────────────────────────────────────────
 
 const PRESCRIPTION_API_URL      = checkPublicEnv('NEXT_PUBLIC_PRESCRIPTION_URL', process.env.NEXT_PUBLIC_PRESCRIPTION_URL);
-const PRESCRIPTION_TOKEN        = process.env.NEXT_PUBLIC_PRESCRIPTION_TOKEN;
-const PRESCRIPTION_FRONTEND_URL = process.env.NEXT_PUBLIC_PRESCRIPTION_FRONTEND_URL;
-const APP_PUBLIC_URL            = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL) || '';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
