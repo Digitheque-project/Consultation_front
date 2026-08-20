@@ -20,8 +20,10 @@ import {
   ClipboardList,
   Calendar,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  FolderOpen
 } from 'lucide-react';
+import { DossierPatientModal } from '@/components/dossier-patient/DossierPatientModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -210,6 +212,7 @@ export default function TraitementPage() {
   // (EN_ATTENTE) — le backend tranche et renvoie le vrai statut.
   const [hospitalisationOutcome, setHospitalisationOutcome] = useState<'VALIDE' | 'EN_ATTENTE' | null>(null);
   const [showNoTreatmentReasonModal, setShowNoTreatmentReasonModal] = useState(false);
+  const [showDossierPatient, setShowDossierPatient] = useState(false);
   const [noTreatmentReason, setNoTreatmentReason] = useState('');
   const [hospitalisationServiceOptions, setHospitalisationServiceOptions] = useState<HospitalisationServiceOption[]>([]);
 
@@ -645,7 +648,7 @@ export default function TraitementPage() {
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
             <Card className="rounded-[32px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
               <CardHeader className="p-7 pb-0">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-y-3">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-[#EAF3FA] rounded-2xl flex items-center justify-center text-[#006A8C] border border-blue-50">
                       <User className="w-6 h-6" strokeWidth={2.5} />
@@ -661,9 +664,20 @@ export default function TraitementPage() {
                       </div>
                     </div>
                   </div>
-                  <Badge variant={appointment.s.includes('ATTENTE') ? 'warning' : 'success'} className="px-4 py-1.5 text-[10px] uppercase tracking-[0.1em]">
-                    {appointment.s}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDossierPatient(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#006A8C]/20 bg-[#EAF3FA] px-3.5 py-2 text-[11px] font-bold text-[#006A8C] transition-all hover:bg-[#006A8C] hover:text-white"
+                      title="Consulter le dossier patient (lecture seule)"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      Dossier patient
+                    </button>
+                    <Badge variant={appointment.s.includes('ATTENTE') ? 'warning' : 'success'} className="px-4 py-1.5 text-[10px] uppercase tracking-[0.1em]">
+                      {appointment.s}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
 
@@ -1130,6 +1144,15 @@ export default function TraitementPage() {
           {toastMsg.variant === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {toastMsg.text}
         </div>
+      )}
+
+      {showDossierPatient && appointment && (
+        <DossierPatientModal
+          patientId={appointment.patientId}
+          patientName={appointment.n}
+          chuId={medecin?.chuId}
+          onClose={() => setShowDossierPatient(false)}
+        />
       )}
 
       {showNoTreatmentReasonModal && (
