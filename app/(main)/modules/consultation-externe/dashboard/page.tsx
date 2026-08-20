@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Calendar, CheckCircle2, Clock, AlertTriangle, ClipboardList, Archive, BarChart2, ArrowRight, User } from 'lucide-react';
@@ -17,10 +17,6 @@ const formatDateKey = (value: string | Date) => {
 };
 
 const today = formatDateKey(new Date());
-
-const todayLabel = new Date().toLocaleDateString('fr-FR', {
-  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-});
 
 function KpiCard({ icon: Icon, label, value, sub, color }: { icon: React.ElementType; label: string; value: number; sub?: string; color: string }) {
   return (
@@ -41,6 +37,20 @@ export default function DashboardPage() {
   const router = useRouter();
   const { medecin } = useAuth();
   useConsultationEventsSubscription();
+
+  // Calculé après montage, jamais au niveau module : cette page est prérendue
+  // statiquement, donc un new Date() évalué à la construction fige la date du
+  // BUILD dans le HTML servi. Le médecin voyait la date de fabrication de
+  // l'image avant que l'hydratation ne la corrige — et l'écart entre les deux
+  // rendus déclenchait une erreur d'hydratation React (#418).
+  const [todayLabel, setTodayLabel] = useState('');
+  useEffect(() => {
+    setTodayLabel(
+      new Date().toLocaleDateString('fr-FR', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      }),
+    );
+  }, []);
 
   // Toutes les consultations actives (non terminées)
   const { data: allActive = [], isLoading } = useAllConsultations();
