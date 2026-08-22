@@ -40,12 +40,38 @@ et ajoute le chemin de chaque route (voir `lib/api/consultation-config.ts` et
 
 Les plus importantes:
 
-- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: origine du backend consultation externe. **La seule réellement indispensable.**
+- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: origine du backend consultation externe. **La seule réellement indispensable.** En local : toujours en direct (`localhost:3333`). En production cloud : via la passerelle API du CHU (voir plus bas) — sur le réseau local du CHU (déploiement Docker sur site), reste en direct vers le backend du réseau local, la passerelle cloud n'étant pas pertinente pour cette cible.
 - `NEXT_PUBLIC_API_URL`: origine du backend SIH/hospitalisation (routes `/cpa`, `/vpa`, `/patients`, websocket `/hospitalisations`) — **pas** le backend consultation externe. Optionnelle pour un déploiement consultation externe seul.
 - `NEXT_PUBLIC_BACKEND_URL` (repli, rarement nécessaire): nom alternatif lu en dernier recours si ni `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL` ni `NEXT_PUBLIC_API_URL` ne sont définies.
 - `SERVICE_API_TOKEN` (optionnel, **pas** `NEXT_PUBLIC_*`): token de service utilisé par les Route Handlers serveur (`app/api/...`) pour appeler le backend consultation externe en son propre nom — lu au runtime, jamais inliné dans le bundle client.
 
 **Important**: toutes les variables `NEXT_PUBLIC_*` sont figées dans le bundle JS pendant `next build` — jamais lues au runtime. En Docker, elles doivent être fournies en `--build-arg`, pas via un fichier `.env` monté au démarrage du conteneur.
+
+### Passerelle API du CHU (gateway-bwm4.onrender.com)
+
+Le CHU dispose d'une passerelle qui expose la documentation Swagger de tous
+ses services derrière une seule origine (`https://gateway-bwm4.onrender.com/<service>/api/docs`)
+— pratique pour ne plus avoir à retenir l'URL Swagger de chacun des ~20
+services. Elle proxy aussi les vrais appels API, **mais uniquement pour les
+services dont le préfixe de route interne correspond déjà à leur segment
+dans la passerelle** (elle ne réécrit pas les chemins) :
+
+| Service | Utilisable via la passerelle ? | Vérifié |
+|---|---|---|
+| `consultation` (nous) | Oui | `gateway/consultation/api/health` → 200 |
+| `accueil` | Oui | `gateway/accueil/patients?chuId=...` → 200 |
+| `dossier-patient` | Oui — **en cours d'adoption** (`NEXT_PUBLIC_DOSSIER_PATIENT_API_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
+| `prescriptions` | **Non** — 404 sur toutes les routes réelles | route directe conservée (`NEXT_PUBLIC_PRESCRIPTION_URL`) |
+| `pharmacie` | **Non** — même cause | route directe conservée (`NEXT_PUBLIC_PHARMACIE_URL`) |
+| `notification` | **Non** — même cause | route directe conservée (`NEXT_PUBLIC_NOTIFICATION_URL`) |
+
+Toutes les routes derrière la passerelle exigent un JWT valide, **y compris
+celles normalement publiques en direct** (ex. `/health`) — sans impact pour
+nous puisque le frontend n'appelle ces services que depuis un médecin déjà
+connecté. En revanche le token de service statique (`SERVICE_API_TOKEN`)
+n'est pas reconnu par la passerelle : les appels serveur-à-serveur (backend
+consultation-externe → autres services) restent donc en direct, jamais via
+la passerelle.
 
 ## Docker
 
