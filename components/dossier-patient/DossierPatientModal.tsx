@@ -1,210 +1,193 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, History, Clock, User, FolderOpen, AlertCircle } from "lucide-react";
+import { useState } from "react";
 import {
-  getDossierPatientHistorique,
-  type DossierHistoriqueEntry,
-  type DossierModule,
-} from "@/lib/dossier-patient-api";
+  X,
+  FolderOpen,
+  Lock,
+  Stethoscope,
+  Activity,
+  LineChart,
+  Gauge,
+  FlaskConical,
+  DoorOpen,
+  History,
+} from "lucide-react";
+import { ObservationPanel } from "./ObservationPanel";
+import { ModuleListPanel } from "./ModuleListPanel";
+import { SortiePanel } from "./SortiePanel";
+import { HistoriquePanel } from "./HistoriquePanel";
+import { Pill, TabButton } from "./shared";
+import { getDiagnosticsByPatient, getParametresByPatient, getResultatsByPatient, getSuivisByPatient } from "@/lib/dossier-patient-api";
 
-const MODULE_LABELS: Record<DossierModule, string> = {
-  observation: "Observation",
-  diagnostic: "Diagnostic",
-  suivi: "Suivi / Évolution",
-  parametre: "Paramètres",
-  sortie: "Sortie",
-};
+const TABS = [
+  { key: "observation", label: "Observation médical", icon: Stethoscope },
+  { key: "diagnostic", label: "Diagnostic", icon: Activity },
+  { key: "suivi", label: "Suivi / Évolution", icon: LineChart },
+  { key: "parametres", label: "Paramètres", icon: Gauge },
+  { key: "resultats", label: "Résultats paracliniques", icon: FlaskConical },
+  { key: "sortie", label: "Sortie", icon: DoorOpen },
+  { key: "historique", label: "Historique", icon: History },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
 
-const MODULE_STYLES: Record<DossierModule, string> = {
-  observation: "bg-[#EAF3FA] text-[#006A8C]",
-  diagnostic: "bg-purple-50 text-purple-700",
-  suivi: "bg-emerald-50 text-emerald-700",
-  parametre: "bg-amber-50 text-amber-700",
-  sortie: "bg-red-50 text-red-700",
-};
+function computeAgeYears(dateNaissance?: string): number | null {
+  if (!dateNaissance) return null;
+  const d = new Date(dateNaissance);
+  if (Number.isNaN(d.getTime())) return null;
+  const diff = Date.now() - d.getTime();
+  return Math.max(0, Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000)));
+}
 
-function formatValeurs(valeurs: Record<string, unknown>) {
-  const entries = Object.entries(valeurs).filter(
-    ([, v]) => v !== null && v !== undefined && v !== "",
-  );
-  if (entries.length === 0) return null;
-  return (
-    <div className="mt-2 grid gap-1.5 rounded-xl bg-gray-50 p-3 text-[12px]">
-      {entries.map(([key, value]) => {
-        const label = key
-          .replace(/([A-Z])/g, " $1")
-          .replace(/^./, (c) => c.toUpperCase())
-          .trim();
-        const display = typeof value === "boolean" ? (value ? "Oui" : "Non") : String(value);
-        return (
-          <div key={key} className="text-gray-600">
-            <span className="font-bold text-gray-500">{label} : </span>
-            {display}
-          </div>
-        );
-      })}
-    </div>
-  );
+function formatSexeLabel(value?: string): string {
+  if (!value) return "—";
+  const u = value.trim().toUpperCase();
+  if (["M", "MALE", "MASCULIN", "HOMME"].includes(u)) return "Homme";
+  if (["F", "FEMALE", "FEMININ", "FÉMININ", "FEMME"].includes(u)) return "Femme";
+  return value;
 }
 
 /**
  * Dossier patient — lecture seule, agrégé sur tout le CHU (pas seulement notre
- * service). Aucune écriture n'est possible depuis cette modale : c'est
- * uniquement une consultation de ce que les autres services ont déjà
- * enregistré (observations, diagnostics, suivis, paramètres, sorties), pour
- * que le médecin sache quels traitements ont déjà été faits avant le sien.
+ * service). Aucune écriture n'est possible depuis cette modale.
  *
- * Source : backend dédié "dossier_back" (registre service-service), même
- * contrat que celui utilisé par les autres fronts du CHU (ex. ORL) —
- * GET /dossier-patient/patients/{patientId}/historique?chuId=...
+ * Sept onglets, chacun correspondant à un module réellement exposé par le
+ * backend dédié "dossier_back" (registre service-service) — mêmes données
+ * que celles utilisées par les autres fronts du CHU (ex. ORL, dont
+ * l'implémentation a servi de référence pour cette vue, adaptée en lecture
+ * seule uniquement). "Avis" et "Compte-rendu opératoire" (visibles sur
+ * d'autres fronts) n'ont pas d'équivalent dans ce service et ne sont donc
+ * pas proposés ici ; "Prescription" est déjà couvert par notre propre
+ * module prescription, pas dupliqué ici.
  */
 export function DossierPatientModal({
   patientId,
   patientName,
+  patientSexe,
+  patientDateNaissance,
   chuId,
   onClose,
 }: {
   patientId: string;
   patientName?: string;
+  patientSexe?: string;
+  patientDateNaissance?: string;
   chuId?: string;
   onClose: () => void;
 }) {
-  const [entries, setEntries] = useState<DossierHistoriqueEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filterModule, setFilterModule] = useState<string>("Tous");
-
-  useEffect(() => {
-    if (!chuId) {
-      setLoading(false);
-      setError("CHU non identifié — impossible de charger le dossier.");
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    getDossierPatientHistorique(patientId, chuId)
-      .then((data) => {
-        if (!cancelled) setEntries(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur inconnue");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [patientId, chuId]);
-
-  const modules = Array.from(new Set(entries.map((e) => e.module)));
-  const filtered = filterModule === "Tous" ? entries : entries.filter((e) => e.module === filterModule);
+  const [activeTab, setActiveTab] = useState<TabKey>("observation");
+  const age = computeAgeYears(patientDateNaissance);
+  const sexeLabel = formatSexeLabel(patientSexe);
+  const patientInfo = patientName
+    ? {
+        nom: patientName,
+        sexe: sexeLabel !== "—" ? sexeLabel : undefined,
+        dateNaissance: patientDateNaissance,
+      }
+    : null;
 
   return (
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 px-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 px-3 py-4 sm:px-6" onClick={onClose}>
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="flex h-full max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-6 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-50 bg-[#EAF3FA] text-[#006A8C]">
-              <FolderOpen className="h-5 w-5" strokeWidth={2.5} />
-            </div>
-            <div>
-              <h3 className="text-[16px] font-extrabold text-gray-900">Dossier patient</h3>
-              {patientName && <p className="text-[13px] text-gray-500">{patientName}</p>}
-            </div>
-          </div>
+        {/* En-tête patient */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-100 px-5 py-3.5 sm:px-6">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
-            title="Fermer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Fermer
           </button>
+
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#05668D] to-[#04556F] text-[13px] font-black text-white">
+              {(patientName?.[0] ?? "?").toUpperCase()}
+            </div>
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-[#006A8C]" strokeWidth={2.5} />
+              <h1 className="truncate text-[15px] font-bold text-slate-900 sm:text-[16px]">{patientName ?? "Dossier patient"}</h1>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Pill label="Âge / Sexe" value={`${age != null ? `${age} ans` : "—"} / ${sexeLabel}`} />
+          </div>
+
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 sm:ml-auto">
+            <Lock className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Lecture seule
+          </span>
         </div>
 
-        <div className="rounded-xl mx-6 mt-4 bg-amber-50 border border-amber-100 px-3.5 py-2.5 text-[11.5px] font-semibold text-amber-700 flex items-center gap-2">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          Lecture seule — les informations viennent de tous les services du CHU. Rien ne peut être modifié depuis cette fenêtre.
+        {/* Barre d'onglets */}
+        <div className="shrink-0 overflow-x-auto border-b border-gray-100 bg-slate-50 px-3 py-2">
+          <div className="flex flex-nowrap items-center gap-1">
+            {TABS.map((tab) => (
+              <TabButton key={tab.key} active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)} icon={tab.icon} label={tab.label} />
+            ))}
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 pt-4">
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100" />
-              ))}
-            </div>
-          ) : error ? (
-            <div className="py-12 text-center text-[13px] text-gray-400">
-              <AlertCircle className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-              {error}
-            </div>
-          ) : entries.length === 0 ? (
-            <div className="py-12 text-center text-[13px] text-gray-400">
-              <History className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-              Aucun historique disponible pour ce patient.
-            </div>
-          ) : (
-            <>
-              {modules.length > 1 && (
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFilterModule("Tous")}
-                    className={`rounded-full px-3 py-1 text-[11px] font-bold transition-colors ${
-                      filterModule === "Tous" ? "bg-[#006A8C] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                    }`}
-                  >
-                    Tous
-                  </button>
-                  {modules.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setFilterModule(m)}
-                      className={`rounded-full px-3 py-1 text-[11px] font-bold transition-colors ${
-                        filterModule === m ? "bg-[#006A8C] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                      }`}
-                    >
-                      {MODULE_LABELS[m]}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-3">
-                {filtered.map((entry) => (
-                  <div key={`${entry.module}-${entry.id}`} className="rounded-xl border border-gray-100 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${MODULE_STYLES[entry.module]}`}>
-                        {MODULE_LABELS[entry.module] ?? entry.module}
-                      </span>
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                        <Clock className="h-3 w-3" />
-                        {new Date(entry.date).toLocaleString("fr-FR")}
-                      </span>
-                    </div>
-                    {entry.createdBy && (
-                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-400">
-                        <User className="h-3 w-3" />
-                        {entry.createdBy}
-                      </div>
-                    )}
-                    {formatValeurs(entry.valeurs)}
-                  </div>
-                ))}
-              </div>
-            </>
+        {/* Contenu de l'onglet actif */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {activeTab === "observation" && <ObservationPanel patientId={patientId} chuId={chuId} patientInfo={patientInfo} />}
+          {activeTab === "diagnostic" && (
+            <ModuleListPanel
+              patientId={patientId}
+              chuId={chuId}
+              fetcher={getDiagnosticsByPatient}
+              emptyLabel="Aucun diagnostic enregistré pour ce patient."
+              titleOf={(d) => d.diagnosticPrincipal}
+              badgeOf={(d) =>
+                d.type ? (
+                  <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-purple-700">
+                    {d.type === "RETENU" ? "Retenu" : "Suspicion"}
+                  </span>
+                ) : null
+              }
+            />
           )}
+          {activeTab === "suivi" && (
+            <ModuleListPanel
+              patientId={patientId}
+              chuId={chuId}
+              fetcher={getSuivisByPatient}
+              emptyLabel="Aucun suivi enregistré pour ce patient."
+              titleOf={(s) => s.jourHospitalisation}
+            />
+          )}
+          {activeTab === "parametres" && (
+            <ModuleListPanel
+              patientId={patientId}
+              chuId={chuId}
+              fetcher={getParametresByPatient}
+              emptyLabel="Aucun paramètre relevé pour ce patient."
+              dateOf={(p) => p.mesureAt ?? p.createdAt}
+            />
+          )}
+          {activeTab === "resultats" && (
+            <ModuleListPanel
+              patientId={patientId}
+              chuId={chuId}
+              fetcher={getResultatsByPatient}
+              emptyLabel="Aucun résultat paraclinique disponible pour ce patient."
+              titleOf={(r) => r.examen}
+              dateOf={(r) => r.dateResultat ?? r.dateDemande}
+              badgeOf={(r) =>
+                r.serviceSource ? (
+                  <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan-700">
+                    {r.serviceSource}
+                  </span>
+                ) : null
+              }
+            />
+          )}
+          {activeTab === "sortie" && <SortiePanel patientId={patientId} chuId={chuId} />}
+          {activeTab === "historique" && <HistoriquePanel patientId={patientId} chuId={chuId} />}
         </div>
       </div>
     </div>

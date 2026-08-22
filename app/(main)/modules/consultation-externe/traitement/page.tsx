@@ -1148,6 +1148,8 @@ export default function TraitementPage() {
         <DossierPatientModal
           patientId={appointment.patientId}
           patientName={appointment.n}
+          patientSexe={appointment.patientSexe}
+          patientDateNaissance={appointment.patientDateNaissance}
           chuId={medecin?.chuId}
           onClose={() => setShowDossierPatient(false)}
         />
