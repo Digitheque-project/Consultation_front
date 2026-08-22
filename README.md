@@ -62,8 +62,20 @@ dans la passerelle** (elle ne réécrit pas les chemins) :
 | `accueil` | Oui | `gateway/accueil/patients?chuId=...` → 200 |
 | `dossier-patient` | Oui — **en cours d'adoption** (`NEXT_PUBLIC_DOSSIER_PATIENT_API_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
 | `prescriptions` | **Non** — 404 sur toutes les routes réelles | route directe conservée (`NEXT_PUBLIC_PRESCRIPTION_URL`) |
-| `pharmacie` | **Non** — même cause | route directe conservée (`NEXT_PUBLIC_PHARMACIE_URL`) |
-| `notification` | **Non** — même cause | route directe conservée (`NEXT_PUBLIC_NOTIFICATION_URL`) |
+| `pharmacie` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (`/consultation/api/pharmacie/...`, voir plus bas) : contourne à la fois le bug de préfixe et l'absence de CORS côté pharmacie |
+| `notification` | **Non** — même cause + c'est aussi un WebSocket, pas seulement du REST | route directe conservée (`NEXT_PUBLIC_NOTIFICATION_URL`) |
+
+### Pharmacie : plus de variable `NEXT_PUBLIC_PHARMACIE_URL`
+
+Le service pharmacie ne renvoie aucun en-tête CORS (`Access-Control-Allow-Origin`
+absent, confirmé) : tout appel direct depuis le navigateur y est bloqué
+silencieusement. Comme il est aussi indisponible via la passerelle (bug de
+préfixe ci-dessus), le catalogue pharmacie (stock + prix) est désormais
+**relayé par notre propre backend** (`src/pharmacie/` côté `backend/`,
+variable `PHARMACIE_URL` — optionnelle, dégrade en liste vide si absente) :
+le navigateur n'appelle plus que `GET /consultation/api/pharmacie/articles/stock-sale-prices`,
+jamais pharmacie directement. Aucun CORS possible sur un appel
+serveur-à-serveur, et une variable `NEXT_PUBLIC_*` de moins côté frontend.
 
 Toutes les routes derrière la passerelle exigent un JWT valide, **y compris
 celles normalement publiques en direct** (ex. `/health`) — sans impact pour

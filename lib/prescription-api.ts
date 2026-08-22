@@ -1,10 +1,8 @@
 import { playSound } from '@/lib/sounds';
 import { checkPublicEnv } from '@/lib/env';
+import { getConsultationExterneApiUrl } from '@/lib/api/consultation-config';
 
 const PRESCRIPTION_URL = checkPublicEnv('NEXT_PUBLIC_PRESCRIPTION_URL', process.env.NEXT_PUBLIC_PRESCRIPTION_URL);
-// Le service prescription n'expose qu'une recherche (terme obligatoire), pas de
-// liste complète — pour afficher tout le catalogue on va directement à la source.
-const PHARMACIE_URL = checkPublicEnv('NEXT_PUBLIC_PHARMACIE_URL', process.env.NEXT_PUBLIC_PHARMACIE_URL);
 
 const URGENCE_MAP: Record<string, string> = {
   n: 'NORMAL',
@@ -365,15 +363,19 @@ export function getStockLevel(article: Pick<PharmacieArticle, 'stock_total' | 's
   return 'ok';
 }
 
-// Catalogue complet avec stock/prix, directement depuis le service pharmacie
-// (le service prescription n'expose qu'une recherche par terme, pas de liste
-// complète). Toujours une lecture live, jamais de copie locale — si le
-// service pharmacie est injoignable, la liste reste vide, assumé.
+// Catalogue complet avec stock/prix — relayé par NOTRE backend, pas un appel
+// direct au service pharmacie : celui-ci ne renvoie aucun en-tête CORS, donc
+// le navigateur bloquait silencieusement l'appel direct. Notre backend fait
+// le relais serveur-à-serveur (jamais soumis à CORS) et transforme un lien
+// pharmacie de plus dans .env en une simple route de notre propre API, déjà
+// accessible via la passerelle du CHU. Toujours une lecture live, jamais de
+// copie locale — si le service pharmacie est injoignable, la liste reste
+// vide, assumé (le relais dégrade déjà côté backend).
 export async function fetchAllPharmacieArticles(chuId?: string): Promise<PharmacieArticle[]> {
-  const params = new URLSearchParams({ level: 'DETAIL' });
+  const params = new URLSearchParams();
   if (chuId) params.set('chuId', chuId);
   try {
-    const res = await fetch(`${PHARMACIE_URL}/articles/stock-sale-prices?${params.toString()}`, {
+    const res = await fetch(getConsultationExterneApiUrl(`/pharmacie/articles/stock-sale-prices?${params.toString()}`), {
       headers: authHeaders(),
       signal: AbortSignal.timeout(15000),
     });
