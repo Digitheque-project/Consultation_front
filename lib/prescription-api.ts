@@ -1,8 +1,13 @@
 import { playSound } from '@/lib/sounds';
-import { checkPublicEnv } from '@/lib/env';
 import { getConsultationExterneApiUrl } from '@/lib/api/consultation-config';
 
-const PRESCRIPTION_URL = checkPublicEnv('NEXT_PUBLIC_PRESCRIPTION_URL', process.env.NEXT_PUBLIC_PRESCRIPTION_URL);
+// Relayé par notre propre backend (src/prescription/ côté Consultation_back)
+// plutôt qu'appelé directement : le service prescription est indisponible
+// via la passerelle du CHU (bug de préfixe, comme pharmacie) et n'a pas non
+// plus d'en-tête CORS confirmé fonctionnel pour notre origine — un relais
+// serveur-à-serveur évite les deux problèmes et retire une variable
+// NEXT_PUBLIC_* de plus du frontend.
+const PRESCRIPTION_URL = getConsultationExterneApiUrl('/prescription');
 
 const URGENCE_MAP: Record<string, string> = {
   n: 'NORMAL',

@@ -61,21 +61,31 @@ dans la passerelle** (elle ne réécrit pas les chemins) :
 | `consultation` (nous) | Oui | `gateway/consultation/api/health` → 200 |
 | `accueil` | Oui | `gateway/accueil/patients?chuId=...` → 200 |
 | `dossier-patient` | Oui — **en cours d'adoption** (`NEXT_PUBLIC_DOSSIER_PATIENT_API_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
-| `prescriptions` | **Non** — 404 sur toutes les routes réelles | route directe conservée (`NEXT_PUBLIC_PRESCRIPTION_URL`) |
+| `prescriptions` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (`/consultation/api/prescription/...`, voir plus bas) |
 | `pharmacie` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (`/consultation/api/pharmacie/...`, voir plus bas) : contourne à la fois le bug de préfixe et l'absence de CORS côté pharmacie |
 | `notification` | **Non** — même cause + c'est aussi un WebSocket, pas seulement du REST | route directe conservée (`NEXT_PUBLIC_NOTIFICATION_URL`) |
 
-### Pharmacie : plus de variable `NEXT_PUBLIC_PHARMACIE_URL`
+### Pharmacie et prescription : plus de `NEXT_PUBLIC_PHARMACIE_URL` ni `NEXT_PUBLIC_PRESCRIPTION_URL`
 
-Le service pharmacie ne renvoie aucun en-tête CORS (`Access-Control-Allow-Origin`
-absent, confirmé) : tout appel direct depuis le navigateur y est bloqué
-silencieusement. Comme il est aussi indisponible via la passerelle (bug de
-préfixe ci-dessus), le catalogue pharmacie (stock + prix) est désormais
-**relayé par notre propre backend** (`src/pharmacie/` côté `backend/`,
-variable `PHARMACIE_URL` — optionnelle, dégrade en liste vide si absente) :
-le navigateur n'appelle plus que `GET /consultation/api/pharmacie/articles/stock-sale-prices`,
-jamais pharmacie directement. Aucun CORS possible sur un appel
-serveur-à-serveur, et une variable `NEXT_PUBLIC_*` de moins côté frontend.
+Ces deux services sont indisponibles via la passerelle (bug de préfixe
+ci-dessus), et pharmacie n'a en plus aucun en-tête CORS
+(`Access-Control-Allow-Origin` absent, confirmé) : tout appel direct depuis
+le navigateur y est bloqué silencieusement. Les deux sont désormais
+**relayés par notre propre backend** :
+
+- Pharmacie (`src/pharmacie/` côté `backend/`, variable `PHARMACIE_URL` —
+  optionnelle, dégrade en liste vide si absente) : `GET /consultation/api/pharmacie/articles/stock-sale-prices`.
+- Prescription (`src/prescription/` côté `backend/`, variable
+  `PRESCRIPTION_URL` — optionnelle au démarrage, mais chaque appel relayé
+  échoue en 503 tant qu'elle n'est pas définie) : relais générique
+  `ALL /consultation/api/prescription/*` — les 21 endpoints du service
+  prescription (création par type paraclinique, ordonnance, historique...)
+  passent par cette seule route, sans réplique côté backend à maintenir à
+  jour.
+
+Le navigateur n'appelle plus jamais ces deux services directement — aucun
+CORS possible sur un appel serveur-à-serveur, et deux variables
+`NEXT_PUBLIC_*` de moins côté frontend.
 
 Toutes les routes derrière la passerelle exigent un JWT valide, **y compris
 celles normalement publiques en direct** (ex. `/health`) — sans impact pour
