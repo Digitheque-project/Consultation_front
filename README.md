@@ -63,15 +63,16 @@ dans la passerelle** (elle ne réécrit pas les chemins) :
 | `dossier-patient` | Oui — **en cours d'adoption** (`NEXT_PUBLIC_DOSSIER_PATIENT_API_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
 | `prescriptions` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (`/consultation/api/prescription/...`, voir plus bas) |
 | `pharmacie` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (`/consultation/api/pharmacie/...`, voir plus bas) : contourne à la fois le bug de préfixe et l'absence de CORS côté pharmacie |
-| `notification` | **Non** — même cause + c'est aussi un WebSocket, pas seulement du REST | route directe conservée (`NEXT_PUBLIC_NOTIFICATION_URL`) |
+| `notification` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (REST + WebSocket, voir plus bas) |
 
-### Pharmacie et prescription : plus de `NEXT_PUBLIC_PHARMACIE_URL` ni `NEXT_PUBLIC_PRESCRIPTION_URL`
+### Plus aucune variable NEXT_PUBLIC_* de service externe (hors passerelle)
 
-Ces deux services sont indisponibles via la passerelle (bug de préfixe
-ci-dessus), et pharmacie n'a en plus aucun en-tête CORS
-(`Access-Control-Allow-Origin` absent, confirmé) : tout appel direct depuis
-le navigateur y est bloqué silencieusement. Les deux sont désormais
-**relayés par notre propre backend** :
+Pharmacie, prescription et notification sont indisponibles via la
+passerelle (bug de préfixe ci-dessus), et pharmacie n'a en plus aucun
+en-tête CORS (`Access-Control-Allow-Origin` absent, confirmé) : tout appel
+direct depuis le navigateur y est bloqué silencieusement. Les trois sont
+désormais **relayés par notre propre backend**, qui lui reste accessible
+via la passerelle en production :
 
 - Pharmacie (`src/pharmacie/` côté `backend/`, variable `PHARMACIE_URL` —
   optionnelle, dégrade en liste vide si absente) : `GET /consultation/api/pharmacie/articles/stock-sale-prices`.
@@ -82,10 +83,20 @@ le navigateur y est bloqué silencieusement. Les deux sont désormais
   prescription (création par type paraclinique, ordonnance, historique...)
   passent par cette seule route, sans réplique côté backend à maintenir à
   jour.
+- Notification (`src/notification/` côté `backend/`, variable
+  `NOTIFICATION_URL` déjà existante — déjà utilisée pour pousser nos propres
+  événements, double rôle désormais) : historique REST
+  (`GET /consultation/api/notification/notifications/user/{id}`) **et**
+  flux temps réel WebSocket (`ws(s)://.../notifications`, une connexion
+  amont dédiée ouverte par le backend pour chaque client connecté — le seul
+  service ici qui avait pourtant déjà un CORS correct, relayé quand même
+  pour ne garder aucune exception).
 
-Le navigateur n'appelle plus jamais ces deux services directement — aucun
-CORS possible sur un appel serveur-à-serveur, et deux variables
-`NEXT_PUBLIC_*` de moins côté frontend.
+Le navigateur n'appelle plus jamais ces trois services directement — aucun
+CORS possible sur un appel serveur-à-serveur, et trois variables
+`NEXT_PUBLIC_*` de moins côté frontend. Le seul lien externe restant côté
+frontend est `NEXT_PUBLIC_AUTH_CLIENT_URL` (la page de connexion SSO — un
+site, pas une API du CHU, hors périmètre de la passerelle).
 
 Toutes les routes derrière la passerelle exigent un JWT valide, **y compris
 celles normalement publiques en direct** (ex. `/health`) — sans impact pour

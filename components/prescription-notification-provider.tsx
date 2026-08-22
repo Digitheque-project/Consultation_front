@@ -2,11 +2,14 @@
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { playSound, SoundType } from "@/lib/sounds";
-import { getConsultationExterneApiUrl } from "@/lib/api/consultation-config";
+import { getConsultationExterneApiUrl, getConsultationExterneOrigin } from "@/lib/api/consultation-config";
 import { useRealtimeNotificationStore } from "@/stores/realtime-notification-store";
 import { checkPublicEnv } from "@/lib/env";
 
-const NOTIFICATION_URL = checkPublicEnv("NEXT_PUBLIC_NOTIFICATION_URL", process.env.NEXT_PUBLIC_NOTIFICATION_URL);
+// Relayé par notre propre backend (src/notification/ côté Consultation_back)
+// — historique REST ET flux temps réel WebSocket — plutôt qu'un appel direct
+// au service notification : plus aucune variable NEXT_PUBLIC_* de service
+// externe côté frontend, seulement la passerelle du CHU.
 const CE_SERVICE_ID = checkPublicEnv("NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID", process.env.NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID);
 
 interface NotifPayload {
@@ -70,11 +73,10 @@ export function PrescriptionNotificationProvider() {
 
   // ─── Historique : récupère les notifications déjà reçues au chargement ────
   useEffect(() => {
-    if (!NOTIFICATION_URL) return;
     const userId = getUserIdFromToken();
     if (!userId) return;
 
-    fetch(`${NOTIFICATION_URL}/notifications/user/${userId}`, { signal: AbortSignal.timeout(8000) })
+    fetch(getConsultationExterneApiUrl(`/notification/notifications/user/${userId}`), { signal: AbortSignal.timeout(8000) })
       .then((res) => (res.ok ? res.json() : []))
       .then((list) => {
         if (!Array.isArray(list)) return;
@@ -110,14 +112,15 @@ export function PrescriptionNotificationProvider() {
   }, []);
 
   // ─── Notifications temps réel (WebSocket) ─────────────────────────────────
-  // Se connecte au service de notification CHU via Socket.IO, namespace /notifications.
-  // Les autres backends (prescription, etc.) envoient POST /notifications/service
-  // et les clients reçoivent instantanément — sans rechargement de page.
+  // Se connecte au relais WebSocket de notre propre backend (namespace
+  // /notifications, cf. src/notification/notification.gateway.ts côté
+  // Consultation_back), qui maintient lui-même une connexion amont vers le
+  // vrai service notification du CHU et relaie chaque événement. Origine NUE
+  // (pas /consultation/api) : les gateways WebSocket NestJS ne sont jamais
+  // montées sous le préfixe REST global.
   useEffect(() => {
-    if (!NOTIFICATION_URL) return;
-
     const userId = getUserIdFromToken();
-    const socket = io(`${NOTIFICATION_URL}/notifications`, {
+    const socket = io(`${getConsultationExterneOrigin()}/notifications`, {
       transports: ["websocket", "polling"],
       auth: {
         ...(userId ? { userId } : {}),

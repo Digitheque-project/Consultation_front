@@ -37,3 +37,10 @@ export const getConsultationExterneApiUrl = (path: string) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${baseUrl}${normalizedPath}`;
 };
+
+// Origine SANS le préfixe /consultation/api — nécessaire pour les connexions
+// WebSocket (Socket.IO), qui ne sont jamais montées sous ce préfixe REST
+// (setGlobalPrefix ne s'applique qu'aux routes HTTP côté NestJS, jamais aux
+// gateways WebSocket). Utiliser getConsultationExterneApiUrl pour du REST.
+export const getConsultationExterneOrigin = () =>
+  getConsultationExterneBaseUrl().replace(new RegExp(`/${DEFAULT_API_PREFIX}$`), '');
