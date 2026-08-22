@@ -1,10 +1,12 @@
 import { checkPublicEnv } from '@/lib/env';
 
 // Origine seule (Règle 1 du projet) — le préfixe /dossier-patient est ajouté
-// ici, jamais dans la variable d'environnement.
+// ici, jamais dans la variable d'environnement. Passerelle unique du CHU
+// (même variable que tout autre service tiers, cohérent avec GATEWAY_URL
+// côté backend) — pas la nôtre, jamais localhost en dev.
 const DOSSIER_PATIENT_URL = checkPublicEnv(
-  'NEXT_PUBLIC_DOSSIER_PATIENT_API_URL',
-  process.env.NEXT_PUBLIC_DOSSIER_PATIENT_API_URL,
+  'NEXT_PUBLIC_GATEWAY_URL',
+  process.env.NEXT_PUBLIC_GATEWAY_URL,
 );
 
 function apiUrl(path: string): string {

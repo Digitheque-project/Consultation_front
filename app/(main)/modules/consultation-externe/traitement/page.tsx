@@ -6,7 +6,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useConsultation, useFinalizeConsultation, usePatientConsultationHistory } from '@/hooks/use-consultations';
 import { ConsultationApi, consultationApi, type HospitalisationServiceOption } from '@/lib/api/consultation';
 import { useAuth } from '@/context/AuthContext';
-import { checkPublicEnv } from '@/lib/env';
+import { getConsultationExterneServiceId } from '@/lib/api/identity';
 import {
   ArrowLeft,
   User,
@@ -32,8 +32,6 @@ import MedicamentBuilder, { buildMedicamentsPayload, type Medicament } from '@/c
 import NonMedicamentBuilder, { buildNonMedicamentItems, type NonMedicamentItem } from '@/components/prescription/NonMedicamentBuilder';
 import { creerPrescriptionMedicale, creerOrdonnanceMedicale, creerPrescriptionNonMedicale } from '@/lib/prescription-api';
 import { cn } from '@/lib/utils';
-
-const CE_SERVICE_ID = checkPublicEnv('NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID', process.env.NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID);
 
 // Page d'où le médecin a ouvert cette consultation — le bouton "Retour" doit
 // ramener au même endroit plutôt que toujours vers le fil de travail.
@@ -335,7 +333,7 @@ export default function TraitementPage() {
             prescripteurId: medecin?.id,
             urgence: appointment?.u ? 'URGENT' : undefined,
             chuId: medecin?.chuId,
-            serviceId: CE_SERVICE_ID,
+            serviceId: await getConsultationExterneServiceId(),
             medicaments: buildMedicamentsPayload(medsToSend),
           });
           const prescriptionId = (created as { id: string }).id;
@@ -370,7 +368,7 @@ export default function TraitementPage() {
           prescripteurId: medecin?.id,
           urgence: appointment?.u ? 'URGENT' : undefined,
           chuId: medecin?.chuId,
-          serviceId: CE_SERVICE_ID,
+          serviceId: await getConsultationExterneServiceId(),
           items: buildNonMedicamentItems(nonMedicamentItems),
         });
       } catch (nmErr) {

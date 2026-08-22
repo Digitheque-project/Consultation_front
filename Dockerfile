@@ -9,12 +9,10 @@
 #
 #   docker build \
 #     --build-arg NEXT_PUBLIC_CONSULTATION_EXTERNE_URL=http://consultation-back.local \
-#     --build-arg NEXT_PUBLIC_API_URL=http://consultation-back.local \
-#     --build-arg NEXT_PUBLIC_CLINICAL_API_URL=http://consultation-back.local \
-#     --build-arg NEXT_PUBLIC_DOSSIER_PATIENT_API_URL=http://dossier-patient-back.local \
+#     --build-arg NEXT_PUBLIC_GATEWAY_URL=http://gateway.chu.local \
 #     --build-arg NEXT_PUBLIC_AUTH_CLIENT_URL=http://auth-client.local \
-#     --build-arg NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
 #     --build-arg NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
+#     --build-arg NEXT_PUBLIC_API_URL=http://consultation-back.local \
 #     -t chu-front .
 #
 # Règle : chaque --build-arg ne contient que l'origine du service (schéma +
@@ -40,19 +38,15 @@ COPY . .
 # Variables publiques (préfixe NEXT_PUBLIC_) : inlinées dans le bundle JS
 # pendant "next build", donc obligatoires à l'étape de build, pas au run.
 ARG NEXT_PUBLIC_CONSULTATION_EXTERNE_URL
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_CLINICAL_API_URL
-ARG NEXT_PUBLIC_DOSSIER_PATIENT_API_URL
+ARG NEXT_PUBLIC_GATEWAY_URL
 ARG NEXT_PUBLIC_AUTH_CLIENT_URL
-ARG NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID
 ARG NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_CONSULTATION_EXTERNE_URL=$NEXT_PUBLIC_CONSULTATION_EXTERNE_URL \
-    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_CLINICAL_API_URL=$NEXT_PUBLIC_CLINICAL_API_URL \
-    NEXT_PUBLIC_DOSSIER_PATIENT_API_URL=$NEXT_PUBLIC_DOSSIER_PATIENT_API_URL \
+    NEXT_PUBLIC_GATEWAY_URL=$NEXT_PUBLIC_GATEWAY_URL \
     NEXT_PUBLIC_AUTH_CLIENT_URL=$NEXT_PUBLIC_AUTH_CLIENT_URL \
-    NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID=$NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID \
     NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID=$NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID \
+    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

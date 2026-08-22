@@ -3,14 +3,13 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import PrescriptionLayout from "@/components/prescription/PrescriptionLayout";
-import { checkPublicEnv } from "@/lib/env";
-
-const CE_SERVICE_ID = checkPublicEnv('NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID', process.env.NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID);
+import { useConsultationExterneServiceId } from "@/hooks/use-consultation-externe-service-id";
 
 function PrescriptionPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const { medecin } = useAuth();
+  const CE_SERVICE_ID = useConsultationExterneServiceId();
 
   const patientId     = params.get("patientId") ?? "";
   const patientNom    = params.get("patientNom") ?? undefined;

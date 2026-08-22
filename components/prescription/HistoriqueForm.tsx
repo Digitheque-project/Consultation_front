@@ -1,8 +1,12 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { checkPublicEnv } from '@/lib/env';
+import { getConsultationExterneApiUrl } from '@/lib/api/consultation-config';
 
-const API_URL = checkPublicEnv('NEXT_PUBLIC_PRESCRIPTION_URL', process.env.NEXT_PUBLIC_PRESCRIPTION_URL);
+// Relayé par notre propre backend (src/prescription/ côté Consultation_back),
+// comme le reste des appels prescription (voir lib/prescription-api.ts) —
+// oublié lors de cette migration, appelait encore directement
+// NEXT_PUBLIC_PRESCRIPTION_URL (variable qui n'existe plus).
+const API_URL = getConsultationExterneApiUrl('/prescription');
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;

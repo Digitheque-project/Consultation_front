@@ -2,11 +2,10 @@ import { playSound } from '@/lib/sounds';
 import { getConsultationExterneApiUrl } from '@/lib/api/consultation-config';
 
 // Relayé par notre propre backend (src/prescription/ côté Consultation_back)
-// plutôt qu'appelé directement : le service prescription est indisponible
-// via la passerelle du CHU (bug de préfixe, comme pharmacie) et n'a pas non
-// plus d'en-tête CORS confirmé fonctionnel pour notre origine — un relais
-// serveur-à-serveur évite les deux problèmes et retire une variable
-// NEXT_PUBLIC_* de plus du frontend.
+// plutôt qu'appelé directement : centralise les 21 endpoints du service
+// prescription derrière une seule route générique, et retire une variable
+// NEXT_PUBLIC_* de plus du frontend (le service est techniquement joignable
+// via la passerelle, mais le relais reste préférable pour cette raison).
 const PRESCRIPTION_URL = getConsultationExterneApiUrl('/prescription');
 
 const URGENCE_MAP: Record<string, string> = {

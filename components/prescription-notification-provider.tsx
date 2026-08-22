@@ -4,13 +4,12 @@ import { io, Socket } from "socket.io-client";
 import { playSound, SoundType } from "@/lib/sounds";
 import { getConsultationExterneApiUrl, getConsultationExterneOrigin } from "@/lib/api/consultation-config";
 import { useRealtimeNotificationStore } from "@/stores/realtime-notification-store";
-import { checkPublicEnv } from "@/lib/env";
+import { getConsultationExterneServiceId } from "@/lib/api/identity";
 
 // Relayé par notre propre backend (src/notification/ côté Consultation_back)
 // — historique REST ET flux temps réel WebSocket — plutôt qu'un appel direct
 // au service notification : plus aucune variable NEXT_PUBLIC_* de service
 // externe côté frontend, seulement la passerelle du CHU.
-const CE_SERVICE_ID = checkPublicEnv("NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID", process.env.NEXT_PUBLIC_CONSULTATION_EXTERNE_SERVICE_ID);
 
 interface NotifPayload {
   id?: string;
@@ -119,44 +118,56 @@ export function PrescriptionNotificationProvider() {
   // (pas /consultation/api) : les gateways WebSocket NestJS ne sont jamais
   // montées sous le préfixe REST global.
   useEffect(() => {
-    const userId = getUserIdFromToken();
-    const socket = io(`${getConsultationExterneOrigin()}/notifications`, {
-      transports: ["websocket", "polling"],
-      auth: {
-        ...(userId ? { userId } : {}),
-        ...(CE_SERVICE_ID ? { serviceId: CE_SERVICE_ID } : {}),
-      },
-      withCredentials: true,
-    });
+    let cancelled = false;
 
-    socketRef.current = socket;
+    // serviceId résolu de façon asynchrone (GET /identity côté backend, voir
+    // lib/api/identity.ts) — connexion WebSocket retardée du temps de ce seul
+    // fetch (négligeable, même origine que le reste de l'API), plutôt que de
+    // se connecter avec un serviceId absent puis devoir se reconnecter.
+    (async () => {
+      const userId = getUserIdFromToken();
+      const serviceId = await getConsultationExterneServiceId();
+      if (cancelled) return;
 
-    socket.on("connect", () => {
-      console.log("[Notifications] Connecté au service de notification");
-    });
-
-    socket.on("notification", (payload: NotifPayload) => {
-      addNotification({
-        id: payload.id ?? `${Date.now()}-${Math.random()}`,
-        title: payload.title ?? "Nouvelle notification",
-        message: payload.message ?? "",
-        type: payload.type ?? "info",
-        data: payload.data,
-        createdAt: new Date().toISOString(),
-        read: false,
+      const socket = io(`${getConsultationExterneOrigin()}/notifications`, {
+        transports: ["websocket", "polling"],
+        auth: {
+          ...(userId ? { userId } : {}),
+          ...(serviceId ? { serviceId } : {}),
+        },
+        withCredentials: true,
       });
 
-      if (!audioUnlocked.current) return;
-      const sound = resolvePrescriptionSound(payload);
-      playSound(sound);
-    });
+      socketRef.current = socket;
 
-    socket.on("connect_error", (err) => {
-      console.warn("[Notifications] Erreur de connexion :", err.message);
-    });
+      socket.on("connect", () => {
+        console.log("[Notifications] Connecté au service de notification");
+      });
+
+      socket.on("notification", (payload: NotifPayload) => {
+        addNotification({
+          id: payload.id ?? `${Date.now()}-${Math.random()}`,
+          title: payload.title ?? "Nouvelle notification",
+          message: payload.message ?? "",
+          type: payload.type ?? "info",
+          data: payload.data,
+          createdAt: new Date().toISOString(),
+          read: false,
+        });
+
+        if (!audioUnlocked.current) return;
+        const sound = resolvePrescriptionSound(payload);
+        playSound(sound);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.warn("[Notifications] Erreur de connexion :", err.message);
+      });
+    })();
 
     return () => {
-      socket.disconnect();
+      cancelled = true;
+      socketRef.current?.disconnect();
       socketRef.current = null;
     };
   }, []);

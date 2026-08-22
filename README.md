@@ -41,7 +41,8 @@ et ajoute le chemin de chaque route (voir `lib/api/consultation-config.ts` et
 Les plus importantes:
 
 - `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: origine du backend consultation externe. **La seule réellement indispensable.** En local : toujours en direct (`localhost:3333`). En production cloud : via la passerelle API du CHU (voir plus bas) — sur le réseau local du CHU (déploiement Docker sur site), reste en direct vers le backend du réseau local, la passerelle cloud n'étant pas pertinente pour cette cible.
-- `NEXT_PUBLIC_API_URL`: origine du backend SIH/hospitalisation (routes `/cpa`, `/vpa`, `/patients`, websocket `/hospitalisations`) — **pas** le backend consultation externe. Optionnelle pour un déploiement consultation externe seul.
+- `NEXT_PUBLIC_GATEWAY_URL`: origine de la passerelle unique du CHU, pour tout service tiers appelé directement par le frontend (aujourd'hui : dossier patient). Contrairement à `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`, toujours la même valeur en local et en production (la passerelle cloud n'est jamais "nous").
+- `NEXT_PUBLIC_API_URL`: origine du backend SIH/hospitalisation (websocket `/hospitalisations`, alertes d'admission) — **pas** le backend consultation externe. Fonctionnalité héritée du monorepo SIH, toujours montée dans l'app mais dégradable : optionnelle pour un déploiement consultation externe seul.
 - `NEXT_PUBLIC_BACKEND_URL` (repli, rarement nécessaire): nom alternatif lu en dernier recours si ni `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL` ni `NEXT_PUBLIC_API_URL` ne sont définies.
 - `SERVICE_API_TOKEN` (optionnel, **pas** `NEXT_PUBLIC_*`): token de service utilisé par les Route Handlers serveur (`app/api/...`) pour appeler le backend consultation externe en son propre nom — lu au runtime, jamais inliné dans le bundle client.
 
@@ -65,12 +66,9 @@ passerelle :
 | Service | Utilisable via la passerelle ? | Vérifié |
 |---|---|---|
 | `consultation` (nous) | Oui | `gateway/consultation/api/health` → 200 |
-| `accueil` | Oui | `gateway/accueil/patients?chuId=...` → 200 |
-| `dossier-patient` | Oui — **adopté** (`NEXT_PUBLIC_DOSSIER_PATIENT_API_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
-| `auth`, `users`, `chu`, `services` | Oui (backend uniquement, hors périmètre frontend) | `/auth/login`, `/roles`, `/chu`, `/prise-en-charge`, `/services` → 200 |
-| `prescriptions` | Techniquement joignable (`/prescriptions`), mais toujours relayé | relayé par **notre propre backend** (`/consultation/api/prescription/...`, voir plus bas) pour centraliser les 21 endpoints derrière une seule route générique |
-| `pharmacie` | Techniquement joignable depuis ce backend (bug de chemin corrigé côté passerelle), mais toujours relayé | relayé par **notre propre backend** (`/consultation/api/pharmacie/...`, voir plus bas) : la vraie raison du relais est l'absence totale de CORS côté pharmacie, pas un souci de passerelle |
-| `notification` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (REST + WebSocket, voir plus bas) |
+| `accueil`, `clinique`, `notification`, `pharmacie`, `prescriptions` | Oui — **côté backend**, fusionnées dans une seule variable `GATEWAY_URL` (voir `backend/.env.example`) | 200 sur chaque route testée avec un JWT réel |
+| `dossier-patient` | Oui — **adopté côté frontend** (`NEXT_PUBLIC_GATEWAY_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
+| `auth`, `users`, `chu`, `services` | Oui — **côté backend**, même variable `GATEWAY_URL` | `/auth/login`, `/roles`, `/chu`, `/prise-en-charge`, `/services`, `/users/{id}` → 200 |
 
 ### Plus aucune variable NEXT_PUBLIC_* de service externe (hors passerelle)
 
@@ -80,49 +78,59 @@ silencieusement. Prescription et notification, elles, sont joignables
 depuis un navigateur, mais chacune ajoutait sa propre variable
 `NEXT_PUBLIC_*` de service externe — contraire à l'objectif de tout
 centraliser derrière une seule passerelle. Les trois sont donc **relayées
-par notre propre backend** : le navigateur n'appelle plus que notre API.
-Côté sortant (backend → service tiers), ces trois relais appellent encore
-leur service **en direct** (`PHARMACIE_URL`, `PRESCRIPTION_URL`,
-`NOTIFICATION_URL` dans `backend/.env`) plutôt que via la passerelle — une
-migration possible mais pas encore faite (contrairement à `accueil`,
-`clinique`, `auth`, `chu` et `services`, déjà migrés côté backend, voir
-`backend/.env.example`) :
+par notre propre backend** (`src/pharmacie/`, `src/prescription/`,
+`src/notification/` côté `backend/`) : le navigateur n'appelle plus que
+notre API. Côté sortant, ces trois relais appellent désormais la passerelle
+comme le reste (`GATEWAY_URL`), plus un service tiers en direct :
 
-- Pharmacie (`src/pharmacie/` côté `backend/`, variable `PHARMACIE_URL` —
-  optionnelle, dégrade en liste vide si absente) : `GET /consultation/api/pharmacie/articles/stock-sale-prices`.
-- Prescription (`src/prescription/` côté `backend/`, variable
-  `PRESCRIPTION_URL` — optionnelle au démarrage, mais chaque appel relayé
-  échoue en 503 tant qu'elle n'est pas définie) : relais générique
-  `ALL /consultation/api/prescription/*` — les 21 endpoints du service
-  prescription (création par type paraclinique, ordonnance, historique...)
-  passent par cette seule route, sans réplique côté backend à maintenir à
-  jour.
-- Notification (`src/notification/` côté `backend/`, variable
-  `NOTIFICATION_URL` déjà existante — déjà utilisée pour pousser nos propres
-  événements, double rôle désormais) : historique REST
+- Pharmacie : `GET /consultation/api/pharmacie/articles/stock-sale-prices`.
+- Prescription : relais générique `ALL /consultation/api/prescription/*` —
+  les 21 endpoints du service prescription (création par type
+  paraclinique, ordonnance, historique...) passent par cette seule route,
+  sans réplique côté backend à maintenir à jour.
+- Notification : historique REST
   (`GET /consultation/api/notification/notifications/user/{id}`) **et**
   flux temps réel WebSocket (`ws(s)://.../notifications`, une connexion
-  amont dédiée ouverte par le backend pour chaque client connecté — le seul
-  service ici qui avait pourtant déjà un CORS correct, relayé quand même
-  pour ne garder aucune exception).
+  amont dédiée ouverte par le backend pour chaque client connecté). Le
+  relais WebSocket passe aussi par la passerelle : elle proxifie désormais
+  les requêtes d'upgrade HTTP en plus du REST classique (`ws: true` +
+  chemin `/socket.io` ajouté à son registre — socket.io n'utilise jamais le
+  nom du namespace comme chemin HTTP réel).
 
 Le navigateur n'appelle plus jamais ces trois services directement — aucun
 CORS possible sur un appel serveur-à-serveur, et trois variables
 `NEXT_PUBLIC_*` de moins côté frontend. Le seul lien externe restant côté
-frontend est `NEXT_PUBLIC_AUTH_CLIENT_URL` (la page de connexion SSO — un
+frontend (hors `NEXT_PUBLIC_API_URL`, fonctionnalité SIH héritée, voir plus
+haut) est `NEXT_PUBLIC_AUTH_CLIENT_URL` (la page de connexion SSO — un
 site, pas une API du CHU, hors périmètre de la passerelle).
 
-Seuls les services marqués `requiresAuth` dans le registre de la passerelle
-(accueil, clinique, dossier-patient, notification, pharmacie, prescriptions,
-etc.) exigent un JWT **à la passerelle elle-même** — sans impact pour nous
-puisque le frontend n'appelle ces services que depuis un médecin déjà
-connecté. `auth`, `users`, `chu` et `services` n'ont pas cette exigence côté
-passerelle : c'est le service d'origine qui gère sa propre authentification,
-exactement comme en appel direct. La passerelle reconnaît désormais aussi le
-token de service statique (`SERVICE_API_TOKEN`) comme alternative à un JWT
-sur les routes `requiresAuth` (utile pour les appels serveur-à-serveur sans
-utilisateur connecté) — à condition que la même valeur soit configurée côté
-Render pour **et** ce backend **et** la passerelle.
+Seuls certains services marqués `requiresAuth` dans le registre de la
+passerelle (accueil, clinique, dossier-patient, notification, pharmacie,
+prescriptions, etc.) exigent un JWT **à la passerelle elle-même** — sans
+impact pour nous puisque le frontend n'appelle ces services que depuis un
+médecin déjà connecté. `auth`, `users`, `chu` et `services` n'ont pas cette
+exigence côté passerelle : c'est le service d'origine qui gère sa propre
+authentification, exactement comme en appel direct. La passerelle reconnaît
+aussi le token de service statique (`SERVICE_API_TOKEN`) comme alternative à
+un JWT sur les routes `requiresAuth` (utile pour les appels serveur-à-serveur
+sans utilisateur connecté) — à condition que la même valeur soit configurée
+côté Render pour **et** le backend **et** la passerelle.
+
+### Identité du déploiement résolue dynamiquement, pas figée dans le bundle
+
+`CONSULTATION_EXTERNE_SERVICE_ID` (utilisé côté frontend dans les payloads
+de prescription et le handshake WebSocket de notification) n'est plus une
+variable `NEXT_PUBLIC_*` figée au build. Le backend la résout lui-même au
+démarrage (voir `backend/src/config/resolve-identity.ts`) et l'expose via
+`GET /consultation/api/identity` (public, sans authentification) ; le
+frontend la récupère au runtime via `lib/api/identity.ts` (un seul fetch,
+mis en cache en mémoire pour toute la session de l'onglet) plutôt que de
+dupliquer le même UUID dans deux dépôts avec le risque de désynchronisation
+que ça implique — même logique que la fusion `GATEWAY_URL` côté backend.
+Utiliser `getConsultationExterneServiceId()` (contexte asynchrone : effet,
+gestionnaire d'événement) ou le hook `useConsultationExterneServiceId()`
+(rendu synchrone d'un composant client, retourne `undefined` le temps de la
+résolution).
 
 ## Docker
 
