@@ -52,27 +52,41 @@ Les plus importantes:
 Le CHU dispose d'une passerelle qui expose la documentation Swagger de tous
 ses services derrière une seule origine (`https://gateway-bwm4.onrender.com/<service>/api/docs`)
 — pratique pour ne plus avoir à retenir l'URL Swagger de chacun des ~20
-services. Elle proxy aussi les vrais appels API, **mais uniquement pour les
-services dont le préfixe de route interne correspond déjà à leur segment
-dans la passerelle** (elle ne réécrit pas les chemins) :
+services. Elle proxy aussi les vrais appels API. Elle **ne réécrit pas les
+chemins** : chaque service du registre de la passerelle déclare la liste de
+ses préfixes de route **réels** (ex. CHU : `/chu` et `/prise-en-charge` —
+ce dernier sans le préfixe `/chu`), donc le chemin à appeler via la
+passerelle est toujours identique à celui qu'on appellerait en direct, tant
+qu'on utilise le bon chemin du service (pas une hypothèse de préfixage
+uniforme). Une passe de vérification route par route (login réel + JWT)
+a confirmé que tous les services listés ci-dessous fonctionnent via la
+passerelle :
 
 | Service | Utilisable via la passerelle ? | Vérifié |
 |---|---|---|
 | `consultation` (nous) | Oui | `gateway/consultation/api/health` → 200 |
 | `accueil` | Oui | `gateway/accueil/patients?chuId=...` → 200 |
-| `dossier-patient` | Oui — **en cours d'adoption** (`NEXT_PUBLIC_DOSSIER_PATIENT_API_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
-| `prescriptions` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (`/consultation/api/prescription/...`, voir plus bas) |
-| `pharmacie` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (`/consultation/api/pharmacie/...`, voir plus bas) : contourne à la fois le bug de préfixe et l'absence de CORS côté pharmacie |
+| `dossier-patient` | Oui — **adopté** (`NEXT_PUBLIC_DOSSIER_PATIENT_API_URL`) | `gateway/dossier-patient/patients/{id}/historique` → 200 |
+| `auth`, `users`, `chu`, `services` | Oui (backend uniquement, hors périmètre frontend) | `/auth/login`, `/roles`, `/chu`, `/prise-en-charge`, `/services` → 200 |
+| `prescriptions` | Techniquement joignable (`/prescriptions`), mais toujours relayé | relayé par **notre propre backend** (`/consultation/api/prescription/...`, voir plus bas) pour centraliser les 21 endpoints derrière une seule route générique |
+| `pharmacie` | Techniquement joignable depuis ce backend (bug de chemin corrigé côté passerelle), mais toujours relayé | relayé par **notre propre backend** (`/consultation/api/pharmacie/...`, voir plus bas) : la vraie raison du relais est l'absence totale de CORS côté pharmacie, pas un souci de passerelle |
 | `notification` | **Non applicable** — plus de lien direct du tout | relayé par **notre propre backend** (REST + WebSocket, voir plus bas) |
 
 ### Plus aucune variable NEXT_PUBLIC_* de service externe (hors passerelle)
 
-Pharmacie, prescription et notification sont indisponibles via la
-passerelle (bug de préfixe ci-dessus), et pharmacie n'a en plus aucun
-en-tête CORS (`Access-Control-Allow-Origin` absent, confirmé) : tout appel
-direct depuis le navigateur y est bloqué silencieusement. Les trois sont
-désormais **relayés par notre propre backend**, qui lui reste accessible
-via la passerelle en production :
+Pharmacie n'a aucun en-tête CORS (`Access-Control-Allow-Origin` absent,
+confirmé) : tout appel direct depuis le navigateur y est bloqué
+silencieusement. Prescription et notification, elles, sont joignables
+depuis un navigateur, mais chacune ajoutait sa propre variable
+`NEXT_PUBLIC_*` de service externe — contraire à l'objectif de tout
+centraliser derrière une seule passerelle. Les trois sont donc **relayées
+par notre propre backend** : le navigateur n'appelle plus que notre API.
+Côté sortant (backend → service tiers), ces trois relais appellent encore
+leur service **en direct** (`PHARMACIE_URL`, `PRESCRIPTION_URL`,
+`NOTIFICATION_URL` dans `backend/.env`) plutôt que via la passerelle — une
+migration possible mais pas encore faite (contrairement à `accueil`,
+`clinique`, `auth`, `chu` et `services`, déjà migrés côté backend, voir
+`backend/.env.example`) :
 
 - Pharmacie (`src/pharmacie/` côté `backend/`, variable `PHARMACIE_URL` —
   optionnelle, dégrade en liste vide si absente) : `GET /consultation/api/pharmacie/articles/stock-sale-prices`.
@@ -98,13 +112,17 @@ CORS possible sur un appel serveur-à-serveur, et trois variables
 frontend est `NEXT_PUBLIC_AUTH_CLIENT_URL` (la page de connexion SSO — un
 site, pas une API du CHU, hors périmètre de la passerelle).
 
-Toutes les routes derrière la passerelle exigent un JWT valide, **y compris
-celles normalement publiques en direct** (ex. `/health`) — sans impact pour
-nous puisque le frontend n'appelle ces services que depuis un médecin déjà
-connecté. En revanche le token de service statique (`SERVICE_API_TOKEN`)
-n'est pas reconnu par la passerelle : les appels serveur-à-serveur (backend
-consultation-externe → autres services) restent donc en direct, jamais via
-la passerelle.
+Seuls les services marqués `requiresAuth` dans le registre de la passerelle
+(accueil, clinique, dossier-patient, notification, pharmacie, prescriptions,
+etc.) exigent un JWT **à la passerelle elle-même** — sans impact pour nous
+puisque le frontend n'appelle ces services que depuis un médecin déjà
+connecté. `auth`, `users`, `chu` et `services` n'ont pas cette exigence côté
+passerelle : c'est le service d'origine qui gère sa propre authentification,
+exactement comme en appel direct. La passerelle reconnaît désormais aussi le
+token de service statique (`SERVICE_API_TOKEN`) comme alternative à un JWT
+sur les routes `requiresAuth` (utile pour les appels serveur-à-serveur sans
+utilisateur connecté) — à condition que la même valeur soit configurée côté
+Render pour **et** ce backend **et** la passerelle.
 
 ## Docker
 
