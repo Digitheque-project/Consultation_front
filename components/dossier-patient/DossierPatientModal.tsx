@@ -177,6 +177,7 @@ export function DossierPatientModal({
               emptyLabel="Aucun résultat paraclinique disponible pour ce patient."
               titleOf={(r) => r.examen}
               dateOf={(r) => r.dateResultat ?? r.dateDemande}
+              serviceOf={(r) => r.serviceSource}
               badgeOf={(r) =>
                 r.serviceSource ? (
                   <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan-700">
