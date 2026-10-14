@@ -14,7 +14,7 @@ const MODULE_LABELS: Record<DossierModule, string> = {
 };
 
 const MODULE_STYLES: Record<DossierModule, string> = {
-  observation: "bg-[#EAF3FA] text-[#006A8C]",
+  observation: "bg-[#CFE9EF] text-[#006A8C]",
   diagnostic: "bg-purple-50 text-purple-700",
   suivi: "bg-emerald-50 text-emerald-700",
   parametre: "bg-amber-50 text-amber-700",

@@ -146,7 +146,7 @@ export default function RapportPage() {
           {period === 'custom' && (
             <div className={cn(
               'flex h-9 items-center gap-1.5 rounded-xl border px-2.5 min-w-[220px]',
-              'border-[#005b82]/40 bg-[#EAF3FA]'
+              'border-[#005b82]/40 bg-[#CFE9EF]'
             )}>
               <CalendarRange className="h-3.5 w-3.5 shrink-0 text-slate-400" />
               <input

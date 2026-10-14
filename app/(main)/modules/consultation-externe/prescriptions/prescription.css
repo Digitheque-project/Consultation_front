@@ -1,7 +1,7 @@
 /* Prescription module CSS — scoped to .rx-scope to avoid Tailwind conflicts */
 
 .rx-scope {
-  --navy:#006A8C;--navy-dk:#004d66;--navy-lt:#EAF3FA;--navy-mid:#D1E5F5;
+  --navy:#006A8C;--navy-dk:#004d66;--navy-lt:#CFE9EF;--navy-mid:#D1E5F5;
   --bg:#f0f2f7;--card:#fff;--shadow:0 2px 12px rgba(0,0,0,.07);
   --txt:#1a1d2e;--txt2:#5c6575;--txt3:#6b7280;
   --bdr:#e5e7eb;--inp:#f3f4f8;

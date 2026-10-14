@@ -72,7 +72,7 @@ export function ServiceGridView({
                 <th
                   key={service.id}
                   colSpan={colSpan}
-                  className="sticky top-0 z-20 bg-[#EAF3FA] border-b border-r border-gray-100 px-3 py-2 text-[11px] font-black uppercase tracking-widest text-[#005b82] text-center"
+                  className="sticky top-0 z-20 bg-[#CFE9EF] border-b border-r border-gray-100 px-3 py-2 text-[11px] font-black uppercase tracking-widest text-[#005b82] text-center"
                 >
                   {service.name}
                 </th>

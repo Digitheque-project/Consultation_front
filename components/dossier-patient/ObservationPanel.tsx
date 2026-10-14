@@ -78,7 +78,7 @@ function ObservationDetail({ obs, patientInfo }: { obs: Observation; patientInfo
           const Icon = section.icon;
           return (
             <section key={section.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <header className="flex items-center gap-3 border-b border-slate-100 bg-[#EAF3FA] px-4 py-3">
+              <header className="flex items-center gap-3 border-b border-slate-100 bg-[#CFE9EF] px-4 py-3">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white">
                   <Icon className="h-4 w-4 text-[#006A8C]" strokeWidth={2} />
                 </span>
@@ -158,7 +158,7 @@ export function ObservationPanel({
                 setSelected(obs);
                 setView("latest");
               }}
-              className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#006A8C]/40 hover:bg-[#EAF3FA]/40"
+              className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#006A8C]/40 hover:bg-[#CFE9EF]/40"
             >
               <span className="text-[13px] font-semibold text-slate-800">
                 {obs.observationType ?? "Observation"}

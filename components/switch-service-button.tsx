@@ -38,7 +38,7 @@ export function SwitchServiceButton() {
                 key={s.serviceId}
                 type="button"
                 onClick={() => switchTo(s.baseUrl as string)}
-                className="w-full text-left px-4 py-3 text-[13px] font-semibold text-gray-700 hover:bg-[#EAF3FA] hover:text-[#005b82] transition-colors border-b border-gray-50 last:border-0"
+                className="w-full text-left px-4 py-3 text-[13px] font-semibold text-gray-700 hover:bg-[#CFE9EF] hover:text-[#005b82] transition-colors border-b border-gray-50 last:border-0"
               >
                 {s.serviceName ?? "Service"}
                 {s.roleName ? (

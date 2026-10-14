@@ -53,7 +53,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <img
             src={chuLogoUrl}
             alt="Logo CHU"
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-[#EAF3FA] flex-shrink-0"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-[#CFE9EF] flex-shrink-0"
           />
         ) : null}
         <div className="text-[16px] sm:text-[18px] lg:text-[20px] font-black text-[#004A66] tracking-tight truncate">
@@ -102,7 +102,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             </span>
           </div>
           <div className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
-            <div className="w-full h-full bg-gray-200 rounded-full overflow-hidden border-2 border-[#EAF3FA]">
+            <div className="w-full h-full bg-gray-200 rounded-full overflow-hidden border-2 border-[#CFE9EF]">
               <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
             </div>
             <span

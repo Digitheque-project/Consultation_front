@@ -46,7 +46,7 @@ export function ConsultationSessionSwitcher({ className }: ConsultationSessionSw
 
   return (
     <Card className={className}>
-      <div className="rounded-[28px] border border-[#D1E5F5] bg-[#EAF3FA] p-4 shadow-sm">
+      <div className="rounded-[28px] border border-[#D1E5F5] bg-[#CFE9EF] p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="rounded-2xl bg-white p-2.5 text-[#006A8C] shadow-sm">
             <UserRound className="h-4 w-4" strokeWidth={2.5} />

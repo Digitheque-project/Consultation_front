@@ -104,7 +104,7 @@ export function DossierPatientModal({
           </button>
 
           <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#05668D] to-[#04556F] text-[13px] font-black text-white">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#006A8C] to-[#004A66] text-[13px] font-black text-white">
               {(patientName?.[0] ?? "?").toUpperCase()}
             </div>
             <div className="flex items-center gap-2">

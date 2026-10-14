@@ -198,7 +198,7 @@ export default function DashboardPage() {
                       className={cn(
                         "flex items-center gap-4 rounded-xl px-3 py-3 border-l-[6px] transition-colors cursor-pointer",
                         priseEnCharge
-                          ? (priseEnCharge.isActive ? "bg-[#EAF3FA] hover:bg-[#daeaf5] border-[#005b82]" : "bg-amber-50 hover:bg-amber-100 border-amber-500")
+                          ? (priseEnCharge.isActive ? "bg-[#CFE9EF] hover:bg-[#daeaf5] border-[#005b82]" : "bg-amber-50 hover:bg-amber-100 border-amber-500")
                           : "hover:bg-slate-50 border-transparent"
                       )}
                     >
@@ -257,7 +257,7 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl shadow-[0px_4px_16px_rgba(17,17,26,0.05)] border border-gray-100 p-5">
               <h3 className="text-[11px] font-extrabold text-[#005b82] uppercase tracking-[0.1em] mb-4">Navigation rapide</h3>
               <div className="space-y-2">
-                <Link href="/modules/consultation-externe" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#EAF3FA] hover:bg-[#daeaf5] transition-colors group">
+                <Link href="/modules/consultation-externe" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#CFE9EF] hover:bg-[#daeaf5] transition-colors group">
                   <ClipboardList className="w-4 h-4 text-[#005b82]" />
                   <span className="text-[13px] font-bold text-[#005b82]">Fil de travail</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#005b82] ml-auto opacity-60 group-hover:opacity-100" />

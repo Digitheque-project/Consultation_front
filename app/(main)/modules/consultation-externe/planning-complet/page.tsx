@@ -819,7 +819,7 @@ export default function PlanningCompletPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/modules/consultation-externe"
-              className="group inline-flex items-center justify-center p-2 rounded-xl bg-white shadow-sm border border-gray-100 hover:bg-[#EAF3FA] transition-all text-[#006A8C] hover:scale-105 active:scale-95 shrink-0"
+              className="group inline-flex items-center justify-center p-2 rounded-xl bg-white shadow-sm border border-gray-100 hover:bg-[#CFE9EF] transition-all text-[#006A8C] hover:scale-105 active:scale-95 shrink-0"
               title="Retour"
             >
               <ArrowLeft className="h-4 w-4" strokeWidth={2.5} />

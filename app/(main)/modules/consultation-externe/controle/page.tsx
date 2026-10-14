@@ -72,7 +72,7 @@ export default function ControlePage() {
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2">
                           <h2 className="text-base font-bold text-slate-900">{patient.name}</h2>
-                          <Badge className="bg-[#EAF3FA] text-[#006A8C]">{patient.visiteLabel}</Badge>
+                          <Badge className="bg-[#CFE9EF] text-[#006A8C]">{patient.visiteLabel}</Badge>
                           {patient.isUrgent && <Badge className="bg-red-50 text-red-700">Urgence</Badge>}
                           <PriseEnChargeBadge priseEnCharge={patient.priseEnCharge} />
                         </div>

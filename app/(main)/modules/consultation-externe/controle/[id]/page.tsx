@@ -140,7 +140,7 @@ export default function ControleDetailPage() {
             <CardHeader className="p-7 pb-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[#EAF3FA] flex items-center justify-center text-[#006A8C]">
+                  <div className="w-12 h-12 rounded-2xl bg-[#CFE9EF] flex items-center justify-center text-[#006A8C]">
                     <User className="w-6 h-6" />
                   </div>
                   <div>
@@ -148,7 +148,7 @@ export default function ControleDetailPage() {
                     <p className="text-xs font-semibold text-slate-400 uppercase">{new Date(consultation.date).toLocaleDateString('fr-FR')}</p>
                   </div>
                 </div>
-                <Badge className="bg-[#EAF3FA] text-[#006A8C]">{visiteLabel}</Badge>
+                <Badge className="bg-[#CFE9EF] text-[#006A8C]">{visiteLabel}</Badge>
               </div>
             </CardHeader>
             <CardContent className="p-7 space-y-6">

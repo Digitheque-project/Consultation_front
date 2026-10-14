@@ -499,7 +499,7 @@ export default function ConsultationExternePage() {
 
                 <div className={cn(
                   "flex h-9 min-w-0 flex-[2] items-center gap-1.5 rounded-xl border px-2.5 transition-colors",
-                  hasDateRange ? "border-[#005b82]/40 bg-[#EAF3FA]" : "border-slate-200 bg-slate-50"
+                  hasDateRange ? "border-[#005b82]/40 bg-[#CFE9EF]" : "border-slate-200 bg-slate-50"
                 )}>
                   <CalendarRange className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                   <input
@@ -588,7 +588,7 @@ export default function ConsultationExternePage() {
                             <tr key={patient.id} className={cn(
                               "border-t border-gray-100 hover:bg-slate-100 align-top transition-colors",
                               patient.priseEnCharge
-                                ? (patient.priseEnCharge.isActive ? "bg-[#EAF3FA]" : "bg-amber-50")
+                                ? (patient.priseEnCharge.isActive ? "bg-[#CFE9EF]" : "bg-amber-50")
                                 : "hover:bg-slate-50"
                             )}>
                               <td className={cn(
@@ -657,7 +657,7 @@ export default function ConsultationExternePage() {
                                 <div className="flex flex-col items-start gap-1">
                                   <Badge className={cn(
                                     "border-none px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider whitespace-nowrap",
-                                    patient.status === "EFFECTUÉ" ? "bg-[#E6F4EA] text-[#059669]" : patient.isUrgent ? "bg-red-50 text-red-700" : "bg-[#EAF3FA] text-[#006A8C]"
+                                    patient.status === "EFFECTUÉ" ? "bg-[#E6F4EA] text-[#059669]" : patient.isUrgent ? "bg-red-50 text-red-700" : "bg-[#CFE9EF] text-[#006A8C]"
                                   )}>
                                     {patient.status}
                                   </Badge>
@@ -812,7 +812,7 @@ export default function ConsultationExternePage() {
             </div>
 
             {/* Quick Access */}
-            <div className="bg-[#F5F8FA] rounded-[28px] sm:rounded-[32px] p-5 sm:p-7 border border-[#EAF3FA]">
+            <div className="bg-[#F5F8FA] rounded-[28px] sm:rounded-[32px] p-5 sm:p-7 border border-[#CFE9EF]">
               <h3 className="text-[10px] sm:text-[11px] font-extrabold text-[#005b82] uppercase tracking-[0.1em] mb-5 sm:mb-6 px-1">ACCES RAPIDES</h3>
               <div className="space-y-3">
                 <button

@@ -131,9 +131,9 @@
 
 /* ── Custom Theme CSS Variables ────────────────────────────────────────── */
 :root {
-  --navy: #05668D;
-  --navy-hover: #04556F;
-  --navy-lt: #EBF5FB;
+  --navy: #006A8C;
+  --navy-hover: #004A66;
+  --navy-lt: #E6F2F6;
   --txt: #1e293b;
   --txt2: #64748b;
   --txt3: #94a3b8;
@@ -230,7 +230,7 @@ input[type="text"]:hover, input[type="number"]:hover, input[type="date"]:hover, 
   border-color: rgba(5, 102, 141, 0.35);
 }
 input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="tel"]:focus, select:focus, textarea:focus {
-  border-color: var(--navy, #05668D);
+  border-color: var(--navy, #006A8C);
   box-shadow: 0 0 0 3px rgba(5, 102, 141, 0.12);
   background: #fff;
 }
@@ -241,16 +241,16 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
   display: flex; align-items: center; gap: 8px;
   width: 100%; justify-content: center;
   padding: 10px 16px; border-radius: 10px;
-  background: var(--navy-lt, #EBF5FB);
-  color: var(--navy, #05668D);
-  border: 1px dashed var(--navy, #05668D);
+  background: var(--navy-lt, #E6F2F6);
+  color: var(--navy, #006A8C);
+  border: 1px dashed var(--navy, #006A8C);
   font-size: 13px; font-weight: 700;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .badd:hover {
   background: #d6eaf2;
-  color: var(--navy-hover, #04556F);
+  color: var(--navy-hover, #004A66);
   transform: translateY(-1px);
 }
 .badd:active {
@@ -261,7 +261,7 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
   display: flex; align-items: center; gap: 8px;
   justify-content: center; width: 100%;
   padding: 12px 18px; border-radius: 11px;
-  background: linear-gradient(135deg, var(--navy, #05668D) 0%, var(--navy-hover, #04556F) 100%);
+  background: linear-gradient(135deg, var(--navy, #006A8C) 0%, var(--navy-hover, #004A66) 100%);
   color: #fff; border: none;
   font-size: 13px; font-weight: 700;
   cursor: pointer;
@@ -307,14 +307,14 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
 .bok {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 18px; border-radius: 10px;
-  background: var(--navy, #05668D); color: #fff;
+  background: var(--navy, #006A8C); color: #fff;
   border: none; font-size: 13px; font-weight: 700;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(5, 102, 141, 0.15);
   transition: all 0.2s ease;
 }
 .bok:hover {
-  background: var(--navy-hover, #04556F);
+  background: var(--navy-hover, #004A66);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(5, 102, 141, 0.25);
 }
@@ -326,7 +326,7 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
   border: 1px solid var(--bdr, #e2e8f0);
   background: #fff; margin-bottom: 10px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.015);
-  border-left: 4px solid var(--navy, #05668D);
+  border-left: 4px solid var(--navy, #006A8C);
   transition: all 0.2s ease;
 }
 .rxi:hover {
@@ -335,9 +335,9 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
 }
 .rxi-ic {
   width: 36px; height: 36px; border-radius: 50%;
-  background: var(--navy-lt, #EBF5FB);
+  background: var(--navy-lt, #E6F2F6);
   display: flex; align-items: center; justify-content: center;
-  color: var(--navy, #05668D); flex-shrink: 0;
+  color: var(--navy, #006A8C); flex-shrink: 0;
 }
 .rxi-m { flex: 1; min-width: 0; }
 .rxi-m h4 { font-size: 13px; font-weight: 700; color: var(--txt, #1e293b); margin: 0 0 4px; }
@@ -353,7 +353,7 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
 .active-rx-header {
   display: flex; align-items: center; gap: 8px;
   padding: 12px 16px;
-  background: var(--navy, #05668D); color: #fff;
+  background: var(--navy, #006A8C); color: #fff;
   font-size: 12px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .5px;
@@ -400,7 +400,7 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
   transition: transform .2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
-.tog input:checked + .tog-t { background: var(--navy, #05668D); }
+.tog input:checked + .tog-t { background: var(--navy, #006A8C); }
 .tog input:checked + .tog-t::before { transform: translateX(18px); }
 
 /* ── Modal ────────────────────────────────────────────────────────────── */

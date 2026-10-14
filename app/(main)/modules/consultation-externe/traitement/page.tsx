@@ -150,7 +150,7 @@ const TreatmentSkeleton = () => (
               <div className="h-10 w-full bg-slate-100 rounded-lg" />
             </div>
           </div>
-          <div className="h-40 bg-[#EAF3FA] rounded-[28px] border border-[#D1E5F5]" />
+          <div className="h-40 bg-[#CFE9EF] rounded-[28px] border border-[#D1E5F5]" />
         </div>
       </div>
 
@@ -622,7 +622,7 @@ export default function TraitementPage() {
             <Link
               href={backHref}
               onClick={handleCancelAndGoBack}
-              className="group inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-sm border border-gray-100 hover:bg-[#EAF3FA] transition-all text-[#006A8C] hover:scale-105 active:scale-95 mt-1"
+              className="group inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-sm border border-gray-100 hover:bg-[#CFE9EF] transition-all text-[#006A8C] hover:scale-105 active:scale-95 mt-1"
               title="Retour"
             >
               <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
@@ -634,7 +634,7 @@ export default function TraitementPage() {
                   {pageTitle}
                 </h1>
                 {isControlMode && (
-                  <Badge className="bg-[#EAF3FA] text-[#006A8C]">Contrôle</Badge>
+                  <Badge className="bg-[#CFE9EF] text-[#006A8C]">Contrôle</Badge>
                 )}
               </div>
               <p className="text-[14px] text-gray-500 font-medium">
@@ -648,7 +648,7 @@ export default function TraitementPage() {
               <CardHeader className="p-7 pb-0">
                 <div className="flex flex-wrap items-center justify-between gap-y-3">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#EAF3FA] rounded-2xl flex items-center justify-center text-[#006A8C] border border-blue-50">
+                    <div className="w-12 h-12 bg-[#CFE9EF] rounded-2xl flex items-center justify-center text-[#006A8C] border border-blue-50">
                       <User className="w-6 h-6" strokeWidth={2.5} />
                     </div>
                     <div>
@@ -666,7 +666,7 @@ export default function TraitementPage() {
                     <button
                       type="button"
                       onClick={() => setShowDossierPatient(true)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#006A8C]/20 bg-[#EAF3FA] px-3.5 py-2 text-[11px] font-bold text-[#006A8C] transition-all hover:bg-[#006A8C] hover:text-white"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#006A8C]/20 bg-[#CFE9EF] px-3.5 py-2 text-[11px] font-bold text-[#006A8C] transition-all hover:bg-[#006A8C] hover:text-white"
                       title="Consulter le dossier patient (lecture seule)"
                     >
                       <FolderOpen className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -872,7 +872,7 @@ export default function TraitementPage() {
               )}
 
               {hasHistory && (
-                <div className="bg-[#EAF3FA] rounded-[28px] p-7 border border-[#D1E5F5]">
+                <div className="bg-[#CFE9EF] rounded-[28px] p-7 border border-[#D1E5F5]">
                   <h3 className="text-[10px] font-extrabold text-[#006A8C] uppercase tracking-[0.15em] mb-4">Aide au diagnostic</h3>
                   <p className="text-[12px] text-[#006A8C] font-medium leading-relaxed opacity-80">
                     Consultez les antécédents médicaux complets du patient pour affiner votre diagnostic.
@@ -921,7 +921,7 @@ export default function TraitementPage() {
                       <h4 className="text-[18px] font-extrabold text-gray-900 tracking-tight">Liste des médicaments</h4>
                       <p className="text-[12px] text-gray-500 font-medium">Ajoutez les produits et posologies nécessaires.</p>
                     </div>
-                    <Badge variant="info" className="bg-[#EAF3FA] text-[#006A8C] border-none px-3 py-1 font-bold">
+                    <Badge variant="info" className="bg-[#CFE9EF] text-[#006A8C] border-none px-3 py-1 font-bold">
                       {medicaments.length} MÉDICAMENT(S)
                     </Badge>
                   </div>
@@ -934,7 +934,7 @@ export default function TraitementPage() {
                       <h4 className="text-[18px] font-extrabold text-gray-900 tracking-tight">Prescriptions non médicamenteuses</h4>
                       <p className="text-[12px] text-gray-500 font-medium">Régime, mobilisation, hygiène, contention...</p>
                     </div>
-                    <Badge variant="info" className="bg-[#EAF3FA] text-[#006A8C] border-none px-3 py-1 font-bold">
+                    <Badge variant="info" className="bg-[#CFE9EF] text-[#006A8C] border-none px-3 py-1 font-bold">
                       {nonMedicamentItems.length} PRESCRIPTION(S)
                     </Badge>
                   </div>
@@ -948,7 +948,7 @@ export default function TraitementPage() {
           <Card className="mt-10 rounded-[32px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
             <CardHeader className="px-8 pt-8 pb-0">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-[#EAF3FA] rounded-xl">
+                <div className="p-2 bg-[#CFE9EF] rounded-xl">
                   <ClipboardList className="w-5 h-5 text-[#006A8C]" />
                 </div>
                 <CardTitle className="text-[15px] font-extrabold text-gray-900 uppercase tracking-tight">
@@ -998,7 +998,7 @@ export default function TraitementPage() {
                             onClick={() => setNonMedicaments({ ...nonMedicaments, rdvNiveau: key })}
                             className={`flex flex-col items-center py-2 px-1 rounded-xl text-center transition-all border ${
                               nonMedicaments.rdvNiveau === key
-                                ? 'bg-[#EAF3FA] border-[#006A8C] text-[#006A8C]'
+                                ? 'bg-[#CFE9EF] border-[#006A8C] text-[#006A8C]'
                                 : 'bg-[#F8FAFC] border-gray-100 text-gray-400 hover:border-gray-200'
                             }`}
                           >
@@ -1055,7 +1055,7 @@ export default function TraitementPage() {
                     <Badge className={`border-none font-black text-[9px] px-2 py-0.5 ${
                       hospitalisationOutcome === 'VALIDE' ? 'bg-emerald-50 text-emerald-700'
                         : hospitalisationOutcome === 'EN_ATTENTE' ? 'bg-amber-50 text-amber-700'
-                        : 'bg-[#EAF3FA] text-[#006A8C]'
+                        : 'bg-[#CFE9EF] text-[#006A8C]'
                     }`}>
                       {hospitalisationOutcome === 'VALIDE' ? 'CONFIRMÉE' : hospitalisationOutcome === 'EN_ATTENTE' ? 'DEMANDE ENVOYÉE' : 'À CONFIRMER'}
                     </Badge>

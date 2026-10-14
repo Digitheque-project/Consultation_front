@@ -52,7 +52,7 @@ export default function ArchivePage() {
           <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
             <div className={cn(
               'flex h-9 items-center gap-1.5 rounded-xl border px-2.5 min-w-[200px] flex-1',
-              (dateFrom || dateTo) ? 'border-[#005b82]/40 bg-[#EAF3FA]' : 'border-slate-200 bg-slate-50'
+              (dateFrom || dateTo) ? 'border-[#005b82]/40 bg-[#CFE9EF]' : 'border-slate-200 bg-slate-50'
             )}>
               <CalendarRange className="h-3.5 w-3.5 shrink-0 text-slate-400" />
               <input
@@ -164,7 +164,7 @@ export default function ArchivePage() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setSelected(c); }}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-[#005b82] hover:bg-[#EAF3FA] transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-[#005b82] hover:bg-[#CFE9EF] transition-colors"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           Détail
@@ -270,7 +270,7 @@ export default function ArchivePage() {
                   <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Paramètres cliniques</p>
                   <div className="flex flex-wrap gap-2">
                     {selected.parametresCliniques.map((p, i) => (
-                      <span key={p.id ?? i} className="rounded-full bg-[#EAF3FA] px-3 py-1.5 text-[12px] font-semibold text-[#005b82]">
+                      <span key={p.id ?? i} className="rounded-full bg-[#CFE9EF] px-3 py-1.5 text-[12px] font-semibold text-[#005b82]">
                         {p.nom} : {p.valeur} {p.unite ?? ''}
                       </span>
                     ))}
