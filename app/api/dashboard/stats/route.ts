@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverApi } from "@/lib/api/server";
 
+// Uniquement le token du médecin connecté : plus de secret de service en
+// repli (un appel sans utilisateur aurait reçu un accès « service »).
 function resolveAuthHeader(request: NextRequest) {
   const header = request.headers.get("authorization");
   if (header) {
     return header;
-  }
-
-  const serviceToken = process.env.SERVICE_API_TOKEN;
-  if (serviceToken) {
-    return `Bearer ${serviceToken}`;
   }
 
   return null;

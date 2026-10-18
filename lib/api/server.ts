@@ -8,8 +8,10 @@ function resolveBaseUrl() {
 }
 
 function getAuthToken() {
+  // Côté serveur, chaque Route Handler transmet explicitement le token du
+  // médecin connecté (headers.Authorization) : pas de token par défaut.
   if (globalThis.window === undefined) {
-    return process.env.SERVICE_API_TOKEN || null;
+    return null;
   }
 
   return globalThis.localStorage?.getItem("auth_token") || null;

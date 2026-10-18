@@ -44,7 +44,6 @@ Les plus importantes:
 - `NEXT_PUBLIC_GATEWAY_URL`: origine de la passerelle unique du CHU, pour tout service tiers appelé directement par le frontend (aujourd'hui : dossier patient). Contrairement à `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`, toujours la même valeur en local et en production (la passerelle cloud n'est jamais "nous").
 - `NEXT_PUBLIC_API_URL`: origine du backend SIH/hospitalisation (websocket `/hospitalisations`, alertes d'admission) — **pas** le backend consultation externe. Fonctionnalité héritée du monorepo SIH, toujours montée dans l'app mais dégradable : optionnelle pour un déploiement consultation externe seul.
 - `NEXT_PUBLIC_BACKEND_URL` (repli, rarement nécessaire): nom alternatif lu en dernier recours si ni `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL` ni `NEXT_PUBLIC_API_URL` ne sont définies.
-- `SERVICE_API_TOKEN` (optionnel, **pas** `NEXT_PUBLIC_*`): token de service utilisé par les Route Handlers serveur (`app/api/...`) pour appeler le backend consultation externe en son propre nom — lu au runtime, jamais inliné dans le bundle client.
 
 **Important**: toutes les variables `NEXT_PUBLIC_*` sont figées dans le bundle JS pendant `next build` — jamais lues au runtime. En Docker, elles doivent être fournies en `--build-arg`, pas via un fichier `.env` monté au démarrage du conteneur.
 
@@ -110,11 +109,12 @@ prescriptions, etc.) exigent un JWT **à la passerelle elle-même** — sans
 impact pour nous puisque le frontend n'appelle ces services que depuis un
 médecin déjà connecté. `auth`, `users`, `chu` et `services` n'ont pas cette
 exigence côté passerelle : c'est le service d'origine qui gère sa propre
-authentification, exactement comme en appel direct. La passerelle reconnaît
-aussi le token de service statique (`SERVICE_API_TOKEN`) comme alternative à
-un JWT sur les routes `requiresAuth` (utile pour les appels serveur-à-serveur
-sans utilisateur connecté) — à condition que la même valeur soit configurée
-côté Render pour **et** le backend **et** la passerelle.
+authentification, exactement comme en appel direct. Les appels
+serveur-à-serveur sans utilisateur connecté (côté backend) utilisent un JWT de
+service court signé avec le même `JWT_SECRET`, accepté par la passerelle comme
+n'importe quel JWT : aucun secret de service séparé à configurer. Les Route
+Handlers de ce frontend (`app/api/...`) transmettent uniquement le token du
+médecin connecté.
 
 ### Identité du déploiement résolue dynamiquement, pas figée dans le bundle
 
