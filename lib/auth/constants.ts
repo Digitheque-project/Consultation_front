@@ -31,8 +31,7 @@ export const AUTH_CLIENT_URL = AUTH_CLIENT_BASE_URL
   : "";
 
 /**
- * Identifiant du service hospitalier utilisé pour le module clinique.
- * Vient de NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID (UUID attendu par l'API
- * hospitalisation) — jamais figé en dur.
+ * Plus d'identifiant de service par défaut : le service vient du jeton de
+ * l'utilisateur connecté (voir resolveServiceIdFromAuth).
  */
-export const DEFAULT_CLINICAL_SERVICE_ID = checkPublicEnv("NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID", process.env.NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID);
+export const DEFAULT_CLINICAL_SERVICE_ID = "";

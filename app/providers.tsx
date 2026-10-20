@@ -2,7 +2,6 @@
 
 import { QueryCache, QueryClient, QueryClientProvider, MutationCache } from "@tanstack/react-query";
 import { useState } from "react";
-import { SocketNotificationProvider } from "@/components/socket-notification-provider";
 import { PrescriptionNotificationProvider } from "@/components/prescription-notification-provider";
 import { useBackendStatusStore } from "@/stores/backend-status-store";
 
@@ -33,7 +32,6 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SocketNotificationProvider />
       <PrescriptionNotificationProvider />
       {children}
     </QueryClientProvider>

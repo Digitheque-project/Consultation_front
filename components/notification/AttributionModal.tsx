@@ -205,11 +205,6 @@ export function AttributionModal({
       const fromNotification = trimServiceId(notification.serviceId);
       if (fromNotification) return fromNotification;
 
-      const fromEnv = trimServiceId(
-        process.env.NEXT_PUBLIC_CLINICAL_DEFAULT_SERVICE_ID,
-      );
-      if (fromEnv) return fromEnv;
-
       const fromAuth = trimServiceId(resolveServiceIdFromAuth());
       if (fromAuth) return fromAuth;
 

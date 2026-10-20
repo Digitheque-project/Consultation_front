@@ -3,8 +3,10 @@ import { checkPublicEnv } from "@/lib/env";
 
 const API_TIMEOUT_MS = 10000;
 
+// Module hospitalisation (service Clinique) via la passerelle du CHU.
 function resolveBaseUrl() {
-  return checkPublicEnv("NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
+  const gateway = checkPublicEnv("NEXT_PUBLIC_GATEWAY_URL", process.env.NEXT_PUBLIC_GATEWAY_URL);
+  return gateway ? `${gateway.replace(/\/+$/, "")}/clinique` : "";
 }
 
 function getAuthToken() {

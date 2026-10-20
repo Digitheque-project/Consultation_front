@@ -40,17 +40,17 @@ et ajoute le chemin de chaque route (voir `lib/api/consultation-config.ts` et
 
 Les plus importantes:
 
-- `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`: origine du backend consultation externe. **La seule réellement indispensable.** En local : toujours en direct (`localhost:3333`). En production cloud : via la passerelle API du CHU (voir plus bas) — sur le réseau local du CHU (déploiement Docker sur site), reste en direct vers le backend du réseau local, la passerelle cloud n'étant pas pertinente pour cette cible.
-- `NEXT_PUBLIC_GATEWAY_URL`: origine de la passerelle unique du CHU, pour tout service tiers appelé directement par le frontend (aujourd'hui : dossier patient). Contrairement à `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL`, toujours la même valeur en local et en production (la passerelle cloud n'est jamais "nous").
-- `NEXT_PUBLIC_API_URL`: origine du backend SIH/hospitalisation (websocket `/hospitalisations`, alertes d'admission) — **pas** le backend consultation externe. Fonctionnalité héritée du monorepo SIH, toujours montée dans l'app mais dégradable : optionnelle pour un déploiement consultation externe seul.
-- `NEXT_PUBLIC_BACKEND_URL` (repli, rarement nécessaire): nom alternatif lu en dernier recours si ni `NEXT_PUBLIC_CONSULTATION_EXTERNE_URL` ni `NEXT_PUBLIC_API_URL` ne sont définies.
+- `NEXT_PUBLIC_GATEWAY_URL`: origine de la passerelle unique du CHU. **La seule adresse d'API du frontend** : backend consultation (`/consultation/api`), dossier patient (`/dossier-patient`), hospitalisation (`/clinique`).
+- `NEXT_PUBLIC_AUTH_CLIENT_URL`: origine de la page de connexion SSO.
+
+Aucun identifiant (CHU, service) n'est à configurer : ils viennent du jeton de l'utilisateur connecté.
 
 **Important**: toutes les variables `NEXT_PUBLIC_*` sont figées dans le bundle JS pendant `next build` — jamais lues au runtime. En Docker, elles doivent être fournies en `--build-arg`, pas via un fichier `.env` monté au démarrage du conteneur.
 
-### Passerelle API du CHU (gateway-bwm4.onrender.com)
+### Passerelle API du CHU
 
 Le CHU dispose d'une passerelle qui expose la documentation Swagger de tous
-ses services derrière une seule origine (`https://gateway-bwm4.onrender.com/<service>/api/docs`)
+ses services derrière une seule origine (`<passerelle>/<service>/api/docs`)
 — pratique pour ne plus avoir à retenir l'URL Swagger de chacun des ~20
 services. Elle proxy aussi les vrais appels API. Elle **ne réécrit pas les
 chemins** : chaque service du registre de la passerelle déclare la liste de
@@ -99,8 +99,7 @@ comme le reste (`GATEWAY_URL`), plus un service tiers en direct :
 Le navigateur n'appelle plus jamais ces trois services directement — aucun
 CORS possible sur un appel serveur-à-serveur, et trois variables
 `NEXT_PUBLIC_*` de moins côté frontend. Le seul lien externe restant côté
-frontend (hors `NEXT_PUBLIC_API_URL`, fonctionnalité SIH héritée, voir plus
-haut) est `NEXT_PUBLIC_AUTH_CLIENT_URL` (la page de connexion SSO — un
+frontend est `NEXT_PUBLIC_AUTH_CLIENT_URL` (la page de connexion SSO — un
 site, pas une API du CHU, hors périmètre de la passerelle).
 
 Seuls certains services marqués `requiresAuth` dans le registre de la
@@ -137,7 +136,7 @@ résolution).
 Voir les commentaires en tête du `Dockerfile` pour la commande `docker build` complète avec tous les `--build-arg` nécessaires.
 
 ```bash
-docker build --build-arg NEXT_PUBLIC_CONSULTATION_EXTERNE_URL=... [...] -t chu-front .
+docker build --build-arg NEXT_PUBLIC_GATEWAY_URL=... --build-arg NEXT_PUBLIC_AUTH_CLIENT_URL=... -t chu-front .
 docker run -p 3000:3000 chu-front
 ```
 
