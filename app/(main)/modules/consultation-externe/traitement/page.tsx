@@ -6,21 +6,18 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useConsultation, useFinalizeConsultation, usePatientConsultationHistory } from '@/hooks/use-consultations';
 import { ConsultationApi, consultationApi, type HospitalisationServiceOption } from '@/lib/api/consultation';
 import { useAuth } from '@/context/AuthContext';
-import { getConsultationExterneServiceId } from '@/lib/api/identity';
 import {
   ArrowLeft,
   User,
   Stethoscope,
-  Clock,
-  FileText,
+  Clock,
   Plus,
   Trash2,
   CheckCircle2,
   Save,
   ClipboardList,
   Calendar,
-  AlertCircle,
-  ExternalLink,
+  AlertCircle,
   FolderOpen
 } from 'lucide-react';
 import { DossierPatientModal } from '@/components/dossier-patient/DossierPatientModal';
@@ -28,9 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
-import MedicamentBuilder, { buildMedicamentsPayload, type Medicament } from '@/components/prescription/medicale/MedicamentBuilder';
-import NonMedicamentBuilder, { buildNonMedicamentItems, type NonMedicamentItem } from '@/components/prescription/NonMedicamentBuilder';
-import { creerPrescriptionMedicale, creerOrdonnanceMedicale, creerPrescriptionNonMedicale } from '@/lib/prescription-api';
+import ConsultationPrescription from '@/components/prescription/ConsultationPrescription';
 import { cn } from '@/lib/utils';
 
 // Page d'où le médecin a ouvert cette consultation — le bouton "Retour" doit
@@ -181,18 +176,6 @@ export default function TraitementPage() {
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [origin, setOrigin] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'medicament' | 'non-medicamentaux'>('medicament');
-  const goToParacliniques = () => {
-    const params = new URLSearchParams();
-    if (appointment?.patientId) params.set('patientId', appointment.patientId);
-    if (appointmentId) params.set('consultationId', appointmentId);
-    if (appointment?.patientNom) params.set('patientNom', appointment.patientNom);
-    if (appointment?.patientPrenom) params.set('patientPrenom', appointment.patientPrenom);
-    if (appointment?.patientSexe) params.set('patientSexe', appointment.patientSexe);
-    if (appointment?.patientDateNaissance) params.set('patientDateNaissance', appointment.patientDateNaissance);
-    if (origin) params.set('origin', origin);
-    router.push(`/modules/consultation-externe/prescriptions?${params.toString()}`);
-  };
   const [isControlMode, setIsControlMode] = useState(false);
   const [followUpSummary, setFollowUpSummary] = useState<{ id: number; date: string; motif: string } | null>(null);
   const [savingControle, setSavingControle] = useState(false);
@@ -236,17 +219,17 @@ export default function TraitementPage() {
   // États pour les données dynamiques
   const [observation, setObservation] = useState({ diagnosticSuspicion: '', diagnosticRetenu: '', notes: '' });
   const [parametres, setParametres] = useState<Array<{ id: number; nom: string; valeur: string; unite: string }>>(defaultClinicalParameters);
-  const [medicaments, setMedicaments] = useState<Medicament[]>([]);
-  const [nonMedicamentItems, setNonMedicamentItems] = useState<NonMedicamentItem[]>([]);
-  const [pharmacieWarning, setPharmacieWarning] = useState<string | null>(null);
-  // Étape ordonnance (contenu du modèle) : après création de la prescription,
-  // le médecin choisit lesquels des médicaments prescrits partent réellement
-  // à la pharmacie et ajuste les quantités, avant de terminer la consultation.
-  const [pendingOrdonnance, setPendingOrdonnance] = useState<{
-    id: string;
-    medicaments: (Medicament & { selected: boolean; ordonnanceQuantite: number })[];
-  } | null>(null);
-  const [ordonnanceLoading, setOrdonnanceLoading] = useState(false);
+  // Le module de prescription envoie lui-même ses prescriptions ; on retient
+  // seulement si un traitement médicamenteux est parti (motif exigé sinon).
+  const [medicamentEnvoye, setMedicamentEnvoye] = useState(false);
+  useEffect(() => {
+    const onEnvoi = (event: Event) => {
+      const types = (event as CustomEvent<{ types?: string[] }>).detail?.types ?? [];
+      if (types.includes('medicale')) setMedicamentEnvoye(true);
+    };
+    window.addEventListener('prescriptions-envoyees', onEnvoi);
+    return () => window.removeEventListener('prescriptions-envoyees', onEnvoi);
+  }, []);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingFollowUpRef = useRef<any>(null);
   const [nonMedicaments, setNonMedicaments] = useState({
@@ -278,8 +261,6 @@ export default function TraitementPage() {
     if (!appointmentId) return;
 
     try {
-      const medsToSend = medicaments.filter((med) => med.nom.trim() !== '');
-
       // Le rendez-vous et l'hospitalisation ont pu être confirmés individuellement pendant
       // la consultation (boutons "Valider"/"Confirmer l'hospitalisation") — dans ce cas ils
       // sont déjà enregistrés côté serveur et ne doivent pas repartir dans la finalisation,
@@ -321,64 +302,14 @@ export default function TraitementPage() {
       const result = await finalizeMutation({ id: appointmentId, payload });
       pendingFollowUpRef.current = result?.followUp ?? null;
 
-      // Prescription médicamenteuse : créée immédiatement, mais l'ordonnance
-      // (sous-ensemble réellement envoyé à la pharmacie, quantités ajustables)
-      // reste une étape manuelle — même contrat que l'interface modèle.
-      // Non bloquant pour la prescription elle-même : une erreur n'annule pas
-      // la finalisation, déjà enregistrée côté clinique.
-      if (medsToSend.length > 0) {
-        try {
-          const created = await creerPrescriptionMedicale({
-            patientId: appointment?.patientId,
-            prescripteurId: medecin?.id,
-            urgence: appointment?.u ? 'URGENT' : undefined,
-            chuId: medecin?.chuId,
-            serviceId: await getConsultationExterneServiceId(),
-            medicaments: buildMedicamentsPayload(medsToSend),
-          });
-          const prescriptionId = (created as { id: string }).id;
-          // Bascule sur l'étape ordonnance — la suite (non médicamenteuse +
-          // redirection) reprend depuis handleCreerOrdonnance/handleSkipOrdonnance.
-          setPendingOrdonnance({
-            id: prescriptionId,
-            medicaments: medsToSend.map((m) => ({ ...m, selected: true, ordonnanceQuantite: m.quantite })),
-          });
-          return;
-        } catch (prescErr) {
-          setPharmacieWarning(
-            `Consultation enregistrée, mais l'envoi au service prescription a échoué (${prescErr instanceof Error ? prescErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
-          );
-          return;
-        }
-      }
-
-      await finishAfterOrdonnance();
+      finishConsultation();
     } catch (err) {
       showToast('Erreur lors de la sauvegarde : ' + (err instanceof Error ? err.message : 'Erreur inconnue'), 'error');
     }
   };
 
-  // Suite de la finalisation une fois l'étape ordonnance passée (ou sautée
-  // faute de médicaments) : prescription non médicamenteuse puis redirection.
-  const finishAfterOrdonnance = async () => {
-    if (nonMedicamentItems.length > 0) {
-      try {
-        await creerPrescriptionNonMedicale({
-          patientId: appointment?.patientId,
-          prescripteurId: medecin?.id,
-          urgence: appointment?.u ? 'URGENT' : undefined,
-          chuId: medecin?.chuId,
-          serviceId: await getConsultationExterneServiceId(),
-          items: buildNonMedicamentItems(nonMedicamentItems),
-        });
-      } catch (nmErr) {
-        setPharmacieWarning(
-          `Consultation enregistrée, mais l'envoi de la prescription non médicamenteuse a échoué (${nmErr instanceof Error ? nmErr.message : 'erreur inconnue'}).`
-        );
-        return;
-      }
-    }
-
+  // Suite de la finalisation : contrôle de suivi éventuel puis retour.
+  const finishConsultation = () => {
     const followUp = pendingFollowUpRef.current;
     showToast('Validé avec succès');
 
@@ -395,45 +326,11 @@ export default function TraitementPage() {
     router.push('/modules/consultation-externe');
   };
 
-  function toggleOrdonnanceMed(id: number) {
-    setPendingOrdonnance((prev) => prev ? { ...prev, medicaments: prev.medicaments.map((m) => m.id === id ? { ...m, selected: !m.selected } : m) } : prev);
-  }
-  function updateOrdonnanceQuantite(id: number, qty: number) {
-    setPendingOrdonnance((prev) => prev ? { ...prev, medicaments: prev.medicaments.map((m) => m.id === id ? { ...m, ordonnanceQuantite: Math.max(0, qty) } : m) } : prev);
-  }
-
-  async function handleCreerOrdonnance() {
-    if (!pendingOrdonnance) return;
-    const selected = pendingOrdonnance.medicaments.filter((m) => m.selected && m.ordonnanceQuantite > 0);
-    if (selected.length === 0) return;
-    setOrdonnanceLoading(true);
-    try {
-      await creerOrdonnanceMedicale(
-        pendingOrdonnance.id,
-        buildMedicamentsPayload(selected.map((m) => ({ ...m, quantite: m.ordonnanceQuantite }))),
-      );
-      setPendingOrdonnance(null);
-      await finishAfterOrdonnance();
-    } catch (pharmErr) {
-      setPharmacieWarning(
-        `Prescription enregistrée, mais l'envoi à la pharmacie a échoué (${pharmErr instanceof Error ? pharmErr.message : 'erreur inconnue'}). Veuillez contacter la pharmacie manuellement.`
-      );
-      setPendingOrdonnance(null);
-    } finally {
-      setOrdonnanceLoading(false);
-    }
-  }
-
-  async function handleSkipOrdonnance() {
-    setPendingOrdonnance(null);
-    await finishAfterOrdonnance();
-  }
-
   // Clic sur "Terminer la consultation" : si aucun médicament n'a été prescrit, on
   // exige une raison avant de clôturer (le médecin peut confirmer volontairement
   // qu'aucun traitement n'était nécessaire).
   const handleTerminerClick = () => {
-    const hasTraitement = medicaments.some((med) => med.nom.trim() !== '');
+    const hasTraitement = medicamentEnvoye;
     if (!hasTraitement && !noTreatmentReason.trim()) {
       setShowNoTreatmentReasonModal(true);
       return;
@@ -595,22 +492,6 @@ export default function TraitementPage() {
       <div className="bg-[#F5F8FA] min-h-screen py-8 px-6">
         <div className="max-w-7xl mx-auto">
 
-          {/* Avertissement envoi pharmacie */}
-          {pharmacieWarning && (
-            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-              <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
-              <div className="flex-1">
-                <p className="text-[13px] font-semibold text-amber-800">Envoi à la pharmacie non effectué</p>
-                <p className="text-[12px] text-amber-700 mt-0.5">{pharmacieWarning}</p>
-              </div>
-              <button
-                onClick={() => setPharmacieWarning(null)}
-                className="text-amber-400 hover:text-amber-600 transition-colors shrink-0"
-              >
-                ✕
-              </button>
-            </div>
-          )}
 
           <div className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-md md:w-full pointer-events-none">
             <div className="pointer-events-auto ml-auto">
@@ -885,62 +766,12 @@ export default function TraitementPage() {
             </aside>
           </div>
 
-          <Card className="mt-10 rounded-[32px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
-            <div className="flex items-center gap-10 border-b border-gray-100 px-8">
-              <button
-                onClick={() => setActiveSection('medicament')}
-                className={`flex items-center cursor-pointer gap-2.5 py-6 transition-all relative ${activeSection === 'medicament' ? 'text-[#006A8C] font-bold' : 'text-gray-400 hover:text-gray-600 font-medium'}`}
-              >
-                <FileText className="h-4.5 w-4.5" />
-                <span className="text-[13px] uppercase tracking-wider">Prescriptions médicamenteuses</span>
-                {activeSection === 'medicament' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#006A8C] rounded-t-full"></div>}
-              </button>
-              <button
-                onClick={() => setActiveSection('non-medicamentaux')}
-                className={`flex items-center cursor-pointer gap-2.5 py-6 transition-all relative ${activeSection === 'non-medicamentaux' ? 'text-[#006A8C] font-bold' : 'text-gray-400 hover:text-gray-600 font-medium'}`}
-              >
-                <ClipboardList className="h-4.5 w-4.5" />
-                <span className="text-[13px] uppercase tracking-wider">Prescriptions non médicamenteuses</span>
-                {activeSection === 'non-medicamentaux' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#006A8C] rounded-t-full"></div>}
-              </button>
-              <button
-                onClick={goToParacliniques}
-                className="flex items-center cursor-pointer gap-2.5 py-6 transition-all relative text-gray-400 hover:text-gray-600 font-medium"
-              >
-                <Stethoscope className="h-4.5 w-4.5" />
-                <span className="text-[13px] uppercase tracking-wider">Examens para-cliniques</span>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            <CardContent className="p-8">
-              {activeSection === 'medicament' ? (
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h4 className="text-[18px] font-extrabold text-gray-900 tracking-tight">Liste des médicaments</h4>
-                      <p className="text-[12px] text-gray-500 font-medium">Ajoutez les produits et posologies nécessaires.</p>
-                    </div>
-                    <Badge variant="info" className="bg-[#CFE9EF] text-[#006A8C] border-none px-3 py-1 font-bold">
-                      {medicaments.length} MÉDICAMENT(S)
-                    </Badge>
-                  </div>
-                  <MedicamentBuilder medicaments={medicaments} onChange={setMedicaments} chuId={medecin?.chuId} />
-                </div>
-              ) : (
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h4 className="text-[18px] font-extrabold text-gray-900 tracking-tight">Prescriptions non médicamenteuses</h4>
-                      <p className="text-[12px] text-gray-500 font-medium">Régime, mobilisation, hygiène, contention...</p>
-                    </div>
-                    <Badge variant="info" className="bg-[#CFE9EF] text-[#006A8C] border-none px-3 py-1 font-bold">
-                      {nonMedicamentItems.length} PRESCRIPTION(S)
-                    </Badge>
-                  </div>
-                  <NonMedicamentBuilder items={nonMedicamentItems} onChange={setNonMedicamentItems} />
-                </div>
-              )}
+          {/* Prescriptions : même module que les autres services (panier, envoi par type) */}
+          <Card className="mt-10 rounded-[32px] border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)]">
+            <CardContent className="p-4 sm:p-6">
+              {appointment?.patientId ? (
+                <ConsultationPrescription patientId={String(appointment.patientId)} />
+              ) : null}
             </CardContent>
           </Card>
 
@@ -1193,54 +1024,6 @@ export default function TraitementPage() {
         </div>
       )}
 
-      {pendingOrdonnance && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-[15px] font-extrabold text-gray-800 mb-1">Ordonnance à envoyer à la pharmacie</h3>
-            <p className="text-[12px] text-gray-500 mb-4">
-              La prescription a été enregistrée. Choisissez les médicaments à envoyer à la pharmacie et ajustez les quantités si besoin.
-            </p>
-            <div className="mb-4">
-              {pendingOrdonnance.medicaments.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 py-2 border-b border-gray-100 text-[13px]">
-                  <input type="checkbox" checked={m.selected} onChange={() => toggleOrdonnanceMed(m.id)} />
-                  <div className="flex-1">
-                    <strong className="text-gray-800">{m.nom} {m.dose}</strong>
-                    <span className="block text-[11px] text-gray-400">{m.frequenceType} · {m.dureeJours} jour(s)</span>
-                  </div>
-                  <span className="text-[11px] text-gray-400">Qté :</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={m.ordonnanceQuantite}
-                    onChange={(e) => updateOrdonnanceQuantite(m.id, parseInt(e.target.value, 10) || 0)}
-                    disabled={!m.selected}
-                    className="w-16 text-center text-[12px] bg-white border border-gray-200 rounded-lg p-1.5 disabled:opacity-40"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={handleSkipOrdonnance}
-                disabled={ordonnanceLoading}
-                className="px-4 py-2.5 text-[12px] font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all disabled:opacity-40"
-              >
-                Ne pas faire d&apos;ordonnance
-              </button>
-              <button
-                type="button"
-                onClick={handleCreerOrdonnance}
-                disabled={ordonnanceLoading || pendingOrdonnance.medicaments.filter((m) => m.selected && m.ordonnanceQuantite > 0).length === 0}
-                className="px-4 py-2.5 text-[12px] font-bold text-white bg-[#006A8C] hover:bg-[#004d66] rounded-xl disabled:opacity-40 transition-all"
-              >
-                {ordonnanceLoading ? 'Envoi...' : 'Créer et envoyer l\'ordonnance'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </Suspense>
   );
 }
