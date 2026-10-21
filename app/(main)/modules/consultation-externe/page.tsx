@@ -15,6 +15,7 @@ import { PatientInfoModal } from "@/components/notification/PatientInfoModal";
 import { PatientInfo } from "@/stores/notification-store";
 import { useAuth } from '@/context/AuthContext';
 import { AUTH_CLIENT_URL } from '@/lib/auth/constants';
+import { ouvrirConsultation, proposerReprise } from '@/lib/ouvrir-consultation';
 
 const formatDateKey = (value: string | Date) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -262,6 +263,34 @@ export default function ConsultationExternePage() {
   }, [searchQuery, statusFilter, visitTypeFilter, viewMode, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / PAGE_SIZE));
+
+  // Arrivée depuis une notification (?focus=<id>) : on affiche la page qui
+  // contient ce patient et on met sa ligne en évidence quelques secondes,
+  // sans ouvrir la consultation (le médecin clique "Ouvrir" quand il est prêt).
+  const [focusId, setFocusId] = useState<string | null>(null);
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const focus = params.get('focus');
+    if (!focus) return;
+    setFocusId(focus);
+    params.delete('focus');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+  }, []);
+  React.useEffect(() => {
+    if (!focusId) return;
+    const index = filteredPatients.findIndex((p) => String(p.id) === focusId);
+    if (index < 0) return;
+    setCurrentPage(Math.floor(index / PAGE_SIZE) + 1);
+    const scroll = window.setTimeout(() => {
+      document.getElementById(`consultation-row-${focusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    const clear = window.setTimeout(() => setFocusId(null), 6000);
+    return () => {
+      window.clearTimeout(scroll);
+      window.clearTimeout(clear);
+    };
+  }, [focusId, filteredPatients]);
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedPatients = useMemo(() => {
     const start = (safeCurrentPage - 1) * PAGE_SIZE;
@@ -276,10 +305,11 @@ export default function ConsultationExternePage() {
   }
 
   const handleStart = async (appt: Appointment) => {
-    try {
-      await consultationApi.traiterConsultation(appt.id, 'ouvrir');
-    } catch (error) {
-      console.error('Impossible de marquer la consultation comme en cours:', error);
+    const ouverture = await ouvrirConsultation(appt.id);
+    if (!ouverture.ok) {
+      const reprise = proposerReprise(ouverture, 'fil-de-travail');
+      if (reprise) router.push(reprise);
+      return;
     }
 
     try {
@@ -585,8 +615,9 @@ export default function ConsultationExternePage() {
                             </tr>
                           )}
                           {paginatedPatients.map((patient) => (
-                            <tr key={patient.id} className={cn(
+                            <tr key={patient.id} id={`consultation-row-${patient.id}`} className={cn(
                               "border-t border-gray-100 hover:bg-slate-100 align-top transition-colors",
+                              focusId === String(patient.id) && "ring-2 ring-inset ring-amber-400 bg-amber-50",
                               patient.priseEnCharge
                                 ? (patient.priseEnCharge.isActive ? "bg-[#CFE9EF]" : "bg-amber-50")
                                 : "hover:bg-slate-50"

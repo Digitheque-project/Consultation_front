@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { X, Check } from "lucide-react";
-import { consultationApi } from "@/lib/api/consultation";
 import { useDerivedNotifications, type DerivedNotification, type NotificationKind } from "@/hooks/use-derived-notifications";
 
 const KIND_STYLES: Record<NotificationKind, { dot: string; bg: string; text: string; label: string }> = {
@@ -23,15 +22,10 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
     // sauf si l'accueil confirme entretemps l'arrivée du patient, ce qui change la
     // clé (id:ARRIVAL) et fait donc réapparaître une notification distincte.
     dismiss(n.key);
-    try {
-      await consultationApi.traiterConsultation(n.id, "ouvrir");
-    } catch {
-      // Non-bloquant : la page traitement se charge quand même, le statut sera
-      // simplement resté "en attente" si l'appel a échoué.
-    }
-    // origin=fil-de-travail : un retour depuis cette consultation ramène toujours
-    // au fil de travail, la notification n'ayant pas de "page d'origine" propre.
-    router.push(`/modules/consultation-externe/traitement?id=${n.id}&origin=fil-de-travail`);
+    // Une notification n'ouvre pas la consultation : elle amène au fil de
+    // travail, patient mis en évidence ; c'est le médecin qui la démarre
+    // ("Ouvrir") quand il est prêt.
+    router.push(`/modules/consultation-externe?focus=${n.id}`);
   };
 
   return (

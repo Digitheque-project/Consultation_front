@@ -59,6 +59,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from '@/context/AuthContext';
 import { ServiceGridView } from '@/components/planning/ServiceGridView';
+import { ouvrirConsultation, proposerReprise } from '@/lib/ouvrir-consultation';
 
 // -- Constants --
 const START_HOUR = 7;
@@ -739,10 +740,11 @@ export default function PlanningCompletPage() {
   }, [consultations]);
 
   const handleStartPrescription = async (appointment: ConsultationApi) => {
-    try {
-      await consultationApi.traiterConsultation(appointment.id, 'ouvrir');
-    } catch (error) {
-      console.error('Impossible de marquer la consultation comme en cours:', error);
+    const ouverture = await ouvrirConsultation(appointment.id);
+    if (!ouverture.ok) {
+      const reprise = proposerReprise(ouverture, 'planning-complet');
+      if (reprise) router.push(reprise);
+      return;
     }
 
     try {

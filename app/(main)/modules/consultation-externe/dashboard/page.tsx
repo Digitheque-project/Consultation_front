@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { consultationApi, getVisiteLabel, type ConsultationApi } from '@/lib/api/consultation';
 import { Badge } from '@/components/ui/badge';
 import { SwitchServiceButton } from '@/components/switch-service-button';
+import { ouvrirConsultation, proposerReprise } from '@/lib/ouvrir-consultation';
 
 const formatDateKey = (value: string | Date) => {
   const d = value instanceof Date ? value : new Date(value);
@@ -92,10 +93,11 @@ export default function DashboardPage() {
       (c.ordreControle !== null && c.ordreControle !== undefined) ||
       (c.consultationParenteId !== null && c.consultationParenteId !== undefined);
 
-    try {
-      await consultationApi.traiterConsultation(c.id, 'ouvrir');
-    } catch (error) {
-      console.error('Impossible de marquer la consultation comme en cours:', error);
+    const ouverture = await ouvrirConsultation(c.id);
+    if (!ouverture.ok) {
+      const reprise = proposerReprise(ouverture, 'dashboard');
+      if (reprise) router.push(reprise);
+      return;
     }
 
     try {

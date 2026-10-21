@@ -270,7 +270,13 @@ export const consultationApi = {
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.message || 'Erreur lors du traitement de la consultation');
+      const error = new Error(errorData?.message || 'Erreur lors du traitement de la consultation') as Error & {
+        status?: number;
+        data?: any;
+      };
+      error.status = response.status;
+      error.data = errorData;
+      throw error;
     }
     return response.json();
   }
