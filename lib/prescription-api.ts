@@ -63,7 +63,7 @@ const TYPE_TO_SERVICE_NAME: Record<string, string> = {
   polysomnographie: 'Centre de sommeil',
   orl: 'ORL',
   'actes-orl': 'ORL',
-  kine: 'Kinésiterapie',
+  kine: 'Kinésithérapie',
   endoscopie: 'Endoscopie',
   dialyse: 'Dialyse',
   transfusion: 'Banque de sang',
