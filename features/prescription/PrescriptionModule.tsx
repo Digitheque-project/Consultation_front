@@ -42,6 +42,7 @@ import CpaForm from "@/features/prescription/components/CpaForm";
 import HistoriqueForm from "@/features/prescription/components/HistoriqueForm";
 import SoinsInfirmierForm from "@/features/prescription/components/SoinsInfirmierForm";
 import ActesOrlForm from "@/features/prescription/components/ActesOrlForm";
+import StomatologieForm from "@/features/prescription/components/StomatologieForm";
 import LaboForm from "@/features/prescription/components/para/LaboForm";
 import ImagerieForm from "@/features/prescription/components/para/ImagerieForm";
 import EEGForm from "@/features/prescription/components/para/EEGForm";
@@ -70,6 +71,7 @@ type MainSection =
   | "bloc"
   | "cpa"
   | "actes-orl"
+  | "stomato"
   | "hist";
 
 interface PrescriptionModuleProps {
@@ -139,6 +141,12 @@ const MAIN_ITEMS: {
     icon: "hearing",
     label: "Actes ORL",
     hint: "Actes ORL prescrits",
+  },
+  {
+    id: "stomato",
+    icon: "dentistry",
+    label: "Stomatologie",
+    hint: "Orienter le patient vers la file Stomatologie",
   },
   {
     id: "hist",
@@ -580,6 +588,8 @@ function PrescriptionModuleInner({
             patientType={patientType}
           />
         );
+      case "stomato":
+        return <StomatologieForm patient={patient} prescripteur={prescripteur} />;
       case "hist":
         return <HistoriqueForm patient={patient} prescripteur={prescripteur} />;
       case "para":
