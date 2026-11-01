@@ -4,6 +4,7 @@ import "./(main)/globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Providers } from "./providers";
 
+import Script from "next/script";
 const manrope = Manrope({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -35,6 +36,14 @@ export default function RootLayout({
         <Providers>
           <AuthProvider>{children}</AuthProvider>
         </Providers>
+      
+        {/* Messagerie du CHU : bulle en bas à droite (service-messagerie, via la passerelle). */}
+        {process.env.NEXT_PUBLIC_GATEWAY_URL ? (
+          <Script
+            src={`${process.env.NEXT_PUBLIC_GATEWAY_URL.replace(/\/+$/, "")}/messagerie/widget.js?auto`}
+            strategy="afterInteractive"
+          />
+        ) : null}
       </body>
     </html>
   );
