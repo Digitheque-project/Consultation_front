@@ -15,7 +15,7 @@ const CATEGORIES = [
   ]},
   { id: 'serologie', label: '4. Sérologie / Immunologie', color: '#dc2626', textColor: '#991b1b', tube: 'Tube rouge', analyses: ['Hépatite B (Ag HBs)','Hépatite C (Ac anti-VHC)','VIH 1 & 2','Widal & Félix','TPHA','VDRL / RPR','Toxoplasmose','Rubéole','β-HCG','TSH','T3 / T4','PSA','Cysticercose IgM','Cysticercose IgG','Bilharziose IgM','Bilharziose IgG','Test de grossesse (bandelette)'] },
   { id: 'urinaire', label: '5. Biochimie urinaire', color: '#006A8C', textColor: '#04556F', tube: '', subGroups: [
-    { label: 'Bandelette urinaire', analyses: ['Leucocytes','Nitrites','Protéines','Glucose','Sang / Hématies','pH urinaire','ECBU (Culot urinaire)','Protéinurie 24h','Urobilinogène','Densité urinaire','Acétone','Bilirubine (urinaire)','Diurèse (L/24h)'] },
+    { label: 'Bandelette urinaire', analyses: ['Leucocytes','Nitrites','Protéines','Glucose urinaire','Sang / Hématies','pH urinaire','ECBU (Culot urinaire)','Protéinurie 24h','Urobilinogène','Densité urinaire','Acétone','Bilirubine (urinaire)','Diurèse (L/24h)'] },
     { label: 'Ionogramme urinaire (24h)', analyses: ['Volume total urine 3h (ml)','GR (hématies) /min','GB (leucocytes) /min','Kaliurèse (mmol/24h)','Natrirurèse (mmol/24h)','Dilution (osmolarité/densité)'] },
   ]},
   { id: 'parasito', label: '6. Parasitologie / Microbiologie', color: '#16a34a', textColor: '#14532d', tube: '', analyses: ['TDR Paludisme','GE / Frottis (GE/FM)','Examen parasitologique selles','Recherche sang occulte','Recherche microfilaires','Recherche de parasite (culot urinaire)','Densité parasitaire (parasites/µL)'] },
