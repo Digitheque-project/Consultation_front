@@ -1,5 +1,6 @@
 "use client";
 
+import { PastilleAutresServices } from "@/components/ActionsCompte";
 import { useState } from "react";
 import { Bell, Menu } from "lucide-react";
 import { useUserConfig } from "@/hooks/use-user-config";
@@ -69,6 +70,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       {/* Right: Notification & Profile */}
       <div className="flex items-center gap-4 sm:gap-5 lg:gap-10 pr-0 sm:pr-2">
         {/* Notification Bell */}
+        <PastilleAutresServices />
         <div className="relative">
           <button
             type="button"
