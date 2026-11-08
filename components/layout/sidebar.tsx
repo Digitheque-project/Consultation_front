@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionsCompte } from "@/components/ActionsCompte";
 import Link from "next/link";
 import { useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -153,6 +154,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             </div>
             <span className="text-[12px] sm:text-[13px] font-bold">Paramètres</span>
           </button>
+          <ActionsCompte className="flex w-full items-center gap-3 px-4 text-slate-500 transition-colors hover:text-slate-900" classeLibelle="text-[12px] sm:text-[13px] font-bold" />
           <button
             type="button"
             onClick={handleLogout}

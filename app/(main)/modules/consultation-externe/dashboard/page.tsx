@@ -9,7 +9,6 @@ import { useAllConsultations, useConsultationEventsSubscription } from '@/hooks/
 import { useAuth } from '@/context/AuthContext';
 import { consultationApi, getVisiteLabel, type ConsultationApi } from '@/lib/api/consultation';
 import { Badge } from '@/components/ui/badge';
-import { SwitchServiceButton } from '@/components/switch-service-button';
 import { ouvrirConsultation, proposerReprise } from '@/lib/ouvrir-consultation';
 
 const formatDateKey = (value: string | Date) => {
@@ -137,7 +136,6 @@ export default function DashboardPage() {
             <h1 className="text-[22px] font-extrabold text-gray-900 leading-tight">Tableau de bord</h1>
             <p className="text-[13px] text-slate-500 mt-0.5 capitalize">{doctorName} · {todayLabel}</p>
           </div>
-          <SwitchServiceButton />
         </div>
 
         {/* KPI Cards */}
