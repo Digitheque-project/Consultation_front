@@ -107,15 +107,21 @@ export function PrescriptionNotificationProvider() {
   useEffect(() => {
     const ouvrir = async (e: Event) => {
       const n = (e as CustomEvent<NotifPayload>).detail;
+      const base = "/modules/consultation-externe";
       const patientId = typeof n?.data?.patientId === "string" ? n.data.patientId : null;
-      if (!patientId) return;
+      if (!patientId) {
+        window.location.assign(base);
+        return;
+      }
       try {
         const historique = await consultationApi.getPatientConsultationHistory(patientId);
         const derniere = [...historique].sort(
           (a, b) => `${b.date} ${b.heure ?? ""}`.localeCompare(`${a.date} ${a.heure ?? ""}`) || b.id - a.id,
         )[0];
-        if (!derniere) return;
-        const base = "/modules/consultation-externe";
+        if (!derniere) {
+          window.location.assign(base);
+          return;
+        }
         window.location.assign(
           derniere.statut?.toUpperCase() === "EN_COURS"
             ? `${base}/traitement?consultationId=${derniere.id}&patientId=${encodeURIComponent(patientId)}&origin=fil-de-travail`
