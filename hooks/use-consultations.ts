@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { consultationApi, type ConsultationListFilters } from '@/lib/api/consultation';
 import { getConsultationExterneApiUrl } from '@/lib/api/consultation-config';
+import { ecouterFlux } from '@/lib/api/flux-evenements';
 
 export const consultationsKeys = {
   all: ['consultations'] as const,
@@ -38,21 +39,10 @@ export function useConsultationEventsSubscription() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const source = new EventSource(getConsultationExterneApiUrl('/consultations/events'));
-
-    const handleEvent = () => {
+    // Lu avec le jeton (la passerelle refuse EventSource, sans en-tête).
+    return ecouterFlux(getConsultationExterneApiUrl('/consultations/events'), () => {
       queryClient.invalidateQueries({ queryKey: consultationsKeys.all });
-    };
-
-    source.addEventListener('message', handleEvent);
-    source.onerror = () => {
-      // EventSource se reconnecte automatiquement ; rien à faire ici.
-    };
-
-    return () => {
-      source.removeEventListener('message', handleEvent);
-      source.close();
-    };
+    });
   }, [queryClient]);
 }
 

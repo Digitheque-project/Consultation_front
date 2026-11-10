@@ -16,8 +16,22 @@ let cached: Promise<Identity> | null = null;
 
 function fetchIdentity(): Promise<Identity> {
   if (!cached) {
-    cached = fetch(getConsultationExterneApiUrl('/identity'), { signal: AbortSignal.timeout(15000) })
-      .then((res) => (res.ok ? res.json() : {}))
+    let token: string | null = null;
+    try {
+      token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
+    } catch {
+      /* stockage inaccessible */
+    }
+    cached = fetch(getConsultationExterneApiUrl('/identity'), {
+      signal: AbortSignal.timeout(15000),
+      // La passerelle exige le jeton, même pour cette route publique du backend.
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+      .then((res) => {
+        if (res.ok) return res.json();
+        cached = null; // un refus (ex. 401 avant connexion) ne doit pas rester en cache
+        return {};
+      })
       .catch((err) => {
         console.error('[identity] GET /identity a échoué :', err instanceof Error ? err.message : err);
         // Ne garde pas un échec en cache : un prochain appelant doit pouvoir réessayer

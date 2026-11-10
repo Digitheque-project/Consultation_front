@@ -5,6 +5,8 @@ import { playSound, SoundType } from "@/lib/sounds";
 import { getConsultationExterneApiUrl, getConsultationExterneOrigin } from "@/lib/api/consultation-config";
 import { useRealtimeNotificationStore } from "@/stores/realtime-notification-store";
 import { getConsultationExterneServiceId } from "@/lib/api/identity";
+import { ecouterFlux } from "@/lib/api/flux-evenements";
+import { consultationApi } from "@/lib/api/consultation";
 
 // Relayé par notre propre backend (src/notification/ côté Consultation_back)
 // — historique REST ET flux temps réel WebSocket — plutôt qu'un appel direct
@@ -75,7 +77,11 @@ export function PrescriptionNotificationProvider() {
     const userId = getUserIdFromToken();
     if (!userId) return;
 
-    fetch(getConsultationExterneApiUrl(`/notification/notifications/user/${userId}`), { signal: AbortSignal.timeout(8000) })
+    const token = getStoredToken();
+    fetch(getConsultationExterneApiUrl(`/notification/notifications/user/${userId}`), {
+      signal: AbortSignal.timeout(8000),
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
       .then((res) => (res.ok ? res.json() : []))
       .then((list) => {
         if (!Array.isArray(list)) return;
@@ -94,6 +100,34 @@ export function PrescriptionNotificationProvider() {
       })
       .catch(() => {});
   }, [setNotifications]);
+
+  // ─── Clic sur une notification du centre commun (bulle de messagerie) ─────
+  // Sans page indiquée par l'émetteur, la bulle nous laisse choisir : on mène à
+  // la dernière consultation du patient concerné (ex. retour de prescription).
+  useEffect(() => {
+    const ouvrir = async (e: Event) => {
+      const n = (e as CustomEvent<NotifPayload>).detail;
+      const patientId = typeof n?.data?.patientId === "string" ? n.data.patientId : null;
+      if (!patientId) return;
+      try {
+        const historique = await consultationApi.getPatientConsultationHistory(patientId);
+        const derniere = [...historique].sort(
+          (a, b) => `${b.date} ${b.heure ?? ""}`.localeCompare(`${a.date} ${a.heure ?? ""}`) || b.id - a.id,
+        )[0];
+        if (!derniere) return;
+        const base = "/modules/consultation-externe";
+        window.location.assign(
+          derniere.statut?.toUpperCase() === "EN_COURS"
+            ? `${base}/traitement?consultationId=${derniere.id}&patientId=${encodeURIComponent(patientId)}&origin=fil-de-travail`
+            : `${base}?focus=${derniere.id}`,
+        );
+      } catch {
+        /* patient introuvable ici : rien à ouvrir */
+      }
+    };
+    window.addEventListener("chu-notification-ouverte", ouvrir);
+    return () => window.removeEventListener("chu-notification-ouverte", ouvrir);
+  }, []);
 
   // Déverrouille AudioContext au premier geste utilisateur (contrainte navigateur)
   useEffect(() => {
@@ -223,17 +257,17 @@ export function PrescriptionNotificationProvider() {
       }
     };
 
-    const source = new EventSource(
+    // Lu avec le jeton : EventSource n'envoie pas d'en-tête et la passerelle le refuse (401).
+    const arreter = ecouterFlux(
       getConsultationExterneApiUrl("/consultations/events"),
+      () => void detectArrivals(),
     );
-    source.addEventListener("message", () => detectArrivals());
-    source.onerror = () => { /* reconnexion automatique */ };
 
     detectArrivals();
     const fallback = setInterval(detectArrivals, 60_000);
 
     return () => {
-      source.close();
+      arreter();
       clearInterval(fallback);
     };
   }, []);
