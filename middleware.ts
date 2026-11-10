@@ -13,8 +13,13 @@ export function middleware(request: NextRequest) {
     request.nextUrl.searchParams.get("accessToken") ||
     request.nextUrl.searchParams.get("accesstoken");
   if (urlToken) {
-    const destination = pathname === "/" ? DASHBOARD : pathname;
-    const response = NextResponse.redirect(new URL(destination, request.url));
+    const destination = new URL(pathname === "/" ? DASHBOARD : pathname, request.url);
+    // On garde le service choisi sur le portail : sans lui, un compte
+    // multi-services n'a ni service ni CHU courant (prescriptions envoyées
+    // sans service prescripteur ni CHU).
+    const serviceId = request.nextUrl.searchParams.get("serviceId");
+    if (serviceId) destination.searchParams.set("serviceId", serviceId);
+    const response = NextResponse.redirect(destination);
     response.cookies.set(AUTH_COOKIE_NAME, urlToken, {
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
