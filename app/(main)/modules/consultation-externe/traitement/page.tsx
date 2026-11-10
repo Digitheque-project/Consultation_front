@@ -10,14 +10,14 @@ import {
   ArrowLeft,
   User,
   Stethoscope,
-  Clock,
+  Clock,
   Plus,
   Trash2,
   CheckCircle2,
   Save,
   ClipboardList,
   Calendar,
-  AlertCircle,
+  AlertCircle,
   FolderOpen
 } from 'lucide-react';
 import { DossierPatientModal } from '@/components/dossier-patient/DossierPatientModal';
@@ -222,13 +222,23 @@ export default function TraitementPage() {
   // Le module de prescription envoie lui-même ses prescriptions ; on retient
   // seulement si un traitement médicamenteux est parti (motif exigé sinon).
   const [medicamentEnvoye, setMedicamentEnvoye] = useState(false);
+  // Médicaments saisis mais dont l'ordonnance n'est pas encore partie.
+  const [medicamentEnBrouillon, setMedicamentEnBrouillon] = useState(false);
   useEffect(() => {
     const onEnvoi = (event: Event) => {
       const types = (event as CustomEvent<{ types?: string[] }>).detail?.types ?? [];
       if (types.includes('medicale')) setMedicamentEnvoye(true);
     };
+    const onBrouillon = (event: Event) => {
+      const types = (event as CustomEvent<{ types?: string[] }>).detail?.types ?? [];
+      setMedicamentEnBrouillon(types.includes('medicale'));
+    };
     window.addEventListener('prescriptions-envoyees', onEnvoi);
-    return () => window.removeEventListener('prescriptions-envoyees', onEnvoi);
+    window.addEventListener('prescriptions-brouillons', onBrouillon);
+    return () => {
+      window.removeEventListener('prescriptions-envoyees', onEnvoi);
+      window.removeEventListener('prescriptions-brouillons', onBrouillon);
+    };
   }, []);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingFollowUpRef = useRef<any>(null);
@@ -330,6 +340,11 @@ export default function TraitementPage() {
   // exige une raison avant de clôturer (le médecin peut confirmer volontairement
   // qu'aucun traitement n'était nécessaire).
   const handleTerminerClick = () => {
+    // Des médicaments saisis mais non envoyés seraient perdus en terminant.
+    if (medicamentEnBrouillon) {
+      showToast("Des médicaments sont saisis mais pas encore envoyés : créez l'ordonnance avant de terminer.", 'error');
+      return;
+    }
     const hasTraitement = medicamentEnvoye;
     if (!hasTraitement && !noTreatmentReason.trim()) {
       setShowNoTreatmentReasonModal(true);

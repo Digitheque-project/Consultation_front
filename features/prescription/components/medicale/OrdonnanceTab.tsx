@@ -268,6 +268,10 @@ export default function OrdonnanceTab({
 
       // 3. Retirer l'item du panier
       removeFromPanier(item.localId);
+      // La page hôte (consultation externe) doit savoir qu'un traitement est parti.
+      window.dispatchEvent(
+        new CustomEvent("prescriptions-envoyees", { detail: { types: ["medicale"] } }),
+      );
 
       showToast("Ordonnance créée et envoyée à la pharmacie");
       await chargerHistorique();

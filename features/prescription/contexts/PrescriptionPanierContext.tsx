@@ -323,6 +323,14 @@ export function PrescriptionPanierProvider({
     loadServiceDest(getUserServiceInfo().chuId).then(setServiceDestList);
   }, []);
 
+  // Signale à la page hôte les types encore en brouillon (saisis mais pas envoyés).
+  useEffect(() => {
+    const types = Array.from(
+      new Set(panier.items.filter((i) => i.status === "draft").map((i) => i.type)),
+    );
+    window.dispatchEvent(new CustomEvent("prescriptions-brouillons", { detail: { types } }));
+  }, [panier.items]);
+
   // Use a ref to avoid stale closure issues in sendAll/retryItem
   const panierRef = useRef(panier);
   const destinationOverridesRef = useRef<
