@@ -725,7 +725,6 @@ export default function TraitementPage() {
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Identité</p>
                     <p className="mt-1 text-[13px] font-extrabold text-gray-900">{appointment.n}</p>
-                    <p className="text-[12px] font-medium text-gray-500">Dossier : #PAT-{appointment.id}</p>
                   </div>
                   <div className="pt-4 border-t border-gray-50">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Prise en charge</p>
@@ -736,14 +735,6 @@ export default function TraitementPage() {
                     <div className="mt-2 flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${appointment.g === 'Urgence' ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
                       <p className="text-[13px] font-bold text-gray-900">{appointment.g}</p>
-                    </div>
-                  </div>
-                  <div className="pt-4 border-t border-gray-50">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Allergies connues</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge variant="destructive" className="bg-red-50 text-red-600 border-red-100 px-3 py-1 text-[10px]">
-                        Aucune signalée
-                      </Badge>
                     </div>
                   </div>
                 </div>
