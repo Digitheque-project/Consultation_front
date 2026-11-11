@@ -12,7 +12,7 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   other: {
-    "material-symbols": "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
+    "material-symbols": "/polices/material-symbols.css",
   },
   title: "SIH Frontend - CHU",
   description: "Frontend CHU pret pour les modules metier et l'integration backend.",
@@ -30,7 +30,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+        <link rel="stylesheet" href="/polices/material-symbols.css" />
       </head>
       <body className="h-full overflow-hidden flex flex-col" suppressHydrationWarning>
         <Providers>
