@@ -106,6 +106,7 @@ export function PrescriptionNotificationProvider() {
   // la dernière consultation du patient concerné (ex. retour de prescription).
   useEffect(() => {
     const ouvrir = async (e: Event) => {
+      e.preventDefault(); // pris en charge ici : la bulle n'affiche pas son détail
       const n = (e as CustomEvent<NotifPayload>).detail;
       const base = "/modules/consultation-externe";
       const patientId = typeof n?.data?.patientId === "string" ? n.data.patientId : null;
@@ -128,7 +129,8 @@ export function PrescriptionNotificationProvider() {
             : `${base}?focus=${derniere.id}`,
         );
       } catch {
-        /* patient introuvable ici : rien à ouvrir */
+        // Historique introuvable : le fil de travail, plutôt qu'un clic sans effet.
+        window.location.assign(base);
       }
     };
     window.addEventListener("chu-notification-ouverte", ouvrir);
