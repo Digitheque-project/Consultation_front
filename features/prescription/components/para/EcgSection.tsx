@@ -111,6 +111,7 @@ export default function EcgSection({
         selectedEcg.id,
         interpretationText,
       );
+      window.dispatchEvent(new Event("ecg-interprete"));
       setEcgs((prev) =>
         prev.map((e) =>
           e.id === updated.id
