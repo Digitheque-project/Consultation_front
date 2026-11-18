@@ -1321,9 +1321,11 @@ export default function PlanningCompletPage() {
                     <User className="w-10 h-10" strokeWidth={2.5} />
                   </div>
                   <h3 className="text-[20px] font-black text-gray-900 uppercase text-center">{selectedAppointment.patient?.displayName ?? ([selectedAppointment.patient?.prenom, selectedAppointment.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu')}</h3>
-                  <Badge variant="outline" className="mt-2 border-gray-200 text-gray-500 font-bold px-3 py-1 rounded-full uppercase text-[10px] tracking-widest mx-auto flex w-fit">
-                    ID: {selectedAppointment.id}
-                  </Badge>
+                  {selectedAppointment.patient?.dossier ? (
+                    <Badge variant="outline" className="mt-2 border-gray-200 text-gray-500 font-bold px-3 py-1 rounded-full uppercase text-[10px] tracking-widest mx-auto flex w-fit">
+                      Dossier {selectedAppointment.patient.dossier}
+                    </Badge>
+                  ) : null}
                 </div>
 
                 <div className="space-y-6 text-left w-full">
@@ -1352,7 +1354,7 @@ export default function PlanningCompletPage() {
                     <div>
                       <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Motif médical</p>
                       <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm italic text-gray-600 text-[13px] leading-relaxed">
-                        "{selectedAppointment.observation?.diagnostic || "Aucun motif spécifique renseigné."}"
+                        "{selectedAppointment.motif?.trim() || selectedAppointment.observation?.diagnostic || "Aucun motif renseigné."}"
                       </div>
                     </div>
 
