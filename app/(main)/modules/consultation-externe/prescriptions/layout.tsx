@@ -1,10 +1,11 @@
-import { DM_Sans } from 'next/font/google';
+import localFont from 'next/font/local';
 import './prescription.css';
 
-const dmSans = DM_Sans({
+// Police hébergée dans le projet (voir app/layout.tsx).
+const dmSans = localFont({
+  src: '../../../../fonts/dm-sans-latin.woff2',
   variable: '--font-dm-sans',
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: '300 700',
   display: 'swap',
 });
 

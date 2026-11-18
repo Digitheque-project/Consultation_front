@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import localFont from "next/font/local";
 import "./(main)/globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Providers } from "./providers";
 
 import Script from "next/script";
-const manrope = Manrope({
+// Police hébergée dans le projet : la construction ne dépend plus de Google Fonts
+// (téléchargement qui échoue parfois sur Render, et absent sur un réseau fermé).
+const manrope = localFont({
+  src: "./fonts/manrope-latin.woff2",
   variable: "--font-sans",
-  subsets: ["latin"],
+  weight: "200 800",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
