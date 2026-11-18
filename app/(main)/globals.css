@@ -496,3 +496,24 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
   }
 }
 
+
+/* Impression d'une archive : seule la fiche marquée .zone-impression sort sur papier. */
+@media print {
+  body:has(.zone-impression) * {
+    visibility: hidden;
+  }
+  body:has(.zone-impression) .zone-impression,
+  body:has(.zone-impression) .zone-impression * {
+    visibility: visible;
+  }
+  body:has(.zone-impression) .zone-impression {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+    transform: none;
+  }
+}

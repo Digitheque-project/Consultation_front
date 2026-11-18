@@ -187,7 +187,7 @@ export default function ArchivePage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6 print:static print:block print:bg-white print:p-0 print:backdrop-blur-none"
           onClick={(e) => { if (e.target === e.currentTarget) setSelected(null); }}
         >
-          <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-3xl bg-white shadow-2xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none">
+          <div className="zone-impression w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-3xl bg-white shadow-2xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none">
             <div className="sticky top-0 z-10 print:static flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-6 py-5">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
