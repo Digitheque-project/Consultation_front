@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import { useAllConsultations, useConsultationEventsSubscription, usePatientConsultationHistory, useTraiterConsultation } from '@/hooks/use-consultations';
 import { useMedecins, usePlanning } from '@/hooks/use-planning';
+import { MesProchainsCreneaux } from '@/components/planning/MesProchainsCreneaux';
 import { consultationApi, getVisiteLabel } from '@/lib/api/consultation';
 import { PatientInfoModal } from "@/components/notification/PatientInfoModal";
 import { PatientInfo } from "@/stores/notification-store";
@@ -841,6 +842,8 @@ export default function ConsultationExternePage() {
                 </div>
               </div>
             </div>
+
+            <MesProchainsCreneaux plannings={plannings} />
 
             {/* Quick Access */}
             <div className="bg-[#F5F8FA] rounded-[28px] sm:rounded-[32px] p-5 sm:p-7 border border-[#CFE9EF]">
