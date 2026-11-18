@@ -17,6 +17,18 @@ export type ConsultationHistoryEntry = {
   }>;
 };
 
+export type EtapeParcours = ConsultationApi & {
+  medecinNom?: string | null;
+  isControl?: boolean;
+  controleLabel?: string | null;
+  updatedAt?: string;
+};
+
+export type ParcoursConsultation = {
+  patient: ConsultationApi['patient'];
+  etapes: EtapeParcours[];
+};
+
 export type ClinicalParameter = {
   id?: number;
   nom: string;
@@ -184,6 +196,13 @@ export const consultationApi = {
 
   getConsultationById: async (id: string | number): Promise<ConsultationApi> => {
     const response = await fetchWithAuth(consultationEndpoint(`/consultations/${id}`));
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    return response.json();
+  },
+
+  // Archive : consultation initiale + tous ses contrôles, avec le médecin de chaque étape.
+  getParcours: async (id: string | number): Promise<ParcoursConsultation> => {
+    const response = await fetchWithAuth(consultationEndpoint(`/consultations/${id}/parcours`));
     if (!response.ok) throw new Error(`API error: ${response.status}`);
     return response.json();
   },

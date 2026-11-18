@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { Search, CalendarRange, X, Eye } from 'lucide-react';
+import { Search, CalendarRange, X, Eye, Printer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAllConsultations } from '@/hooks/use-consultations';
 import { getVisiteLabel, type ConsultationApi } from '@/lib/api/consultation';
 import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
+import { ParcoursArchive } from '@/components/archive/ParcoursArchive';
+import { useAuth } from '@/context/AuthContext';
 
 const formatDateKey = (value: string | Date) => {
   const d = value instanceof Date ? value : new Date(value);
@@ -20,6 +22,7 @@ export default function ArchivePage() {
   const [dateTo, setDateTo] = useState(today);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ConsultationApi | null>(null);
+  const { medecin } = useAuth();
 
   const { data: consultations = [], isLoading } = useAllConsultations({ dateFrom, dateTo, archived: true });
 
@@ -38,8 +41,8 @@ export default function ArchivePage() {
   }, [consultations, search]);
 
   return (
-    <div className="min-h-full bg-slate-50">
-      <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 space-y-5">
+    <div className="min-h-full bg-slate-50 print:bg-white">
+      <div className={cn('max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 space-y-5', selected && 'print:hidden')}>
 
         {/* Header */}
         <div>
@@ -181,11 +184,11 @@ export default function ArchivePage() {
 
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6 print:static print:block print:bg-white print:p-0 print:backdrop-blur-none"
           onClick={(e) => { if (e.target === e.currentTarget) setSelected(null); }}
         >
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-6 py-5">
+          <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-3xl bg-white shadow-2xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none">
+            <div className="sticky top-0 z-10 print:static flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-6 py-5">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
                   {new Date(selected.date).toLocaleDateString('fr-FR')} — {selected.heure}
@@ -195,6 +198,15 @@ export default function ArchivePage() {
                 </h2>
                 <div className="mt-2"><PriseEnChargeBadge priseEnCharge={selected.patient?.priseEnCharge} /></div>
               </div>
+              <div className="flex items-center gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 px-3 text-[12px] font-bold text-[#005b82] hover:bg-slate-50"
+              >
+                <Printer className="h-4 w-4" />
+                Imprimer
+              </button>
               <button
                 type="button"
                 onClick={() => setSelected(null)}
@@ -202,6 +214,7 @@ export default function ArchivePage() {
               >
                 <X className="h-4 w-4" />
               </button>
+              </div>
             </div>
 
             <div className="space-y-5 px-6 py-6">
@@ -210,7 +223,7 @@ export default function ArchivePage() {
                 {selected.patient?.sexe && (
                   <div className="rounded-2xl bg-slate-50 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sexe</p>
-                    <p className="mt-1 text-[13px] font-semibold text-slate-800">{selected.patient.sexe === 'M' ? 'Masculin' : selected.patient.sexe === 'F' ? 'Féminin' : selected.patient.sexe}</p>
+                    <p className="mt-1 text-[13px] font-semibold text-slate-800">{['M', 'MALE', 'MASCULIN', 'HOMME'].includes(selected.patient.sexe.toUpperCase()) ? 'Masculin' : ['F', 'FEMALE', 'FEMININ', 'FÉMININ', 'FEMME'].includes(selected.patient.sexe.toUpperCase()) ? 'Féminin' : selected.patient.sexe}</p>
                   </div>
                 )}
                 {selected.patient?.dateNaissance && (
@@ -219,100 +232,10 @@ export default function ArchivePage() {
                     <p className="mt-1 text-[13px] font-semibold text-slate-800">{new Date(selected.patient.dateNaissance).toLocaleDateString('fr-FR')}</p>
                   </div>
                 )}
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Type de visite</p>
-                  <p className="mt-1 text-[13px] font-semibold text-slate-800">{getVisiteLabel(selected)}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Urgence</p>
-                  <p className={cn('mt-1 text-[13px] font-semibold', selected.urgence ? 'text-red-600' : 'text-slate-800')}>{selected.urgence ? 'Oui' : 'Non'}</p>
-                </div>
               </div>
 
-              {/* Motif */}
-              {selected.motif && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Motif de consultation</p>
-                  <p className="rounded-2xl bg-slate-50 p-4 text-[13px] text-slate-700">{selected.motif}</p>
-                </div>
-              )}
-
-              {/* Observation */}
-              {(selected.observation?.diagnosticSuspicion || selected.observation?.diagnosticRetenu || selected.observation?.notes) && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Observation clinique</p>
-                  <div className="space-y-2">
-                    {selected.observation?.diagnosticSuspicion && (
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Suspicion diagnostique</p>
-                        <p className="text-[13px] text-slate-700">{selected.observation.diagnosticSuspicion}</p>
-                      </div>
-                    )}
-                    {selected.observation?.diagnosticRetenu && (
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Diagnostic retenu</p>
-                        <p className="text-[13px] text-slate-700">{selected.observation.diagnosticRetenu}</p>
-                      </div>
-                    )}
-                    {selected.observation?.notes && (
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Notes</p>
-                        <p className="text-[13px] text-slate-700 whitespace-pre-wrap">{selected.observation.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Paramètres cliniques */}
-              {selected.parametresCliniques && selected.parametresCliniques.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Paramètres cliniques</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selected.parametresCliniques.map((p, i) => (
-                      <span key={p.id ?? i} className="rounded-full bg-[#CFE9EF] px-3 py-1.5 text-[12px] font-semibold text-[#005b82]">
-                        {p.nom} : {p.valeur} {p.unite ?? ''}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Prescriptions non médicamenteuses */}
-              {selected.nonMedicamentPrescriptions && selected.nonMedicamentPrescriptions.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Prescriptions non médicamenteuses</p>
-                  <div className="space-y-2">
-                    {selected.nonMedicamentPrescriptions.map((nm, i) => (
-                      <div key={nm.id ?? i} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm space-y-1.5">
-                        {nm.recommandationsNotes && <p className="text-[13px] text-slate-700"><span className="font-bold">Recommandations : </span>{nm.recommandationsNotes}</p>}
-                        {nm.rdvMotif && (
-                          <p className="text-[13px] text-slate-700">
-                            <span className="font-bold">Contrôle : </span>{nm.rdvMotif}
-                            {nm.rdvDate && ` — ${new Date(nm.rdvDate).toLocaleDateString('fr-FR')}`}
-                            {nm.rdvNiveau && ` (${nm.rdvNiveau})`}
-                          </p>
-                        )}
-                        {(nm.examenService || nm.examenMotif) && (
-                          <p className="text-[13px] text-slate-700">
-                            <span className="font-bold">Examen paraclinique : </span>
-                            {[nm.examenService, nm.examenMotif].filter(Boolean).join(' — ')}
-                            {nm.examenPriorite && ` (${nm.examenPriorite})`}
-                          </p>
-                        )}
-                        {nm.hospitalisationMotif && (
-                          <p className="text-[13px] text-slate-700">
-                            <span className="font-bold">Hospitalisation : </span>
-                            {nm.hospitalisationMotif}
-                            {nm.hospitalisationService && ` — ${nm.hospitalisationService}`}
-                            {nm.hospitalisationStatus && ` (${nm.hospitalisationStatus})`}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Tout le parcours : initiale + contrôles, avec traitements, examens et résultats */}
+              <ParcoursArchive key={selected.id} consultationId={selected.id} chuId={medecin?.chuId} />
             </div>
           </div>
         </div>
