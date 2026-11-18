@@ -2,12 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  consultationApi,
-  getVisiteLabel,
-  type EtapeParcours,
-  type ParcoursConsultation,
-} from "@/lib/api/consultation";
+import { getVisiteLabel, type EtapeParcours } from "@/lib/api/consultation";
 import { getHistoriquePatient } from "@/features/prescription/lib/api";
 import { getResultatsByPatient, type ResultatParaclinique } from "@/lib/dossier-patient-api";
 
@@ -120,23 +115,19 @@ function Champ({ titre, valeur }: { titre: string; valeur?: string | null }) {
 }
 
 // Remonter le composant (key) pour une autre consultation : l'état repart de zéro.
-export function ParcoursArchive({ consultationId, chuId }: { consultationId: number; chuId?: string }) {
-  const [parcours, setParcours] = useState<ParcoursConsultation | null>(null);
-  const [erreur, setErreur] = useState<string | null>(null);
+// Détail d'un parcours (consultation initiale + contrôles) déjà chargé.
+export function ParcoursArchive({
+  parcours,
+  chuId,
+  selectionId,
+}: {
+  parcours: { etapes: EtapeParcours[] };
+  chuId?: string;
+  selectionId?: number;
+}) {
   const [prescriptions, setPrescriptions] = useState<Prescription[] | null>(null);
   const [resultats, setResultats] = useState<ResultatParaclinique[] | null>(null);
   const [erreurAnnexes, setErreurAnnexes] = useState<string[]>([]);
-
-  useEffect(() => {
-    let annule = false;
-    consultationApi
-      .getParcours(consultationId)
-      .then((p) => !annule && setParcours(p))
-      .catch(() => !annule && setErreur("Impossible de charger le parcours de cette consultation."));
-    return () => {
-      annule = true;
-    };
-  }, [consultationId]);
 
   // Médicaments, examens et résultats : enregistrés par les autres services,
   // sur la période du parcours, par les médecins qui l'ont mené.
@@ -188,8 +179,6 @@ export function ParcoursArchive({ consultationId, chuId }: { consultationId: num
     return { prescriptionsParEtape: pe, resultatsParEtape: re };
   }, [parcours, prescriptions, resultats]);
 
-  if (erreur) return <p className="rounded-2xl bg-red-50 p-4 text-[13px] text-red-700">{erreur}</p>;
-  if (!parcours) return <p className="py-8 text-center text-[13px] text-slate-400">Chargement du parcours…</p>;
 
   // Sans CHU connu, le dossier patient ne peut pas être lu : pas d'attente de résultats.
   const chargementAnnexes = prescriptions === null || (Boolean(chuId) && resultats === null);
@@ -212,7 +201,7 @@ export function ParcoursArchive({ consultationId, chuId }: { consultationId: num
           const params = (e.parametresCliniques ?? []).filter((p) => texte(p.valeur));
           const presc = prescriptionsParEtape.get(e.id) ?? [];
           const res = resultatsParEtape.get(e.id) ?? [];
-          const selection = e.id === consultationId;
+          const selection = e.id === selectionId;
           return (
             <li
               key={e.id}

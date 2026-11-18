@@ -29,6 +29,11 @@ export type ParcoursConsultation = {
   etapes: EtapeParcours[];
 };
 
+export type ArchivePatientApi = {
+  patient: ConsultationApi['patient'];
+  parcours: Array<{ debut: string; fin: string; termine: boolean; etapes: EtapeParcours[] }>;
+};
+
 export type ClinicalParameter = {
   id?: number;
   nom: string;
@@ -196,6 +201,13 @@ export const consultationApi = {
 
   getConsultationById: async (id: string | number): Promise<ConsultationApi> => {
     const response = await fetchWithAuth(consultationEndpoint(`/consultations/${id}`));
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    return response.json();
+  },
+
+  // Archive d'un patient : tous ses parcours, du plus récent au plus ancien.
+  getParcoursPatient: async (patientId: string): Promise<ArchivePatientApi> => {
+    const response = await fetchWithAuth(consultationEndpoint(`/consultations/patient/${encodeURIComponent(patientId)}/parcours`));
     if (!response.ok) throw new Error(`API error: ${response.status}`);
     return response.json();
   },

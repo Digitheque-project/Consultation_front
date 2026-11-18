@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useAllConsultations } from '@/hooks/use-consultations';
 import { getVisiteLabel, type ConsultationApi } from '@/lib/api/consultation';
 import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
-import { ParcoursArchive } from '@/components/archive/ParcoursArchive';
+import { ArchivePatient } from '@/components/archive/ArchivePatient';
 import { useAuth } from '@/context/AuthContext';
 
 const formatDateKey = (value: string | Date) => {
@@ -39,6 +39,13 @@ export default function ArchivePage() {
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.heure.localeCompare(a.heure));
   }, [consultations, search]);
+
+  // Une seule ligne par patient : sa fiche liste toutes ses prises en charge.
+  const parPatient = useMemo(() => {
+    const m = new Map<string, ConsultationApi[]>();
+    for (const c of archived) m.set(c.patientId, [...(m.get(c.patientId) ?? []), c]);
+    return [...m.values()];
+  }, [archived]);
 
   return (
     <div className="min-h-full bg-slate-50 print:bg-white">
@@ -97,17 +104,18 @@ export default function ArchivePage() {
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-[0px_4px_16px_rgba(17,17,26,0.05)] overflow-hidden">
           <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-[13px] font-extrabold text-slate-800">Consultations terminées</span>
-            <span className="text-[12px] font-bold text-slate-400">{archived.length} résultat{archived.length !== 1 ? 's' : ''}</span>
+            <span className="text-[13px] font-extrabold text-slate-800">Patients</span>
+            <span className="text-[12px] font-bold text-slate-400">
+              {parPatient.length} patient{parPatient.length !== 1 ? 's' : ''} · {archived.length} consultation{archived.length !== 1 ? 's' : ''}
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-gray-500">
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-[12px] whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 font-semibold text-[12px] whitespace-nowrap">Heure</th>
+                  <th className="px-4 py-3 font-semibold text-[12px] whitespace-nowrap">Dernière visite</th>
                   <th className="px-4 py-3 font-semibold text-[12px]">Patient</th>
-                  <th className="px-4 py-3 font-semibold text-[12px] whitespace-nowrap">Type</th>
+                  <th className="px-4 py-3 font-semibold text-[12px] whitespace-nowrap">Visites</th>
                   <th className="px-4 py-3 font-semibold text-[12px]">Motif / Diagnostic</th>
                   <th className="px-4 py-3 font-semibold text-[12px] whitespace-nowrap">Urgence</th>
                   <th className="px-4 py-3 font-semibold text-[12px] whitespace-nowrap"></th>
@@ -116,41 +124,39 @@ export default function ArchivePage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-[13px] text-slate-400">Chargement…</td>
+                    <td colSpan={6} className="px-4 py-10 text-center text-[13px] text-slate-400">Chargement…</td>
                   </tr>
-                ) : archived.length === 0 ? (
+                ) : parPatient.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-[13px] text-slate-400">
+                    <td colSpan={6} className="px-4 py-10 text-center text-[13px] text-slate-400">
                       Aucune consultation terminée sur cette période.
                     </td>
                   </tr>
-                ) : archived.map((c) => {
+                ) : parPatient.map((visites) => {
+                  const c = visites[0];
                   const dateLabel = new Date(c.date).toLocaleDateString('fr-FR');
                   const name = c.patient?.displayName ?? ([c.patient?.prenom, c.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu');
                   const visitLabel = getVisiteLabel(c);
                   const motif = c.motif ?? c.observation?.diagnosticRetenu ?? c.observation?.diagnostic ?? '—';
                   return (
                     <tr
-                      key={c.id}
+                      key={c.patientId}
                       onClick={() => setSelected(c)}
                       className="border-t border-gray-100 hover:bg-slate-50 align-middle cursor-pointer"
                     >
-                      <td className="px-4 py-3 whitespace-nowrap text-[12px] font-medium text-slate-600">{dateLabel}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-[12px] font-bold text-[#005b82]">{c.heure}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-[12px] font-medium text-slate-600">
+                        {dateLabel} <span className="font-bold text-[#005b82]">{c.heure}</span>
+                      </td>
                       <td className="px-4 py-3 max-w-[200px]">
                         <p className="text-[13px] font-semibold text-slate-800 truncate">{name}</p>
                         <p className="text-[11px] text-slate-400">{c.motif ?? '—'}</p>
                         <div className="mt-1"><PriseEnChargeBadge priseEnCharge={c.patient?.priseEnCharge} /></div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={cn(
-                          'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider',
-                          c.typeVisite?.toUpperCase() === 'CONTROLE' || c.ordreControle
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-slate-100 text-slate-600'
-                        )}>
-                          {visitLabel}
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
+                          {visites.length} visite{visites.length > 1 ? 's' : ''}
                         </span>
+                        <p className="mt-1 text-[11px] text-slate-400">Dernière : {visitLabel}</p>
                       </td>
                       <td className="px-4 py-3 max-w-[220px]">
                         <p className="text-[12px] text-slate-600 line-clamp-2">{motif}</p>
@@ -191,7 +197,7 @@ export default function ArchivePage() {
             <div className="sticky top-0 z-10 print:static flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-6 py-5">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                  {new Date(selected.date).toLocaleDateString('fr-FR')} — {selected.heure}
+                  Archive du patient
                 </p>
                 <h2 className="mt-1 text-[17px] font-extrabold text-slate-900">
                   {selected.patient?.displayName ?? ([selected.patient?.prenom, selected.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu')}
@@ -235,7 +241,7 @@ export default function ArchivePage() {
               </div>
 
               {/* Tout le parcours : initiale + contrôles, avec traitements, examens et résultats */}
-              <ParcoursArchive key={selected.id} consultationId={selected.id} chuId={medecin?.chuId} />
+              <ArchivePatient key={selected.patientId} patientId={selected.patientId} consultationOuverte={selected.id} chuId={medecin?.chuId} />
             </div>
           </div>
         </div>
