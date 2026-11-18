@@ -222,7 +222,7 @@ export default function TraitementPage() {
   // Le module de prescription envoie lui-même ses prescriptions ; on retient
   // seulement si un traitement médicamenteux est parti (motif exigé sinon).
   const [medicamentEnvoye, setMedicamentEnvoye] = useState(false);
-  // Médicaments saisis mais dont l'ordonnance n'est pas encore partie.
+  // Prescription médicamenteuse validée dont l'ordonnance n'est pas (encore) faite.
   const [medicamentEnBrouillon, setMedicamentEnBrouillon] = useState(false);
   useEffect(() => {
     const onEnvoi = (event: Event) => {
@@ -340,12 +340,10 @@ export default function TraitementPage() {
   // exige une raison avant de clôturer (le médecin peut confirmer volontairement
   // qu'aucun traitement n'était nécessaire).
   const handleTerminerClick = () => {
-    // Des médicaments saisis mais non envoyés seraient perdus en terminant.
-    if (medicamentEnBrouillon) {
-      showToast("Des médicaments sont saisis mais pas encore envoyés : créez l'ordonnance avant de terminer.", 'error');
-      return;
-    }
-    const hasTraitement = medicamentEnvoye;
+    // Une prescription validée est déjà enregistrée : l'ordonnance pharmacie est
+    // facultative (le patient peut avoir certains médicaments chez lui), elle ne
+    // bloque jamais la fin de la consultation.
+    const hasTraitement = medicamentEnvoye || medicamentEnBrouillon;
     if (!hasTraitement && !noTreatmentReason.trim()) {
       setShowNoTreatmentReasonModal(true);
       return;

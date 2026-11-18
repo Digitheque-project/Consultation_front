@@ -360,6 +360,8 @@ export default function MedicaleForm({ patient, prescripteur, patientType }: Pro
 
       const summary = `${medicaments.length} médicament(s)${cocktails.length > 0 ? ` + ${cocktails.length} cocktail(s)` : ''}`;
       addToPanier('medicale', summary, prescriptionData);
+      // Prescription enregistrée : c'est un traitement, même sans ordonnance pharmacie.
+      window.dispatchEvent(new CustomEvent('prescriptions-envoyees', { detail: { types: ['medicale'] } }));
       clearDraft();
       setMedicaments([]);
       setCocktails([]);
