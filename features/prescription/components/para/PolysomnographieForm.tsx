@@ -48,7 +48,7 @@ export default function PolysomnographieForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<{ urgence: string; alertes: string; renseignements: string; remarques: string }>(
     `draft:poly:${patient.id}`,
     { urgence, alertes, renseignements, remarques },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

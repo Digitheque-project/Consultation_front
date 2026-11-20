@@ -102,7 +102,7 @@ export default function AnapathForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<{ urgence: string; alertes: string; demandes: Demande[]; formData: Record<string, string> }>(
     `draft:anapath:${patient.id}`,
     { urgence, alertes, demandes, formData },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, saisieEnCours: showAnapathDrawer, peutValider: () => demandes.length > 0, contenu: { alertes, demandes } }
   );
 
   useEffect(() => {

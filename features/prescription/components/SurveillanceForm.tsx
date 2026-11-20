@@ -145,7 +145,7 @@ export default function SurveillanceForm({ patient, prescripteur, patientType }:
   const { clearDraft } = useDraftPersistence<SvDraftData>(
     `draft:surveillance:${patient.id}`,
     { items, notes, alertes, urgence },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, saisieEnCours: showSvDrawer, peutValider: () => canValidate }
   );
 
   const canValidate = items.length > 0;

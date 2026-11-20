@@ -45,7 +45,7 @@ export default function KineForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<{ urgence: string; alertes: string; renseignements: string; diagnostic: string; objectifs: string; remarques: string }>(
     `draft:kine:${patient.id}`,
     { urgence, alertes, renseignements, diagnostic, objectifs, remarques },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

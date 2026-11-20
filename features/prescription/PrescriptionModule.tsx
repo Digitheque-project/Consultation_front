@@ -60,6 +60,7 @@ import {
 } from "@/features/prescription/lib/paraclinique";
 import "@/features/prescription/prescription-suite.css";
 import { gatewayUrl } from "@/features/prescription/platform/gateway";
+import { definirOuvertureOnglet } from "@/features/prescription/platform/fin-consultation";
 
 type MainSection =
   | "med"
@@ -399,6 +400,50 @@ function PrescriptionModuleInner({
     () => paraServices.find((s) => s.serviceId === paraServiceId) ?? null,
     [paraServices, paraServiceId],
   );
+
+  // Fin de consultation (platform/fin-consultation.ts) : ouvrir l'onglet d'un
+  // brouillon pour que son formulaire le valide lui-même.
+  const paraServicesRef = useRef(paraServices);
+  paraServicesRef.current = paraServices;
+  useEffect(() => {
+    if (!canCreatePrescription) return;
+    const ONGLETS: Record<string, MainSection> = {
+      medicale: "med",
+      "non-medicale": "nm",
+      "soins-infirmier": "soins",
+      surveillance: "surv",
+      transfusion: "trans",
+      bloc: "bloc",
+      cpa: "cpa",
+      "actes-orl": "actes-orl",
+    };
+    const PARA: Record<string, string> = {
+      labo: "labo",
+      imagerie: "imag",
+      eeg: "eeg",
+      kine: "kine",
+      endoscopie: "endo",
+      dialyse: "dial",
+      anapath: "ana",
+      ecg: "ecg",
+      orl: "orl",
+      poly: "poly",
+    };
+    definirOuvertureOnglet((type) => {
+      const onglet = ONGLETS[type];
+      if (onglet) {
+        if (!visibleMainItems.some((item) => item.id === onglet)) return false;
+        setMain(onglet);
+        return true;
+      }
+      const service = PARA[type] && paraServicesRef.current.find((s) => s.formKey === PARA[type]);
+      if (!service) return false;
+      setMain("para");
+      setParaServiceId(service.serviceId);
+      return true;
+    }, prescripteur.id);
+    return () => definirOuvertureOnglet(null);
+  }, [canCreatePrescription, visibleMainItems, prescripteur.id]);
 
   useEffect(() => {
     if (!activeParaService?.formKey) return;

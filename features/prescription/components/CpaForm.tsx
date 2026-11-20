@@ -40,7 +40,7 @@ export default function CpaForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<{ motif: string; dateSouhaitee: string; urgence: string; alertes: string; consignes: string }>(
     `draft:cpa:${patient.id}`,
     { motif, dateSouhaitee, urgence, alertes, consignes },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

@@ -68,7 +68,7 @@ export default function ActesOrlForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<{ urgence: string; alertes: string; demandes: Demande[] }>(
     `draft:actes-orl:${patient.id}`,
     { urgence, alertes, demandes },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, saisieEnCours: showDrawer, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

@@ -87,7 +87,7 @@ export default function TransfusionForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<TransfusionDraftData>(
     `draft:transfusion:${patient.id}`,
     { urgence, alertes, renseignements, atcd, incident, groupage, hb, produits, notes },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, saisieEnCours: showDrawer, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

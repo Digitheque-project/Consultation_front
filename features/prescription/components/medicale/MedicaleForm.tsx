@@ -91,7 +91,7 @@ export default function MedicaleForm({ patient, prescripteur, patientType }: Pro
   const { clearDraft } = useDraftPersistence<MedDraftData>(
     `draft:medicale:${patient.id}`,
     { medicaments, cocktails, remarqueGenerale, urgence },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleValiderPrescription, saisieEnCours: showMedicamentDrawer || showCocktailDrawer, peutValider: () => canValidate }
   );
 
   const isAccueil = prescripteur?.service?.toLowerCase().includes('accueil') ?? false;

@@ -53,7 +53,7 @@ export default function EEGForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<{ urgence: string; alertes: string; renseignements: string; remarques: string; aeActuel: string; agePremiereCrise: string; dpm: string; typeCrise: string; dateDerniereCrise: string }>(
     `draft:eeg:${patient.id}`,
     { urgence, alertes, renseignements, remarques, aeActuel, agePremiereCrise, dpm, typeCrise, dateDerniereCrise },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

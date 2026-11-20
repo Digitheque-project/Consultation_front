@@ -160,7 +160,7 @@ export default function SoinsInfirmierForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<SIFDraftData>(
     `draft:soins-infirmier:${patient.id}`,
     { items, urgence, alertes, serviceNotifId },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleValidate, peutValider: () => canValidate }
   );
 
   const showFrequence = !TYPES_WITHOUT_FREQUENCE.includes(type);

@@ -105,7 +105,7 @@ export default function BlocForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<{ urgence: string; alertes: string; consignes: string; actes: Acte[] }>(
     `draft:bloc:${patient.id}`,
     { urgence, alertes, consignes, actes },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, saisieEnCours: showBlocDrawer, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

@@ -68,7 +68,7 @@ export default function DiaryseForm({ patient, prescripteur, patientType }: Prop
   const { clearDraft } = useDraftPersistence<{ urgence: string; alertes: string; renseignements: string; remarques: string; diagnosticRenal: string; observationsTol: string }>(
     `draft:dialyse:${patient.id}`,
     { urgence, alertes, renseignements, remarques, diagnosticRenal, observationsTol },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

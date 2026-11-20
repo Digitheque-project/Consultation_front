@@ -126,7 +126,7 @@ export default function ImagerieForm({ patient, prescripteur }: Props) {
       formData,
       moyenDeplacement,
     },
-    { skip: !patient.id },
+    { skip: !patient.id, valider: handleSubmit, saisieEnCours: showImagerieDrawer, peutValider: () => canSubmit },
   );
 
   useEffect(() => {

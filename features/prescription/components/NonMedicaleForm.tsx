@@ -136,7 +136,7 @@ export default function NonMedicaleForm({ patient, prescripteur, patientType }: 
   const { clearDraft } = useDraftPersistence<NMDraftData>(
     `draft:non-medicale:${patient.id}`,
     { items, instructions, urgence },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleValidate, saisieEnCours: showNMDrawer, peutValider: () => canValidate }
   );
 
   const isKnownType = KNOWN_TYPE_LABELS.includes(type);

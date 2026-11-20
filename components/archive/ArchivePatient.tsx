@@ -51,9 +51,11 @@ export function ArchivePatient({
             // Les contrôles programmés mais pas encore tenus sont résumés par la
             // date du prochain (ils sont déjà cités dans l'étape qui les a demandés).
             const etapes = p.etapes.filter((e) => e.termine && e.id !== etapeMasquee);
-            const aujourdhui = new Date().toISOString().slice(0, 10);
+            // Jours comparés en heure locale (UTC+3 au CHU), pas en UTC.
+            const jourLocal = (d: string | Date) => new Date(d).toLocaleDateString("sv-SE");
+            const aujourdhui = jourLocal(new Date());
             const aVenir = p.etapes
-              .filter((e) => !e.termine && e.id !== etapeMasquee && String(e.date).slice(0, 10) >= aujourdhui)
+              .filter((e) => !e.termine && e.id !== etapeMasquee && jourLocal(e.date) >= aujourdhui)
               .map((e) => e.date)
               .sort();
             const faiteLe = (e: (typeof etapes)[number]) => e.dateRealisation ?? e.date;

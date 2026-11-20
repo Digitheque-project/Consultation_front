@@ -18,6 +18,7 @@ import { getActiveSession } from "@/features/prescription/platform/session-store
 import { orlApi } from "@/features/prescription/platform/orl";
 import { serviceChuApi } from "@/features/prescription/platform/service-chu";
 import { gatewayUrl } from "@/features/prescription/platform/gateway";
+import { definirPanier } from "@/features/prescription/platform/fin-consultation";
 
 export type PanierItemStatus = "draft" | "sending" | "sent" | "error";
 
@@ -279,7 +280,8 @@ interface PrescriptionPanierContextValue {
   removeFromPanier: (localId: string) => void;
   sendAll: (
     prescripteurId: string,
-  ) => Promise<{ allSent: boolean; errorCount: number }>;
+    options?: { exclure?: (item: PanierItem) => boolean },
+  ) => Promise<{ allSent: boolean; errorCount: number; sentTypes?: string[] }>;
   sendItemDirectly: (
     type: PanierItemType,
     summary: string,
@@ -576,7 +578,7 @@ export function PrescriptionPanierProvider({
   );
 
   const sendAll = useCallback(
-    async (prescripteurId: string) => {
+    async (prescripteurId: string, options?: { exclure?: (item: PanierItem) => boolean }) => {
       const current = panierRef.current;
       if (!current.patientId) {
         throw new Error("Aucun patient sélectionné");
@@ -584,7 +586,7 @@ export function PrescriptionPanierProvider({
 
       // Get items that need sending (draft or error for retry-all)
       const itemsToSend = current.items.filter(
-        (i) => i.status === "draft" || i.status === "error",
+        (i) => (i.status === "draft" || i.status === "error") && !options?.exclure?.(i),
       );
 
       if (itemsToSend.length === 0) return { allSent: false, errorCount: 0 };
@@ -696,10 +698,27 @@ export function PrescriptionPanierProvider({
         }
       }
 
-      return { allSent: errorCount === 0, errorCount };
+      return { allSent: errorCount === 0, errorCount, sentTypes };
     },
     [sendSingleItem],
   );
+
+  // Fin de consultation (platform/fin-consultation.ts) : tout ce qui attend
+  // dans le panier part à son service. Une prescription médicamenteuse déjà
+  // validée est enregistrée sur le serveur dès « Valider » (son ordonnance est
+  // facultative) : la renvoyer la créerait une seconde fois.
+  useEffect(() => {
+    definirPanier({
+      identifiants: () => panierRef.current.items.map((i) => i.localId),
+      envoyer: async (prescripteurId) => {
+        const r = await sendAll(prescripteurId, {
+          exclure: (i) => i.type === "medicale" && Boolean(i.payload?.prescriptionId),
+        });
+        return { allSent: r.allSent, errorCount: r.errorCount, typesEnvoyes: r.sentTypes ?? [] };
+      },
+    });
+    return () => definirPanier(null);
+  }, [sendAll]);
 
   const retryItem = useCallback(
     async (localId: string) => {

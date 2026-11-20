@@ -61,7 +61,7 @@ export default function LaboForm({ patient, prescripteur }: Props) {
   const { clearDraft } = useDraftPersistence<LaboDraftData>(
     `draft:labo:${patient.id}`,
     { urgence, alertes, renseignements, selected, notes, aJeun },
-    { skip: !patient.id }
+    { skip: !patient.id, valider: handleSubmit, peutValider: () => Boolean(isFormValid) }
   );
 
   useEffect(() => {

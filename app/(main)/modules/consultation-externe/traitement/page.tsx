@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
 import ConsultationPrescription from '@/components/prescription/ConsultationPrescription';
+import { finaliserPrescriptions } from '@/features/prescription/platform/fin-consultation';
 import { cn } from '@/lib/utils';
 
 // Page d'où le médecin a ouvert cette consultation — le bouton "Retour" doit
@@ -198,6 +199,10 @@ export default function TraitementPage() {
   const [showNoTreatmentReasonModal, setShowNoTreatmentReasonModal] = useState(false);
   const [showDossierPatient, setShowDossierPatient] = useState(false);
   const [showHistorique, setShowHistorique] = useState(false);
+  // Fin de consultation : validation et envoi des prescriptions en cours.
+  const [finalisationPrescriptions, setFinalisationPrescriptions] = useState(false);
+  // Ce qui empêche de terminer (champ obligatoire vide, contrôle à moitié rempli…).
+  const [blocages, setBlocages] = useState<string[]>([]);
   const [noTreatmentReason, setNoTreatmentReason] = useState('');
   const [hospitalisationServiceOptions, setHospitalisationServiceOptions] = useState<HospitalisationServiceOption[]>([]);
 
@@ -343,11 +348,53 @@ export default function TraitementPage() {
   // Clic sur "Terminer la consultation" : si aucun médicament n'a été prescrit, on
   // exige une raison avant de clôturer (le médecin peut confirmer volontairement
   // qu'aucun traitement n'était nécessaire).
-  const handleTerminerClick = () => {
+  const handleTerminerClick = async () => {
+    if (!appointment?.patientId || finalisationPrescriptions) return;
+
+    // Contrôle : le motif ET la date, ou rien du tout.
+    const motifControle = nonMedicaments.rdvMotif.trim();
+    const dateControle = nonMedicaments.rdvDate;
+    if (!savedControle && Boolean(motifControle) !== Boolean(dateControle)) {
+      setBlocages([
+        motifControle
+          ? 'Contrôle : indiquez la date souhaitée, ou effacez le motif si aucun contrôle n\'est prévu.'
+          : 'Contrôle : indiquez le motif, ou effacez la date si aucun contrôle n\'est prévu.',
+      ]);
+      return;
+    }
+
+    // Tout ce qui a été commencé dans les prescriptions est validé puis envoyé.
+    // Un formulaire auquel il manque un champ obligatoire bloque la fin : le
+    // médecin le complète, ou efface ce qu'il a saisi.
+    setBlocages([]);
+    setFinalisationPrescriptions(true);
+    let typesValides: string[] = [];
+    try {
+      const resultat = await finaliserPrescriptions(String(appointment.patientId));
+      typesValides = resultat.types;
+      if (!resultat.ok) {
+        setBlocages([
+          ...resultat.incomplets.map(
+            (libelle) =>
+              `Prescription « ${libelle} » incomplète : remplissez les champs obligatoires (ou terminez la saisie ouverte), ou effacez ce que vous avez saisi.`,
+          ),
+          ...(resultat.erreurs
+            ? [`${resultat.erreurs} prescription(s) n'ont pas pu être envoyées : réessayez, ou retirez-les du panier.`]
+            : []),
+        ]);
+        return;
+      }
+    } catch (err) {
+      setBlocages(['Envoi des prescriptions impossible : ' + (err instanceof Error ? err.message : 'erreur inconnue')]);
+      return;
+    } finally {
+      setFinalisationPrescriptions(false);
+    }
+
     // Une prescription validée est déjà enregistrée : l'ordonnance pharmacie est
     // facultative (le patient peut avoir certains médicaments chez lui), elle ne
     // bloque jamais la fin de la consultation.
-    const hasTraitement = medicamentEnvoye || medicamentEnBrouillon;
+    const hasTraitement = medicamentEnvoye || medicamentEnBrouillon || typesValides.includes('medicale');
     if (!hasTraitement && !noTreatmentReason.trim()) {
       setShowNoTreatmentReasonModal(true);
       return;
@@ -366,7 +413,6 @@ export default function TraitementPage() {
       });
       setSavedControle(true);
       showToast('Validé avec succès');
-      setTimeout(() => setSavedControle(false), 3500);
     } catch (err) {
       showToast('Erreur RDV : ' + (err instanceof Error ? err.message : 'Erreur inconnue'), 'error');
     } finally {
@@ -823,7 +869,10 @@ export default function TraitementPage() {
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block">Motif du contrôle</label>
                       <textarea
                         value={nonMedicaments.rdvMotif}
-                        onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvMotif: e.target.value })}
+                        onChange={(e) => {
+                          setNonMedicaments({ ...nonMedicaments, rdvMotif: e.target.value });
+                          setSavedControle(false);
+                        }}
                         className="w-full h-24 bg-[#F8FAFC] border border-gray-100 rounded-2xl p-4 text-[13px] text-gray-700 focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C]/20 transition-all outline-none"
                         placeholder="Ex : Réévaluation tensionnelle, suivi glycémie..."
                       />
@@ -861,7 +910,10 @@ export default function TraitementPage() {
                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                         <input
                           value={nonMedicaments.rdvDate}
-                          onChange={(e) => setNonMedicaments({ ...nonMedicaments, rdvDate: e.target.value })}
+                          onChange={(e) => {
+                            setNonMedicaments({ ...nonMedicaments, rdvDate: e.target.value });
+                            setSavedControle(false);
+                          }}
                           className="w-full bg-[#F8FAFC] border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-gray-700 focus:border-[#006A8C] focus:ring-1 focus:ring-[#006A8C]/20 outline-none transition-all"
                           type="date"
                         />
@@ -872,7 +924,8 @@ export default function TraitementPage() {
                   <button
                     type="button"
                     onClick={handleSaveControle}
-                    disabled={savingControle || (!nonMedicaments.rdvMotif.trim() && !nonMedicaments.rdvDate)}
+                    // Le motif ET la date : un contrôle sans l'un des deux n'est pas planifiable.
+                    disabled={savingControle || savedControle || !nonMedicaments.rdvMotif.trim() || !nonMedicaments.rdvDate}
                     className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[12px] transition-all disabled:opacity-40 ${
                       savedControle
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -964,15 +1017,31 @@ export default function TraitementPage() {
           </Card>
 
           {/* Action finale — conclut la consultation quel que soit l'onglet actif */}
-          <div className="mt-10 flex items-center justify-end">
+          {blocages.length > 0 && (
+            <div role="alert" className="mt-10 rounded-2xl border border-red-200 bg-red-50 p-4 text-[13px] text-red-800">
+              <p className="mb-2 flex items-center gap-2 font-bold">
+                <AlertCircle className="h-4 w-4" /> La consultation ne peut pas encore être terminée
+              </p>
+              <ul className="list-disc space-y-1 pl-6">
+                {blocages.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className={cn('flex items-center justify-end', blocages.length > 0 ? 'mt-4' : 'mt-10')}>
             <Button
               type="button"
               onClick={handleTerminerClick}
-              disabled={saving}
+              disabled={saving || finalisationPrescriptions}
               className="rounded-full px-10 h-12 bg-[#006A8C] text-white hover:bg-[#004d66] font-extrabold text-[13px] transition-all disabled:opacity-50 gap-2 shadow-lg shadow-blue-900/10"
             >
               <CheckCircle2 className="w-4 h-4" />
-              {saving ? 'TRAITEMENT...' : 'TERMINER LA CONSULTATION'}
+              {finalisationPrescriptions
+                ? 'ENVOI DES PRESCRIPTIONS...'
+                : saving
+                  ? 'TRAITEMENT...'
+                  : 'TERMINER LA CONSULTATION'}
             </Button>
           </div>
 
