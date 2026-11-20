@@ -206,8 +206,11 @@ export const consultationApi = {
   },
 
   // Archive d'un patient : tous ses parcours, du plus récent au plus ancien.
-  getParcoursPatient: async (patientId: string): Promise<ArchivePatientApi> => {
-    const response = await fetchWithAuth(consultationEndpoint(`/consultations/patient/${encodeURIComponent(patientId)}/parcours`));
+  // tousMedecins : aussi les parcours suivis par d'autres médecins (accepté par
+  // le serveur seulement si le médecin traite ce patient en ce moment).
+  getParcoursPatient: async (patientId: string, options?: { tousMedecins?: boolean }): Promise<ArchivePatientApi> => {
+    const suffixe = options?.tousMedecins ? '?tousMedecins=true' : '';
+    const response = await fetchWithAuth(consultationEndpoint(`/consultations/patient/${encodeURIComponent(patientId)}/parcours${suffixe}`));
     if (!response.ok) throw new Error(`API error: ${response.status}`);
     return response.json();
   },

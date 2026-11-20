@@ -18,9 +18,12 @@ import {
   ClipboardList,
   Calendar,
   AlertCircle,
-  FolderOpen
+  FolderOpen,
+  History,
+  X
 } from 'lucide-react';
 import { DossierPatientModal } from '@/components/dossier-patient/DossierPatientModal';
+import { ArchivePatient } from '@/components/archive/ArchivePatient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -194,6 +197,7 @@ export default function TraitementPage() {
   const [hospitalisationOutcome, setHospitalisationOutcome] = useState<'VALIDE' | 'EN_ATTENTE' | null>(null);
   const [showNoTreatmentReasonModal, setShowNoTreatmentReasonModal] = useState(false);
   const [showDossierPatient, setShowDossierPatient] = useState(false);
+  const [showHistorique, setShowHistorique] = useState(false);
   const [noTreatmentReason, setNoTreatmentReason] = useState('');
   const [hospitalisationServiceOptions, setHospitalisationServiceOptions] = useState<HospitalisationServiceOption[]>([]);
 
@@ -756,14 +760,21 @@ export default function TraitementPage() {
                 </div>
               )}
 
-              {hasHistory && (
+              {appointment?.patientId && (
                 <div className="bg-[#CFE9EF] rounded-[28px] p-7 border border-[#D1E5F5]">
-                  <h3 className="text-[10px] font-extrabold text-[#006A8C] uppercase tracking-[0.15em] mb-4">Aide au diagnostic</h3>
+                  <h3 className="text-[10px] font-extrabold text-[#006A8C] uppercase tracking-[0.15em] mb-4 flex items-center gap-2">
+                    <History className="h-4 w-4" /> Traitements précédents
+                  </h3>
                   <p className="text-[12px] text-[#006A8C] font-medium leading-relaxed opacity-80">
-                    Consultez les antécédents médicaux complets du patient pour affiner votre diagnostic.
+                    Consultation initiale et contrôles déjà faits, puis les prises en charge antérieures du patient :
+                    observations, paramètres, médicaments, examens et résultats.
                   </p>
-                  <Button variant="link" className="text-[#006A8C] p-0 h-auto font-bold text-[12px] mt-4 hover:no-underline">
-                    Consulter le dossier historique →
+                  <Button
+                    variant="link"
+                    onClick={() => setShowHistorique(true)}
+                    className="text-[#006A8C] p-0 h-auto font-bold text-[12px] mt-4 hover:no-underline"
+                  >
+                    Voir l&apos;historique du patient →
                   </Button>
                 </div>
               )}
@@ -976,6 +987,42 @@ export default function TraitementPage() {
         >
           {toastMsg.variant === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {toastMsg.text}
+        </div>
+      )}
+
+      {showHistorique && appointment?.patientId && (
+        <div
+          className="fixed inset-0 z-[250] flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
+          onClick={() => setShowHistorique(false)}
+        >
+          <div className="w-full max-w-4xl rounded-[28px] bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-t-[28px] border-b border-slate-100 bg-white px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-[#006A8C]">Historique du patient</p>
+                <p className="truncate text-[16px] font-extrabold text-slate-900">{appointment.n}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistorique(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50"
+                aria-label="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-6 py-6">
+              {/* Prise en charge actuelle (étape en cours retirée, elle se remplit
+                  dans la page) puis les précédentes, y compris chez d'autres médecins. */}
+              <ArchivePatient
+                patientId={String(appointment.patientId)}
+                chuId={medecin?.chuId}
+                consultationOuverte={appointmentId ? Number(appointmentId) : undefined}
+                etapeMasquee={appointmentId ? Number(appointmentId) : undefined}
+                tousMedecins
+                messageVide="Aucun traitement antérieur : c'est la première prise en charge de ce patient."
+              />
+            </div>
+          </div>
         </div>
       )}
 
