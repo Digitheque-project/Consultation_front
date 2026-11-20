@@ -111,7 +111,9 @@ export default function ConsultationExternePage() {
 
   const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'TOUS' | 'EN ATTENTE' | 'EN COURS' | 'EFFECTUÉ'>('TOUS');
+  // Les consultations effectuées partent dans l'archive : seuls « en attente » et
+  // « en cours » ont un sens ici.
+  const [statusFilter, setStatusFilter] = useState<'TOUS' | 'EN ATTENTE' | 'EN COURS'>('TOUS');
   const [visitTypeFilter, setVisitTypeFilter] = useState<'TOUS' | 'INITIALE' | 'CONTROLE'>('TOUS');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -242,7 +244,8 @@ export default function ConsultationExternePage() {
         return false;
       }
 
-      if (statusFilter !== 'TOUS' && patient.status !== statusFilter) {
+      // « En attente » regroupe aussi l'attente d'un contrôle ou d'un examen.
+      if (statusFilter !== 'TOUS' && !patient.status.startsWith(statusFilter)) {
         return false;
       }
 
@@ -515,7 +518,6 @@ export default function ConsultationExternePage() {
                   <option value="TOUS">Tous les statuts</option>
                   <option value="EN ATTENTE">En attente</option>
                   <option value="EN COURS">En cours</option>
-                  <option value="EFFECTUÉ">Effectué</option>
                 </select>
 
                 <select
