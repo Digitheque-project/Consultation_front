@@ -16,6 +16,18 @@ import { getResultatsByPatient, type ResultatParaclinique } from "@/lib/dossier-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Prescription = Record<string, any> & { _type: string; createdAt?: string; statut?: string };
 
+const STATUTS: Record<string, string> = {
+  TERMINE: "Terminée",
+  REPORTEE: "Reportée",
+  HOSPITALISE: "Hospitalisation demandée",
+  EN_COURS: "En cours",
+  EN_ATTENTE: "En attente",
+  EN_ATTENTE_CONTROLE: "Contrôle en attente",
+  EN_ATTENTE_PARACLINIQUE: "En attente d'examens",
+};
+const libelleStatut = (s?: string | null) =>
+  !s ? "—" : STATUTS[s.toUpperCase()] ?? s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
+
 const TYPES: Record<string, string> = {
   medicale: "Médicaments",
   nonMedicale: "Prescription non médicamenteuse",
@@ -221,7 +233,7 @@ export function ParcoursArchive({
                 </p>
               </div>
               <p className="text-[11px] text-slate-500">
-                Statut : {e.statut}
+                Statut : {libelleStatut(e.statut)}
                 {e.urgence ? " · Urgence" : ""}
                 {e.arriveeAccueilAt ? ` · arrivé à ${dateHeureFr(e.arriveeAccueilAt)}` : ""}
               </p>

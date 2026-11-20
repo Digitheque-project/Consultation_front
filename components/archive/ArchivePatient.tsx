@@ -31,7 +31,11 @@ export function ArchivePatient({
   etapeMasquee?: number;
   messageVide?: string;
 }) {
-  const [archive, setArchive] = useState<ArchivePatientApi | null>(null);
+  const [archive, setArchive] = useState<
+    (Omit<ArchivePatientApi, "parcours"> & {
+      parcours: (ArchivePatientApi["parcours"][number] & { prochainControle: string | null })[];
+    }) | null
+  >(null);
   const [erreur, setErreur] = useState(false);
   const [ouverts, setOuverts] = useState<Set<number>>(new Set());
 
@@ -43,8 +47,21 @@ export function ArchivePatient({
         if (annule) return;
         const parcours = reponse.parcours
           .map((p) => {
-            const etapes = p.etapes.filter((e) => e.id !== etapeMasquee);
-            return { ...p, etapes, fin: etapes.length ? etapes[etapes.length - 1].date : p.fin };
+            // L'historique montre le travail fait : seulement les étapes closes.
+            // Les contrôles programmés mais pas encore tenus sont résumés par la
+            // date du prochain (ils sont déjà cités dans l'étape qui les a demandés).
+            const etapes = p.etapes.filter((e) => e.termine && e.id !== etapeMasquee);
+            const aujourdhui = new Date().toISOString().slice(0, 10);
+            const aVenir = p.etapes
+              .filter((e) => !e.termine && e.id !== etapeMasquee && String(e.date).slice(0, 10) >= aujourdhui)
+              .map((e) => e.date)
+              .sort();
+            return {
+              ...p,
+              etapes,
+              fin: etapes.length ? etapes[etapes.length - 1].date : p.fin,
+              prochainControle: aVenir[0] ?? null,
+            };
           })
           .filter((p) => p.etapes.length > 0);
         const a = { ...reponse, parcours };
@@ -120,6 +137,11 @@ export function ArchivePatient({
                 <p className={cn("mt-0.5 text-[12px]", diagnostic ? "text-slate-700" : "italic text-slate-400")}>
                   Diagnostic retenu : {diagnostic || "non renseigné"}
                 </p>
+                {p.prochainControle && (
+                  <p className="mt-0.5 text-[12px] font-semibold text-amber-700">
+                    Prochain contrôle prévu le {dateFr(p.prochainControle)}
+                  </p>
+                )}
               </div>
               <ChevronDown className={cn("mt-1 h-4 w-4 shrink-0 text-slate-400 transition-transform print:hidden", ouvert && "rotate-180")} />
             </button>
