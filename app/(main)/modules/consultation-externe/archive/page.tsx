@@ -17,6 +17,10 @@ const formatDateKey = (value: string | Date) => {
 const today = formatDateKey(new Date());
 const thirtyDaysAgo = formatDateKey(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 
+// Jour où la consultation a réellement été faite (fin de consultation), et non
+// la date prévue du rendez-vous, souvent antérieure.
+const faiteLe = (c: ConsultationApi) => c.observation?.createdAt ?? (c.termine ? c.updatedAt : undefined) ?? c.date;
+
 export default function ArchivePage() {
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgo);
   const [dateTo, setDateTo] = useState(today);
@@ -37,7 +41,7 @@ export default function ArchivePage() {
         const diagnostic = c.observation?.diagnosticRetenu ?? '';
         return (name + motif + diagnostic + dossier + c.heure + c.date).toLowerCase().includes(q);
       })
-      .sort((a, b) => b.date.localeCompare(a.date) || b.heure.localeCompare(a.heure));
+      .sort((a, b) => faiteLe(b).localeCompare(faiteLe(a)) || b.heure.localeCompare(a.heure));
   }, [consultations, search]);
 
   // Une seule ligne par patient : sa fiche liste toutes ses prises en charge.
@@ -134,7 +138,9 @@ export default function ArchivePage() {
                   </tr>
                 ) : parPatient.map((visites) => {
                   const c = visites[0];
-                  const dateLabel = new Date(c.date).toLocaleDateString('fr-FR');
+                  const faite = faiteLe(c);
+                  const dateLabel = new Date(faite).toLocaleDateString('fr-FR');
+                  const heureFaite = faite !== c.date ? new Date(faite).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : c.heure;
                   const name = c.patient?.displayName ?? ([c.patient?.prenom, c.patient?.nom].filter(Boolean).join(' ') || 'Patient inconnu');
                   const visitLabel = getVisiteLabel(c);
                   const motif = c.motif ?? c.observation?.diagnosticRetenu ?? c.observation?.diagnostic ?? '—';
@@ -145,7 +151,7 @@ export default function ArchivePage() {
                       className="border-t border-gray-100 hover:bg-slate-50 align-middle cursor-pointer"
                     >
                       <td className="px-4 py-3 whitespace-nowrap text-[12px] font-medium text-slate-600">
-                        {dateLabel} <span className="font-bold text-[#005b82]">{c.heure}</span>
+                        {dateLabel} <span className="font-bold text-[#005b82]">{heureFaite}</span>
                       </td>
                       <td className="px-4 py-3 max-w-[200px]">
                         <p className="text-[13px] font-semibold text-slate-800 truncate">{name}</p>

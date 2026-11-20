@@ -56,10 +56,12 @@ export function ArchivePatient({
               .filter((e) => !e.termine && e.id !== etapeMasquee && String(e.date).slice(0, 10) >= aujourdhui)
               .map((e) => e.date)
               .sort();
+            const faiteLe = (e: (typeof etapes)[number]) => e.dateRealisation ?? e.date;
             return {
               ...p,
               etapes,
-              fin: etapes.length ? etapes[etapes.length - 1].date : p.fin,
+              debut: etapes.length ? faiteLe(etapes[0]) : p.debut,
+              fin: etapes.length ? faiteLe(etapes[etapes.length - 1]) : p.fin,
               prochainControle: aVenir[0] ?? null,
             };
           })

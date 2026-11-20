@@ -65,12 +65,16 @@ const dateHeureFr = (d?: string | null) =>
   d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—";
 const texte = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
-// Étape à laquelle rattacher un acte daté : la dernière étape tenue ce jour-là ou avant.
+// Jour où l'étape a réellement été faite ; la date prévue du rendez-vous
+// (souvent antérieure) n'est qu'un repli.
+const faiteLe = (e: EtapeParcours) => e.dateRealisation ?? e.date;
+
+// Étape à laquelle rattacher un acte daté : la dernière étape faite ce jour-là ou avant.
 function etapeDuJour<T>(etapes: EtapeParcours[], date: string | undefined, parEtape: Map<number, T[]>, item: T) {
   if (!etapes.length) return;
   const j = jour(date);
   let cible = etapes[0];
-  for (const e of etapes) if (jour(e.date) <= j) cible = e;
+  for (const e of etapes) if (jour(faiteLe(e)) <= j) cible = e;
   parEtape.set(cible.id, [...(parEtape.get(cible.id) ?? []), item]);
 }
 
@@ -147,10 +151,11 @@ export function ParcoursArchive({
     if (!parcours?.etapes.length) return;
     let annule = false;
     const patientId = parcours.etapes[0].patientId;
-    const debut = jour(parcours.etapes[0].date);
+    const premiere = parcours.etapes[0];
+    const debut = [jour(premiere.date), jour(faiteLe(premiere))].sort()[0];
     const derniere = parcours.etapes[parcours.etapes.length - 1];
     // Fin : le jour où la dernière étape a été close (elle peut l'être après sa date prévue).
-    const fin = [jour(derniere.date), jour(derniere.updatedAt)].sort().pop() as string;
+    const fin = [jour(derniere.date), jour(faiteLe(derniere)), jour(derniere.updatedAt)].sort().pop() as string;
     const medecins = new Set(parcours.etapes.map((e) => e.medecinId));
     const dansLaPeriode = (d?: string) => {
       const j = jour(d);
@@ -199,7 +204,7 @@ export function ParcoursArchive({
     <div className="space-y-4">
       <p className="text-[12px] text-slate-500">
         {parcours.etapes.length} étape{parcours.etapes.length > 1 ? "s" : ""} dans cette prise en charge
-        {" "}({dateFr(parcours.etapes[0].date)} → {dateFr(parcours.etapes[parcours.etapes.length - 1].date)}).
+        {" "}({dateFr(faiteLe(parcours.etapes[0]))} → {dateFr(faiteLe(parcours.etapes[parcours.etapes.length - 1]))}).
       </p>
       {erreurAnnexes.length > 0 && (
         <p className="rounded-xl bg-amber-50 p-3 text-[12px] text-amber-800">
@@ -228,7 +233,8 @@ export function ParcoursArchive({
                   {e.estReport ? " (reportée)" : ""}
                 </p>
                 <p className="text-[12px] font-semibold text-slate-500">
-                  {dateFr(e.date)} — {e.heure}
+                  {e.dateRealisation ? `Faite le ${dateHeureFr(e.dateRealisation)}` : `${dateFr(e.date)} — ${e.heure}`}
+                  {e.dateRealisation && jour(e.dateRealisation) !== jour(e.date) ? ` (prévue le ${dateFr(e.date)})` : ""}
                   {e.medecinNom ? ` · Dr ${e.medecinNom}` : ""}
                 </p>
               </div>

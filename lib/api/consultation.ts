@@ -2,7 +2,10 @@ import { getConsultationExterneApiUrl } from './consultation-config';
 
 export type ConsultationHistoryEntry = {
   id: number;
+  /** Date prévue du rendez-vous. */
   date: string;
+  /** Jour où la consultation a réellement été faite (null si pas close). */
+  dateRealisation?: string | null;
   heure: string;
   statut: string;
   typeVisite?: string;
@@ -18,6 +21,8 @@ export type ConsultationHistoryEntry = {
 };
 
 export type EtapeParcours = ConsultationApi & {
+  /** Jour où l'étape a réellement été faite (null si pas close). */
+  dateRealisation?: string | null;
   medecinNom?: string | null;
   isControl?: boolean;
   controleLabel?: string | null;
@@ -78,11 +83,14 @@ export type ConsultationApi = {
   arriveeAccueil?: boolean;
   arriveeAccueilAt?: string | null;
   createdAt?: string;
+  updatedAt?: string;
   typeVisite?: string;
   ordreControle?: number | null;
   consultationParenteId?: number | null;
   estReport?: boolean;
   observation?: {
+    /** Écrite à la fin de la consultation : jour où elle a réellement été faite. */
+    createdAt?: string;
     diagnostic?: string;
     diagnosticSuspicion?: string | null;
     diagnosticRetenu?: string | null;

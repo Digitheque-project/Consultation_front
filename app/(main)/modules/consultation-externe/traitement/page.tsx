@@ -750,7 +750,7 @@ export default function TraitementPage() {
                       <div key={entry.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{entry.typeVisite || 'Consultation'}</p>
-                          <p className="text-[10px] text-slate-500">{new Date(entry.date).toLocaleDateString('fr-FR')}</p>
+                          <p className="text-[10px] text-slate-500">{new Date(entry.dateRealisation ?? entry.date).toLocaleDateString('fr-FR')}</p>
                         </div>
                         <p className="mt-2 text-[12px] font-semibold text-slate-700">{entry.diagnostic || 'Aucun diagnostic enregistré'}</p>
                         <p className="mt-1 text-[12px] text-slate-600 line-clamp-3">{entry.observations || 'Aucune observation détaillée'}</p>
