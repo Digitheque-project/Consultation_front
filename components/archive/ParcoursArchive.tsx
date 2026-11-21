@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { getVisiteLabel, type EtapeParcours } from "@/lib/api/consultation";
 import { getHistoriquePatient } from "@/features/prescription/lib/api";
 import { getResultatsByPatient, type ResultatParaclinique } from "@/lib/dossier-patient-api";
+import { libelleStatut as libelleStatutPrescription } from "@/lib/libelle-statut";
 
 /**
  * Archive d'une prise en charge : tout ce que le médecin a fait au patient,
@@ -91,9 +92,181 @@ function etapeDuJour<T>(etapes: EtapeParcours[], date: string | undefined, parEt
   parEtape.set(cible.id, [...(parEtape.get(cible.id) ?? []), item]);
 }
 
+const MODALITES: Record<string, string> = {
+  radio: "Radiographie",
+  radiographie: "Radiographie",
+  scanner: "Scanner",
+  echographie: "Échographie",
+  irm: "IRM",
+  geste: "Geste interventionnel",
+  radioSpeciale: "Radio spéciale",
+  radio_speciale: "Radio spéciale",
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Objet = Record<string, any>;
+
+// Examens d'une prescription d'imagerie : rangés par modalité dans `examens`
+// ({ scanner: {...}, radio: [...] }), ou en tableau dans les anciennes.
+function examensImagerie(p: Prescription): { modalite: string; item: Objet }[] {
+  const ex = p.examens;
+  const objet = (it: unknown): Objet | null =>
+    it && typeof it === "object" ? (it as Objet) : typeof it === "string" ? { type: it } : null;
+  const out: { modalite: string; item: Objet }[] = [];
+  if (Array.isArray(ex)) {
+    for (const it of ex) {
+      const item = objet(it);
+      if (!item) continue;
+      const t = String(item.typeExamen ?? item.type ?? "");
+      out.push({ modalite: MODALITES[t.toLowerCase()] ?? MODALITES[t] ?? (t || "Examen"), item });
+    }
+    return out;
+  }
+  if (!ex || typeof ex !== "object") return out;
+  for (const [cle, v] of Object.entries(ex as Objet)) {
+    const modalite = MODALITES[cle] ?? cle;
+    for (const it of Array.isArray(v) ? v : [v]) {
+      const item = objet(it);
+      if (item) out.push({ modalite, item });
+    }
+  }
+  return out;
+}
+
+function libelleExamenImagerie(modalite: string, item: Objet): string {
+  const sousType =
+    item.region || item.scanType || item.echoType || item.rxType || item.gesteType || item.rxspType ||
+    (item.type && String(item.type).toLowerCase() !== modalite.toLowerCase() ? item.type : "") ||
+    item.libelle || item.nom || "";
+  const incidences = Array.isArray(item.rxIncidences) ? item.rxIncidences : Array.isArray(item.incidences) ? item.incidences : [];
+  return [modalite, sousType, incidences.length ? `incidences : ${incidences.join(", ")}` : ""].filter(Boolean).join(" — ");
+}
+
+// Champs lisibles d'une demande (jamais les identifiants techniques). Les
+// variantes préfixées par modalité (scanGlasgow, echoPrecisions...) sont
+// ramenées à leur nom commun.
+const CHAMPS: Record<string, string> = {
+  renseignementsCliniques: "Renseignements cliniques",
+  renseignement: "Renseignements cliniques",
+  renseignements: "Renseignements cliniques",
+  questionRadio: "Question posée au radiologue",
+  alertes: "Alertes",
+  urgence: "Urgence",
+  statutPatient: "Statut du patient",
+  type: "Sous-type",
+  doppler: "Doppler",
+  incidences: "Incidences",
+  precisions: "Précisions",
+  preparation: "Préparation",
+  glasgow: "Glasgow",
+  agite: "Agitation",
+  allergie: "Allergie",
+  allergieDetail: "Détail de l'allergie",
+  creatinine: "Créatinine",
+  clearance: "Clairance",
+  diabete: "Diabète",
+  cote: "Côté",
+  objectifs: "Objectifs",
+  indication: "Indication",
+  notes: "Notes",
+  remarques: "Remarques",
+  remarque: "Remarque",
+  quantite: "Quantité",
+  frequence: "Fréquence",
+  duree: "Durée",
+};
+const PREFIXES = /^(scan|echo|rxsp|rx|geste)(?=[A-Z])/;
+
+function champsLisibles(o: Objet, exclure: string[] = []): { titre: string; valeur: string }[] {
+  const vus = new Set<string>();
+  const out: { titre: string; valeur: string }[] = [];
+  for (const [cleBrute, v] of Object.entries(o ?? {})) {
+    let cle = cleBrute.replace(PREFIXES, "");
+    cle = cle.charAt(0).toLowerCase() + cle.slice(1);
+    const titre = CHAMPS[cle];
+    if (!titre || exclure.includes(cle) || vus.has(titre)) continue;
+    const valeur =
+      typeof v === "boolean"
+        ? v ? "Oui" : "Non"
+        : Array.isArray(v)
+          ? v.filter((x) => typeof x !== "object").join(", ")
+          : v && typeof v === "object"
+            ? ""
+            : texte(String(v ?? ""));
+    if (!valeur) continue;
+    if (cle === "urgence") {
+      vus.add(titre);
+      out.push({ titre, valeur: libelleStatutPrescription(valeur) });
+      continue;
+    }
+    vus.add(titre);
+    out.push({ titre, valeur });
+  }
+  return out;
+}
+
+// Demandes détaillées d'une prescription (une par examen demandé).
+function demandesDetaillees(p: Prescription): { titre: string; item: Objet }[] {
+  if (p._type === "imagerie") {
+    return examensImagerie(p).map(({ modalite, item }) => ({ titre: libelleExamenImagerie(modalite, item), item }));
+  }
+  const liste: unknown[] = [...(p.demandes ?? []), ...(p.items ?? []), ...(p.produits ?? [])];
+  return liste
+    .filter((it): it is Objet => Boolean(it) && typeof it === "object")
+    .map((it) => ({
+      titre: String(it.libelle || it.nom || it.typeExamen || it.autreExamen || it.examen || it.produit || it.typeActe || it.type || "Examen"),
+      item: it,
+    }));
+}
+
+// Résultats rattachés à cette prescription : par son identifiant, ou par
+// l'identifiant de résultat noté sur chaque examen (imagerie).
+function resultatsDePrescription(p: Prescription, tous: ResultatParaclinique[]): ResultatParaclinique[] {
+  const ids = new Set<string>();
+  for (const { item } of demandesDetaillees(p)) if (item.idResult) ids.add(String(item.idResult));
+  return tous.filter((r) => (r.prescriptionId && r.prescriptionId === p.id) || ids.has(String(r.id)));
+}
+
+function CarteResultat({ r }: { r: ResultatParaclinique }) {
+  const fichiers = Array.isArray(r.resultatFichiers)
+    ? (r.resultatFichiers as unknown[]).filter((u): u is string => typeof u === "string")
+    : [];
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-3 text-[12px] text-slate-700">
+      <p className="font-bold text-slate-800">
+        {[r.type, r.examen].filter(Boolean).join(" — ") || "Examen"}
+        {r.serviceSource ? ` · ${r.serviceSource}` : ""}
+      </p>
+      <p className="text-[11px] text-slate-500">
+        Demandé le {dateFr(r.dateDemande)} · résultat le {dateFr(r.dateResultat)}
+        {r.statut ? ` · ${libelleStatutPrescription(r.statut)}` : ""}
+      </p>
+      {texte(r.resultatTexte) ? (
+        <p className="mt-1 whitespace-pre-wrap">{r.resultatTexte}</p>
+      ) : (
+        <p className="mt-1 italic text-slate-400">Pas de résultat écrit.</p>
+      )}
+      {texte(r.commentaire) && <p className="mt-1 text-slate-500">Conclusion / commentaire : {r.commentaire}</p>}
+      {fichiers.length > 0 && (
+        <p className="mt-1 flex flex-wrap gap-2 print:hidden">
+          {fichiers.map((u, i) => (
+            <a key={u} href={u} target="_blank" rel="noreferrer" className="font-semibold text-[#005b82] underline">
+              Fichier {i + 1}
+            </a>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Lignes lisibles d'une prescription, quel que soit son type.
 function lignesPrescription(p: Prescription): string[] {
   const l: string[] = [];
+  if (p._type === "imagerie") {
+    for (const { modalite, item } of examensImagerie(p)) l.push(libelleExamenImagerie(modalite, item));
+    if (l.length) return l;
+  }
   for (const m of p.medicaments ?? []) {
     l.push(
       [
@@ -156,6 +329,10 @@ export function ParcoursArchive({
 }) {
   const [prescriptions, setPrescriptions] = useState<Prescription[] | null>(null);
   const [resultats, setResultats] = useState<ResultatParaclinique[] | null>(null);
+  // Tous les résultats du patient : celui d'un examen peut arriver après la fin
+  // de la prise en charge, il reste rattaché à sa prescription.
+  const [tousResultats, setTousResultats] = useState<ResultatParaclinique[]>([]);
+  const [detailsOuverts, setDetailsOuverts] = useState<Set<string>>(new Set());
   const [erreurAnnexes, setErreurAnnexes] = useState<string[]>([]);
 
   // Médicaments, examens et résultats : enregistrés par les autres services,
@@ -188,7 +365,11 @@ export function ParcoursArchive({
       });
     if (chuId) {
       getResultatsByPatient(patientId, chuId)
-        .then((r) => !annule && setResultats(r.filter((x) => (x.dateDemande ? dansLaPeriode(x.dateDemande) : jour(x.dateResultat) >= debut))))
+        .then((r) => {
+          if (annule) return;
+          setTousResultats(r);
+          setResultats(r.filter((x) => (x.dateDemande ? dansLaPeriode(x.dateDemande) : jour(x.dateResultat) >= debut)));
+        })
         .catch(() => {
           if (annule) return;
           setResultats([]);
@@ -200,14 +381,24 @@ export function ParcoursArchive({
     };
   }, [parcours, chuId]);
 
-  const { prescriptionsParEtape, resultatsParEtape } = useMemo(() => {
+  const { prescriptionsParEtape, resultatsParEtape, resultatsParPrescription } = useMemo(() => {
     const pe = new Map<number, Prescription[]>();
     const re = new Map<number, ResultatParaclinique[]>();
     const etapes = parcours?.etapes ?? [];
-    for (const p of prescriptions ?? []) etapeDuJour(etapes, p.createdAt, pe, p);
-    for (const r of resultats ?? []) etapeDuJour(etapes, r.dateDemande ?? r.dateResultat, re, r);
-    return { prescriptionsParEtape: pe, resultatsParEtape: re };
-  }, [parcours, prescriptions, resultats]);
+    const rattaches = new Map<string, ResultatParaclinique[]>();
+    const dejaPlaces = new Set<string>();
+    for (const p of prescriptions ?? []) {
+      etapeDuJour(etapes, p.createdAt, pe, p);
+      const rs = resultatsDePrescription(p, tousResultats);
+      rattaches.set(`${p._type}-${p.id}`, rs);
+      for (const r of rs) dejaPlaces.add(String(r.id));
+    }
+    // Les résultats déjà affichés sous leur prescription ne sont pas répétés.
+    for (const r of resultats ?? []) {
+      if (!dejaPlaces.has(String(r.id))) etapeDuJour(etapes, r.dateDemande ?? r.dateResultat, re, r);
+    }
+    return { prescriptionsParEtape: pe, resultatsParEtape: re, resultatsParPrescription: rattaches };
+  }, [parcours, prescriptions, resultats, tousResultats]);
 
 
   // Sans CHU connu, le dossier patient ne peut pas être lu : pas d'attente de résultats.
@@ -289,13 +480,20 @@ export function ParcoursArchive({
                   <p className="text-[12px] text-slate-400">Chargement…</p>
                 ) : presc.length ? (
                   <ul className="space-y-2">
-                    {presc.map((p) => (
-                      <li key={`${p._type}-${p.id}`} className="rounded-xl border border-slate-100 p-3">
+                    {presc.map((p) => {
+                      const cle = `${p._type}-${p.id}`;
+                      const ouvert = detailsOuverts.has(cle);
+                      const demandes = demandesDetaillees(p);
+                      const champsPrescription = champsLisibles(p);
+                      const resultatsP = resultatsParPrescription.get(cle) ?? [];
+                      const aDetail = demandes.length > 0 || champsPrescription.length > 0 || Boolean(p.rdvDate);
+                      return (
+                      <li key={cle} className="rounded-xl border border-slate-100 p-3">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <p className="text-[12px] font-bold text-slate-800">{TYPES[p._type] ?? p._type}</p>
                           <p className="text-[11px] text-slate-500">
                             {dateHeureFr(p.createdAt)}
-                            {p.statut ? ` · ${p.statut}` : ""}
+                            {p.statut ? ` · ${libelleStatutPrescription(p.statut)}` : ""}
                             {p._type === "medicale" ? (p.ordonnance ? " · ordonnance faite" : " · sans ordonnance") : ""}
                           </p>
                         </div>
@@ -315,8 +513,73 @@ export function ParcoursArchive({
                           </p>
                         )}
                         {texte(p.motifRefus) && <p className="mt-1 text-[12px] text-red-600">Refusée : {p.motifRefus}</p>}
+                        {aDetail && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDetailsOuverts((o) => {
+                                const n = new Set(o);
+                                if (n.has(cle)) n.delete(cle);
+                                else n.add(cle);
+                                return n;
+                              })
+                            }
+                            className="mt-2 text-[11px] font-bold text-[#005b82] hover:underline print:hidden"
+                          >
+                            {ouvert ? "Masquer le détail" : "Voir le détail"}
+                          </button>
+                        )}
+                        {ouvert && (
+                          <div className="mt-2 space-y-2 rounded-xl bg-slate-50 p-3 text-[12px] text-slate-700">
+                            {champsPrescription.map((c) => (
+                              <p key={c.titre}>
+                                <span className="font-bold">{c.titre} : </span>
+                                {c.valeur}
+                              </p>
+                            ))}
+                            {p.rdvDate && (
+                              <p>
+                                <span className="font-bold">Rendez-vous : </span>
+                                {dateFr(p.rdvDate)}
+                                {p.rdvTime ? ` à ${String(p.rdvTime).slice(0, 5)}` : ""}
+                              </p>
+                            )}
+                            {demandes.map((d, i) => (
+                              <div key={i} className="rounded-lg border border-slate-200 bg-white p-2">
+                                <p className="font-bold text-slate-800">
+                                  {d.titre}
+                                  {d.item.statut ? (
+                                    <span className="font-normal text-slate-500"> · {libelleStatutPrescription(d.item.statut)}</span>
+                                  ) : null}
+                                </p>
+                                {champsLisibles(d.item, ["type"]).map((c) => (
+                                  <p key={c.titre}>
+                                    <span className="font-semibold">{c.titre} : </span>
+                                    {c.valeur}
+                                  </p>
+                                ))}
+                                {d.item.rdvDate && (
+                                  <p>
+                                    <span className="font-semibold">Rendez-vous : </span>
+                                    {dateFr(d.item.rdvDate)}
+                                    {d.item.rdvTime ? ` à ${String(d.item.rdvTime).slice(0, 5)}` : ""}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {resultatsP.length > 0 && (
+                          <div className="mt-2 space-y-2">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Résultat</p>
+                            {resultatsP.map((r) => (
+                              <CarteResultat key={r.id} r={r} />
+                            ))}
+                          </div>
+                        )}
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="text-[12px] italic text-slate-400">Aucune prescription enregistrée à cette étape.</p>

@@ -233,6 +233,8 @@ export interface ResultatParaclinique {
   statut?: string;
   commentaire?: string | null;
   serviceSource?: string;
+  /** Prescription d'origine, quand le service la transmet (rattachement dans l'archive). */
+  prescriptionId?: string;
   patientId: string;
   chuId: string;
 }
