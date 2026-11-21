@@ -9,21 +9,15 @@ import { PriseEnChargeBadge } from '@/components/patient-prise-en-charge-badge';
 import { ArchivePatient } from '@/components/archive/ArchivePatient';
 import { useAuth } from '@/context/AuthContext';
 
-const formatDateKey = (value: string | Date) => {
-  const d = value instanceof Date ? value : new Date(value);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-const today = formatDateKey(new Date());
-const thirtyDaysAgo = formatDateKey(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 
 // Jour où la consultation a réellement été faite (fin de consultation), et non
 // la date prévue du rendez-vous, souvent antérieure.
 const faiteLe = (c: ConsultationApi) => c.observation?.createdAt ?? (c.termine ? c.updatedAt : undefined) ?? c.date;
 
 export default function ArchivePage() {
-  const [dateFrom, setDateFrom] = useState(thirtyDaysAgo);
-  const [dateTo, setDateTo] = useState(today);
+  // Aucun filtre de dates par défaut : toute l'archive, la plus récente en tête.
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ConsultationApi | null>(null);
   const { medecin } = useAuth();

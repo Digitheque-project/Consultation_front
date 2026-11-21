@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { consultationApi, type ArchivePatientApi } from "@/lib/api/consultation";
-import { ParcoursArchive } from "./ParcoursArchive";
+import { ParcoursArchive, diagnosticRetenuDe } from "./ParcoursArchive";
 
 /**
  * Archive d'un patient : une seule fiche, qui liste toutes ses prises en charge
@@ -33,7 +33,7 @@ export function ArchivePatient({
 }) {
   const [archive, setArchive] = useState<
     (Omit<ArchivePatientApi, "parcours"> & {
-      parcours: (ArchivePatientApi["parcours"][number] & { prochainControle: string | null })[];
+      parcours: (ArchivePatientApi["parcours"][number] & { prochainControle: string | null; controleManque: string | null })[];
     }) | null
   >(null);
   const [erreur, setErreur] = useState(false);
@@ -58,6 +58,12 @@ export function ArchivePatient({
               .filter((e) => !e.termine && e.id !== etapeMasquee && jourLocal(e.date) >= aujourdhui)
               .map((e) => e.date)
               .sort();
+            // Étape restée ouverte à une date passée : contrôle jamais tenu. C'est
+            // elle qui garde la prise en charge « en cours ».
+            const manques = p.etapes
+              .filter((e) => !e.termine && e.id !== etapeMasquee && jourLocal(e.date) < aujourdhui)
+              .map((e) => e.date)
+              .sort();
             const faiteLe = (e: (typeof etapes)[number]) => e.dateRealisation ?? e.date;
             return {
               ...p,
@@ -65,6 +71,7 @@ export function ArchivePatient({
               debut: etapes.length ? faiteLe(etapes[0]) : p.debut,
               fin: etapes.length ? faiteLe(etapes[etapes.length - 1]) : p.fin,
               prochainControle: aVenir[0] ?? null,
+              controleManque: manques[manques.length - 1] ?? null,
             };
           })
           .filter((p) => p.etapes.length > 0);
@@ -120,7 +127,7 @@ export function ArchivePatient({
         const ouvert = ouverts.has(i);
         const nbControles = p.etapes.filter((e) => e.isControl).length;
         const diagnostic =
-          [...p.etapes].reverse().map((e) => e.observation?.diagnosticRetenu || e.observation?.diagnostic).find((d) => d?.trim()) ?? "";
+          [...p.etapes].reverse().map((e) => diagnosticRetenuDe(e.observation)).find(Boolean) ?? "";
         return (
           <section key={p.etapes[0].id} className="break-inside-avoid rounded-2xl border border-slate-200 bg-white">
             <button
@@ -131,7 +138,16 @@ export function ArchivePatient({
               <div className="min-w-0">
                 <p className="text-[14px] font-extrabold text-slate-900">
                   Du {dateFr(p.debut)} au {dateFr(p.fin)}
-                  {!p.termine && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">En cours</span>}
+                  {!p.termine && (
+                    <span
+                      className={cn(
+                        "ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        !p.prochainControle && p.controleManque ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700",
+                      )}
+                    >
+                      {!p.prochainControle && p.controleManque ? "Contrôle non effectué" : "En cours"}
+                    </span>
+                  )}
                 </p>
                 <p className="mt-0.5 text-[12px] text-slate-500">
                   {p.etapes[0].motif?.trim() || "Motif non renseigné"}
@@ -144,6 +160,11 @@ export function ArchivePatient({
                 {p.prochainControle && (
                   <p className="mt-0.5 text-[12px] font-semibold text-amber-700">
                     Prochain contrôle prévu le {dateFr(p.prochainControle)}
+                  </p>
+                )}
+                {!p.prochainControle && p.controleManque && (
+                  <p className="mt-0.5 text-[12px] font-semibold text-red-700">
+                    Contrôle prévu le {dateFr(p.controleManque)} : le patient n&apos;est pas venu
                   </p>
                 )}
               </div>

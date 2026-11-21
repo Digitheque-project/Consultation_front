@@ -65,6 +65,19 @@ const dateHeureFr = (d?: string | null) =>
   d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—";
 const texte = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
+/**
+ * Diagnostic retenu d'une observation. L'ancien champ `diagnostic` reçoit, à
+ * défaut de diagnostic, les notes (ex. « Motif d'absence de traitement : … ») :
+ * il ne sert de repli que s'il contient vraiment autre chose que les notes.
+ */
+export function diagnosticRetenuDe(obs?: { diagnosticRetenu?: string | null; diagnostic?: string | null; diagnosticSuspicion?: string | null; notes?: string | null } | null): string {
+  const retenu = texte(obs?.diagnosticRetenu);
+  if (retenu) return retenu;
+  const ancien = texte(obs?.diagnostic);
+  if (!ancien || ancien === texte(obs?.notes) || ancien === texte(obs?.diagnosticSuspicion)) return "";
+  return ancien;
+}
+
 // Jour où l'étape a réellement été faite ; la date prévue du rendez-vous
 // (souvent antérieure) n'est qu'un repli.
 const faiteLe = (e: EtapeParcours) => e.dateRealisation ?? e.date;
@@ -249,7 +262,7 @@ export function ParcoursArchive({
               <Bloc titre="Observation médicale">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Champ titre="Suspicion diagnostique" valeur={obs?.diagnosticSuspicion} />
-                  <Champ titre="Diagnostic retenu" valeur={obs?.diagnosticRetenu || obs?.diagnostic} />
+                  <Champ titre="Diagnostic retenu" valeur={diagnosticRetenuDe(obs)} />
                 </div>
                 <div className="mt-2 grid gap-2">
                   <Champ titre="Observations / notes" valeur={obs?.notes} />
