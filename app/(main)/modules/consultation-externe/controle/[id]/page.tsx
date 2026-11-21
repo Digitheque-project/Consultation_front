@@ -64,7 +64,7 @@ export default function ControleDetailPage() {
           recommandationsNotes: existingNonMed.recommandationsNotes ?? '',
           rdvMotif: existingNonMed.rdvMotif ?? '',
           rdvNiveau: existingNonMed.rdvNiveau ?? 'NIVEAU_1',
-          rdvDate: existingNonMed.rdvDate ? new Date(existingNonMed.rdvDate).toISOString().slice(0, 10) : '',
+          rdvDate: existingNonMed.rdvDate ? new Date(existingNonMed.rdvDate).toLocaleDateString('sv-SE') : '',
           examenService: existingNonMed.examenService ?? '',
           examenMotif: existingNonMed.examenMotif ?? '',
           examenPriorite: existingNonMed.examenPriorite ?? 'NORMALE',

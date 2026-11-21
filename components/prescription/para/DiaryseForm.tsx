@@ -25,7 +25,7 @@ export default function DiaryseForm({ patient, prescripteur, onAddToCart }: Prop
   const [alertes, setAlertes] = useState("");
   const [renseignements, setRenseign] = useState("");
   const [remarques, setRemarques] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => new Date().toLocaleDateString('sv-SE'));
   const [creneaux, setCreneaux] = useState<{ machine: string; heure: string; disponible: boolean; rdvId?: number }[]>([]);
   const [selectedMachine, setSelectedMachine] = useState('');
   const [selectedHeure, setSelectedHeure] = useState('');

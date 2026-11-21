@@ -513,7 +513,7 @@ export default function TraitementPage() {
         setNonMedicaments({
           rdvMotif: existingNonMed.rdvMotif ?? '',
           rdvNiveau: (existingNonMed.rdvNiveau as 'NIVEAU_1' | 'NIVEAU_2' | 'NIVEAU_3' | 'NIVEAU_4') ?? 'NIVEAU_1',
-          rdvDate: existingNonMed.rdvDate ? new Date(existingNonMed.rdvDate).toISOString().slice(0, 10) : '',
+          rdvDate: existingNonMed.rdvDate ? new Date(existingNonMed.rdvDate).toLocaleDateString('sv-SE') : '',
           examenService: existingNonMed.examenService ?? '',
           examenMotif: existingNonMed.examenMotif ?? '',
           examenPriorite: (existingNonMed.examenPriorite as 'STAT' | 'URGENTE' | 'NORMALE') ?? 'NORMALE',

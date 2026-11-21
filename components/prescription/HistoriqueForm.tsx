@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { getConsultationExterneApiUrl } from '@/lib/api/consultation-config';
+import { libelleStatut } from '@/lib/libelle-statut';
 
 // Relayé par notre propre backend (src/prescription/ côté Consultation_back),
 // comme le reste des appels prescription (voir lib/prescription-api.ts) —
@@ -210,7 +211,7 @@ export default function HistoriqueForm({ patient }: Props) {
                   <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)', marginTop: 4 }}>{getResume(item, item._type)}</div>
                   {(item.remarque || item.remarques || item.instructions) ? <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>{item.remarque || item.remarques || item.instructions}</div> : null}
                 </div>
-                {item.statut && (<div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 10, flexShrink: 0, background: item.statut === 'validé' ? '#d1fae5' : '#fef3c7', color: item.statut === 'validé' ? '#065f46' : '#92400e' }}>{item.statut}</div>)}
+                {item.statut && (<div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 10, flexShrink: 0, background: item.statut === 'validé' ? '#d1fae5' : '#fef3c7', color: item.statut === 'validé' ? '#065f46' : '#92400e' }}>{libelleStatut(item.statut)}</div>)}
               </div>
             );
           })}
@@ -232,7 +233,7 @@ export default function HistoriqueForm({ patient }: Props) {
               </div>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 24, color: 'var(--txt3)', padding: 4 }}>×</button>
             </div>
-            {selectedItem.statut && (<div style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 10, marginBottom: 16, background: selectedItem.statut === 'validé' ? '#d1fae5' : '#fef3c7', color: selectedItem.statut === 'validé' ? '#065f46' : '#92400e' }}>Statut: {selectedItem.statut}</div>)}
+            {selectedItem.statut && (<div style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 10, marginBottom: 16, background: selectedItem.statut === 'validé' ? '#d1fae5' : '#fef3c7', color: selectedItem.statut === 'validé' ? '#065f46' : '#92400e' }}>Statut : {libelleStatut(selectedItem.statut)}</div>)}
             <div style={{ fontSize: 12, color: 'var(--txt)', lineHeight: 1.6 }}>{renderPrescriptionDetails(selectedItem, selectedItem._type)}</div>
             <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--bdr)' }}>
               <button onClick={() => setShowModal(false)} style={{ width: '100%', padding: 10, borderRadius: 8, background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Fermer</button>
