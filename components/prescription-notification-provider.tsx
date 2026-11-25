@@ -45,7 +45,7 @@ function getUserIdFromToken(): string | null {
   const token = getStoredToken();
   if (!token) return null;
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0))));
     return payload.sub ?? payload.userId ?? payload.id ?? null;
   } catch {
     return null;
