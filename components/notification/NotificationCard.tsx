@@ -122,7 +122,7 @@ export function NotificationCard({ notification }: NotificationCardProps) {
               {patientName || "RAKOTOMALALA Sitraka"}
             </p>
             <p className="text-[9.5px] font-bold text-gray-400 tracking-wider uppercase mt-0.5">
-              {age !== null ? `${age} ANS` : "ÂGE INCONNU"} • {sexeFormat}
+              {[age !== null ? `${age} ANS` : "", sexeFormat].filter(Boolean).join(" • ")}
             </p>
           </div>
         </div>
