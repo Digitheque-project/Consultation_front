@@ -69,13 +69,13 @@ export function NotificationCard({ notification }: NotificationCardProps) {
   };
 
   const age = calculateAge(notification.patient?.dateNaissance);
-  const patientName = notification.patient 
-    ? `${notification.patient.nom || ""} ${notification.patient.prenom || ""}`.trim() 
-    : "Patient inconnu";
+  const patientName = notification.patient
+    ? `${notification.patient.nom || ""} ${notification.patient.prenom || ""}`.trim() || "Dossier patient introuvable"
+    : "Dossier patient introuvable"; // patient absent de l'Accueil : on le dit (26/11/2026)
 
   const sexeFormat = notification.patient?.sexe === "MALE" ? "HOMME" 
                    : notification.patient?.sexe === "FEMALE" ? "FEMME"
-                   : notification.patient?.sexe || "HOMME";
+                   : notification.patient?.sexe || ""; // jamais « HOMME » inventé
   
   const isPending = notification.statusDemande === StatutDemande.EN_ATTENTE;
   const isAccepted = notification.statusDemande === StatutDemande.ACCEPTE;
@@ -85,9 +85,7 @@ export function NotificationCard({ notification }: NotificationCardProps) {
     <div className="bg-white rounded-[20px] p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-gray-50 transition-all hover:shadow-[0px_8px_30px_rgba(0,0,0,0.04)]">
       <div className="flex justify-between items-center mb-6">
         <span className="text-[11px] font-bold text-gray-300 tracking-wider">
-          {notification.patient
-            ? `${notification.patient.nom ?? ""} ${notification.patient.prenom ?? ""}`.trim() || "Patient inconnu"
-            : "Patient inconnu"}
+          {patientName}
         </span>
         <div className="flex items-center gap-2">
           <span className="text-[12px] font-semibold text-gray-500">{relativeTime}</span>

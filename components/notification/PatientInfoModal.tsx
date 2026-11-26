@@ -75,7 +75,7 @@ export function PatientInfoModal({
 
   const nom = pickString(patient.nom, patient.lastName, patient.lastname);
   const prenom = pickString(patient.prenom, patient.firstName, patient.firstname);
-  const fullName = pickString(`${nom ?? ""} ${prenom ?? ""}`.trim()) ?? "Patient inconnu";
+  const fullName = pickString(`${nom ?? ""} ${prenom ?? ""}`.trim()) ?? "Dossier patient introuvable";
   const birthDate = pickString(
     patient.dateNaissance,
     patient.birthDate,
@@ -161,7 +161,7 @@ export function PatientInfoModal({
             {fullName}
           </h2>
           <p className="text-[13px] text-gray-500 font-medium">
-            {age !== null ? `${age} ans` : "Âge inconnu"}
+            {age !== null ? `${age} ans` : "Âge non renseigné"}
           </p>
         </div>
 

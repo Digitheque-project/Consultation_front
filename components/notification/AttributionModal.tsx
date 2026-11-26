@@ -160,7 +160,7 @@ export function AttributionModal({
     ? `${notification.patient.nom || ""} ${notification.patient.prenom || ""}`.trim()
     : "";
   const patientName =
-    rawPatientName.length > 0 ? rawPatientName : "Patient inconnu";
+    rawPatientName.length > 0 ? rawPatientName : "Dossier patient introuvable";
   const patientId =
     notification.patientId || notification.id
       ? String(notification.patientId || notification.id)
