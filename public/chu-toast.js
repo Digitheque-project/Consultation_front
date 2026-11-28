@@ -125,3 +125,135 @@
     return envoyer.apply(this, arguments);
   };
 })();
+
+/*
+ * En-tête officiel des documents imprimés (28/11/2026), identique dans tous
+ * les modules : Ministère de la Santé Publique, nom du CHU et service (lus dans
+ * le jeton de connexion, jamais écrits en dur), REPOBLIKAN'I MADAGASIKARA et la
+ * devise. Ajouté juste avant l'impression : page imprimée elle-même (zone
+ * .zone-impression / .print-area / .imprimable) ou fenêtre ouverte pour
+ * imprimer. Rien n'est ajouté si le document porte déjà l'en-tête.
+ */
+(function () {
+  if (typeof window === 'undefined' || window.__chuEntete) return;
+  window.__chuEntete = true;
+
+  var jetonBrut = '';
+  function lireJeton() {
+    var vus = [];
+    try { for (var i = 0; i < localStorage.length; i++) vus.push(localStorage.getItem(localStorage.key(i))); } catch (e) {}
+    try { for (var j = 0; j < sessionStorage.length; j++) vus.push(sessionStorage.getItem(sessionStorage.key(j))); } catch (e) {}
+    try { document.cookie.split(';').forEach(function (c) { vus.push(decodeURIComponent(c.split('=').slice(1).join('='))); }); } catch (e) {}
+    for (var k = 0; k < vus.length; k++) {
+      var m = String(vus[k] || '').match(/eyJ[\w-]+\.[\w-]+\.[\w-]+/);
+      if (!m) continue;
+      try {
+        var b = m[0].split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        var p = JSON.parse(decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))));
+        if (p && Array.isArray(p.services) && p.services.length) { jetonBrut = m[0]; return p; }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  function infos() {
+    var p = lireJeton();
+    var s = (p && p.services && p.services[0]) || {};
+    var chu = s.chu || {};
+    return { chu: chu.name || '', logo: chu.logoUrl || chu.logo || '', service: s.serviceName || '' };
+  }
+
+  // Logo du CHU : son adresse exige le jeton, qu'une simple image n'envoie pas.
+  // Chargé une fois avec le jeton et gardé prêt pour l'impression.
+  var logoPret = '';
+  var logoEnCours = false;
+  function prechargerLogo() {
+    if (logoPret || logoEnCours) return;
+    var i = infos();
+    if (!i.logo || !jetonBrut || typeof fetch !== 'function') return;
+    logoEnCours = true;
+    fetch(i.logo, { headers: { Authorization: 'Bearer ' + jetonBrut } })
+      .then(function (r) { return r.ok ? r.blob() : null; })
+      .then(function (b) {
+        if (!b) return;
+        var fr = new FileReader();
+        fr.onload = function () { logoPret = String(fr.result || ''); };
+        fr.readAsDataURL(b);
+      })
+      .catch(function () {})
+      .then(function () { logoEnCours = false; });
+  }
+  setTimeout(prechargerLogo, 3000);
+  document.addEventListener('click', prechargerLogo, { once: true, capture: true });
+
+  function esc(t) {
+    return String(t || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+  }
+
+  function html() {
+    var i = infos();
+    var trait = '<div style="width:60px;border-top:1px solid #000;margin:3px auto"></div>';
+    return '' +
+      '<div data-chu-entete style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;' +
+      'font-family:\'Times New Roman\',Times,serif;color:#000;margin:0 0 14px;padding-bottom:8px;border-bottom:1.5px solid #000">' +
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0">' +
+      (logoPret ? '<img src="' + logoPret + '" alt="" style="width:58px;height:58px;object-fit:contain"/>' : '') +
+      '<div style="text-align:center;font-size:11px;line-height:1.35;text-transform:uppercase">' +
+      '<div style="font-weight:bold">Ministère de la Santé Publique</div>' + trait +
+      (i.chu ? '<div style="font-weight:bold">' + esc(i.chu) + '</div>' + trait : '') +
+      (i.service ? '<div>Service : ' + esc(i.service) + '</div>' : '') +
+      '</div></div>' +
+      '<div style="text-align:center;font-size:11px;line-height:1.35">' +
+      '<div style="font-weight:bold;letter-spacing:.5px">REPOBLIKAN\'I MADAGASIKARA</div>' +
+      '<div style="font-style:italic">Fitiavana – Tanindrazana – Fandrosoana</div>' + trait +
+      '</div></div>';
+  }
+
+  function dejaEntete(racine) {
+    return /REPOBLIKAN.?I MADAGASIKARA/i.test((racine && racine.textContent) || '') || !!(racine && racine.querySelector && racine.querySelector('[data-chu-entete]'));
+  }
+
+  // 1. Page imprimée elle-même
+  var ajoute = null;
+  window.addEventListener('beforeprint', function () {
+    try {
+      var zones = document.querySelectorAll('.zone-impression, .print-area, .imprimable');
+      var cible = null;
+      for (var z = 0; z < zones.length; z++) {
+        var r = zones[z].getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) { cible = zones[z]; break; }
+      }
+      cible = cible || document.body;
+      if (dejaEntete(cible)) return;
+      var d = document.createElement('div');
+      d.innerHTML = html();
+      ajoute = d.firstChild;
+      cible.insertBefore(ajoute, cible.firstChild);
+    } catch (e) {}
+  });
+  window.addEventListener('afterprint', function () {
+    try { if (ajoute && ajoute.parentNode) ajoute.parentNode.removeChild(ajoute); } catch (e) {}
+    ajoute = null;
+  });
+
+  // 2. Fenêtre ouverte pour imprimer
+  var ouvrirOrigine = window.open;
+  if (ouvrirOrigine) {
+    window.open = function () {
+      var w = ouvrirOrigine.apply(this, arguments);
+      try {
+        if (w && typeof w.print === 'function') {
+          var imprimerOrigine = w.print;
+          w.print = function () {
+            try {
+              var b = w.document && w.document.body;
+              if (b && !dejaEntete(b)) b.insertAdjacentHTML('afterbegin', html());
+            } catch (e) {}
+            return imprimerOrigine.apply(w, arguments);
+          };
+        }
+      } catch (e) {}
+      return w;
+    };
+  }
+})();
