@@ -9,6 +9,18 @@
   if (typeof window === 'undefined' || window.__chuToast) return;
   window.__chuToast = true;
 
+  // Bouton désactivé = toujours VISIBLEMENT inactif (28/11/2026) : certains
+  // gardaient leurs couleurs vives et semblaient cliquables alors qu'ils ne
+  // faisaient rien.
+  try {
+    var st = document.createElement('style');
+    st.id = 'chu-boutons-inactifs';
+    st.textContent =
+      'button:disabled,button[aria-disabled="true"],[role="button"][aria-disabled="true"]{' +
+      'cursor:not-allowed!important;opacity:.5!important;filter:grayscale(.6)!important;box-shadow:none!important;transform:none!important}';
+    (document.head || document.documentElement).appendChild(st);
+  } catch (e) { /* sans effet */ }
+
   var IGNORES = /notification|messagerie|socket\.io|\/auth\/|login|logout|refresh|token|marquer|consulter|consultee|\/lu\b|\/read|lues|brouillon|draft|heartbeat|presence|\/logs?\b|audit|tracking|\/search|recherche|\/stats|accuser|vu\b|_next|hot-update|sentry/i;
   var dernier = {};
 
